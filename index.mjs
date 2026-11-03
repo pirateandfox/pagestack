@@ -97,6 +97,8 @@ export default function sectionEditor(userOptions) {
             }],
             // The package is consumed from source (.ts/.astro); make sure Vite transforms it.
             ssr: { noExternal: ['astro-section-editor'] },
+            // Pre-bundle the editor's browser deps so dev doesn't re-optimise (and reload) mid-session.
+            optimizeDeps: { include: ['sortablejs', '@simplewebauthn/browser'] },
           },
         });
         if (!config.adapter) {

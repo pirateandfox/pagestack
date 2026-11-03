@@ -32,3 +32,4 @@ else if (go) go.addEventListener('click', async () => {
     fail(e?.name === 'NotAllowedError' ? 'Cancelled, or no passkey was offered. Try again.' : e?.message || String(e));
   }
 });
+root.dataset.ready = '1'; // tests wait for this before clicking
