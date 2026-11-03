@@ -28,5 +28,10 @@
   "devDependencies": {
     "vitest": "^4.0.0",
     "@types/sortablejs": "^1.15.8"
-  }
+  },
+  "keywords": [
+    "astro-integration",
+    "astro-component",
+    "withastro"
+  ]
 }

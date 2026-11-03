@@ -1,0 +1,22 @@
+/* Injected into the preview iframe by the editor. */
+[data-ase-node] { outline-offset: -2px; }
+[data-ase-hover] { outline: 1px dashed rgba(37, 99, 235, 0.9) !important; cursor: pointer; }
+[data-ase-selected] { outline: 2px solid #2563eb !important; }
+[data-ase-field] { cursor: text; }
+[data-ase-field]:hover { outline: 1px dotted #f59e0b !important; outline-offset: 2px; }
+[data-ase-field-type="image"] { cursor: pointer; }
+[data-ase-editing] { outline: 2px solid #f59e0b !important; outline-offset: 2px; min-width: 1ch; }
+a[href] { cursor: pointer; }
+.ase-dragging { opacity: 0.5; }
+.ase-dropline { position: absolute; left: 0; right: 0; height: 3px; background: #2563eb; z-index: 99998; pointer-events: none; box-shadow: 0 0 0 2px #fff; }
+.ase-toolbar { position: absolute; z-index: 99999; top: 0; left: 0; transform: translateY(-100%); border-radius: 6px 6px 0 0; display: flex; align-items: center; gap: 2px; background: #2563eb; color: #fff; font: 12px/1 system-ui, sans-serif; padding: 3px 6px; border-radius: 0 0 6px 0; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.ase-toolbar--top { transform: none; border-radius: 0 0 6px 0; }
+.ase-toolbar * { font: inherit; color: inherit; }
+.ase-toolbar__label { padding: 0 6px 0 2px; font-weight: 600; white-space: nowrap; }
+.ase-toolbar button { all: unset; cursor: pointer; padding: 3px 6px; border-radius: 4px; }
+.ase-toolbar button:hover { background: rgba(255,255,255,.22); }
+.ase-grip { cursor: grab; padding: 0 4px; letter-spacing: -2px; user-select: none; touch-action: none; }
+.ase-rt { position: absolute; z-index: 99999; display: flex; gap: 2px; background: #111; color: #fff; padding: 4px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.35); font: 13px system-ui, sans-serif; }
+.ase-rt button { all: unset; cursor: pointer; min-width: 24px; text-align: center; padding: 3px 6px; border-radius: 4px; color: #fff; }
+.ase-rt button:hover { background: #444; }
+.ase-rt__hint { opacity: .6; padding: 3px 6px; font-size: 11px; }

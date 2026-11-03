@@ -10,6 +10,7 @@ export type FieldType =
   | 'select'
   | 'number'
   | 'boolean'
+  | 'textarea' // multi-line plain text, sidebar only
   | 'code' // raw HTML / SVG, sidebar textarea
   | 'svg'; // SVG markup or a named icon
 

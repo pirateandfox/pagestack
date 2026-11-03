@@ -1,0 +1,59 @@
+---
+// /edit/<slug> — the editor shell. The page itself renders inside an iframe (preview.astro);
+// everything else is client/editor.ts.
+import { listPages, opts, presets, publicPath, readPage, registry } from '../server/context';
+import '../client/shell.css';
+export const prerender = false;
+const slug = Astro.params.slug || 'index';
+const r = await readPage(slug);
+if (!r) return new Response('No such page', { status: 404 });
+const user = (Astro.locals as any).editorUser as { name: string } | undefined;
+const boot = {
+  slug, page: r.page, hash: r.hash, registry, presets: presets(),
+  pages: (await listPages()).map((p) => ({ slug: p.slug, title: p.title, url: publicPath(p.slug) })),
+  options: { storage: opts.storage, auth: opts.auth, siteName: opts.siteName, user: user?.name ?? null, pullRequest: !!opts.github?.pullRequest, viewUrl: publicPath(slug) },
+};
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Edit: {r.page.title}</title>
+  </head>
+  <body class="ase">
+    <header class="ase-top">
+      <a class="ase-top__back" href="/edit" title="All pages">←</a>
+      <div class="ase-top__title"><strong>{r.page.title}</strong><span class="ase-muted">{publicPath(slug)}</span></div>
+      <div class="ase-top__devices" role="group" aria-label="Preview width">
+        <button type="button" data-device="desktop" class="is-active" title="Desktop">⬜</button>
+        <button type="button" data-device="tablet" title="Tablet (1024)">▭</button>
+        <button type="button" data-device="mobile" title="Mobile (390)">▯</button>
+      </div>
+      <div class="ase-top__actions">
+        <button type="button" id="ase-undo" title="Undo (⌘Z)" disabled>↶</button>
+        <button type="button" id="ase-redo" title="Redo (⇧⌘Z)" disabled>↷</button>
+        <span id="ase-status" class="ase-muted"></span>
+        <a id="ase-view" class="ase-btn ase-btn--ghost" href={publicPath(slug)} target="_blank" rel="noopener">View ↗</a>
+        <button type="button" id="ase-discard" class="ase-btn ase-btn--ghost" hidden>Discard</button>
+        <button type="button" id="ase-save" class="ase-btn ase-btn--primary" disabled>Save</button>
+      </div>
+    </header>
+    <aside class="ase-left">
+      <div class="ase-panel__head"><span>Sections</span><button type="button" id="ase-add-section" class="ase-btn ase-btn--small">+ Add section</button></div>
+      <div id="ase-tree" class="ase-tree"></div>
+    </aside>
+    <main class="ase-stage" data-device="desktop">
+      <iframe id="ase-preview" title="Page preview" src={`/edit/preview/${slug}`}></iframe>
+    </main>
+    <aside class="ase-right">
+      <div id="ase-inspector" class="ase-inspector"></div>
+    </aside>
+    <div id="ase-modal-root"></div>
+    <script is:inline set:html={`window.__ASE__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
+    <script>
+      import '../client/editor.ts';
+    </script>
+  </body>
+</html>

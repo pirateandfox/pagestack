@@ -1,0 +1,34 @@
+---
+// /edit — list of editable pages.
+import { listPages, opts, publicPath } from '../server/context';
+import '../client/shell.css';
+export const prerender = false;
+const pages = await listPages();
+const user = (Astro.locals as any).editorUser as { name: string } | undefined;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{opts.siteName} — pages</title>
+  </head>
+  <body class="ase-index">
+    <main class="ase-index__main">
+      <header class="ase-index__head">
+        <h1>{opts.siteName}</h1>
+        <p class="ase-muted">Pages you can edit. Saving {opts.storage === 'github' ? 'commits to GitHub' : 'writes to the working tree'}.{user && <> Signed in as <strong>{user.name}</strong>. <a href="/api/editor/auth/logout">Sign out</a></>}</p>
+      </header>
+      <ul class="ase-pagelist">
+        {pages.map((p) => (
+          <li>
+            <a class="ase-pagelist__edit" href={`/edit/${p.slug}`}><strong>{p.title}</strong><span class="ase-muted">{publicPath(p.slug)} · {p.sections} sections</span></a>
+            <a class="ase-pagelist__view" href={publicPath(p.slug)} target="_blank" rel="noopener">View ↗</a>
+          </li>
+        ))}
+      </ul>
+      {!pages.length && <p>No pages found in <code>{opts.pagesDir}</code>.</p>}
+    </main>
+  </body>
+</html>

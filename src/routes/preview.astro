@@ -1,0 +1,25 @@
+---
+// Live preview. GET renders the stored page; POST renders the draft in the request body.
+// Both render in edit mode (data-ase-* attributes) through the site's own renderer component,
+// so what the editor shows is exactly what the static build will produce.
+import { Renderer } from 'virtual:astro-section-editor/renderer';
+import { readPage, validate } from '../server/context';
+export const prerender = false;
+const slug = Astro.params.slug || 'index';
+let page: any = null;
+let error: string | null = null;
+if (Astro.request.method === 'POST') {
+  try {
+    const body = await Astro.request.json();
+    page = body?.page ?? body;
+    const problems = validate(page);
+    if (problems.length) error = problems.join('; ');
+  } catch (e: any) { error = e.message; }
+} else {
+  const r = await readPage(slug);
+  if (!r) return new Response('No such page', { status: 404 });
+  page = r.page;
+}
+if (error) return new Response(error, { status: 400 });
+---
+<Renderer page={page} editing />
