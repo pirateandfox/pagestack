@@ -48,7 +48,13 @@ export function pickImage(current: ImageValue | undefined, done: (img: ImageValu
   };
   const validate = () => { useBtn.disabled = !chosen || !altInput.value.trim(); };
   altInput.addEventListener('input', validate);
-  useBtn.addEventListener('click', () => { if (!chosen || !altInput.value.trim()) return; done({ src: chosen.src, alt: altInput.value.trim(), width: chosen.width, height: chosen.height }); close(); });
+  useBtn.addEventListener('click', async () => {
+    if (!chosen || !altInput.value.trim()) return;
+    if (!chosen.width) { // make sure we know the natural size (used for width/height attributes)
+      await new Promise<void>((r) => { const i = new Image(); i.onload = () => { chosen = { src: chosen!.src, width: i.naturalWidth, height: i.naturalHeight }; r(); }; i.onerror = () => r(); i.src = chosen!.src; setTimeout(r, 3000); });
+    }
+    done({ src: chosen.src, alt: altInput.value.trim(), width: chosen.width, height: chosen.height }); close();
+  });
 
   let seq = 0;
   async function load() {

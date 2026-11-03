@@ -35,10 +35,18 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
 /** @param {SectionEditorOptions} userOptions */
 export default function sectionEditor(userOptions) {
   if (!userOptions?.renderer || !userOptions?.sections) throw new Error('astro-section-editor: `renderer` and `sections` are required');
+  // When the site has no adapter of its own we bring @astrojs/node along and forward every
+  // integration hook to it (an integration added via updateConfig() doesn't get to call
+  // setAdapter() in time, so we proxy its hooks instead).
+  let adapter = null;
+  const forward = (hook) => async (params) => { if (adapter?.hooks?.[hook]) await adapter.hooks[hook](params); };
+  const forwarded = Object.fromEntries(['astro:config:done', 'astro:server:setup', 'astro:server:start', 'astro:server:done', 'astro:build:start', 'astro:build:setup', 'astro:build:ssr', 'astro:build:generated', 'astro:build:done'].map((h) => [h, forward(h)]));
   return {
     name: 'astro-section-editor',
     hooks: {
-      'astro:config:setup': ({ config, command, injectRoute, updateConfig, addMiddleware, logger }) => {
+      ...forwarded,
+      'astro:config:setup': async (params) => {
+        const { config, command, injectRoute, updateConfig, addMiddleware, logger } = params;
         const enabled = userOptions.enabled ?? (command === 'dev' || process.env.EDITOR === '1');
         if (!enabled) { logger.info('disabled (static build). Set EDITOR=1 to build the editor.'); return; }
         const isBuild = command === 'build';
@@ -84,8 +92,14 @@ export default function sectionEditor(userOptions) {
             // The package is consumed from source (.ts/.astro); make sure Vite transforms it.
             ssr: { noExternal: ['astro-section-editor'] },
           },
-          ...(config.adapter ? {} : { integrations: [node({ mode: 'standalone' })] }),
         });
+        if (!config.adapter) {
+          adapter = node({ mode: 'standalone' });
+          await adapter.hooks['astro:config:setup']?.(params);
+          // Astro's build checks `config.adapter`; integrations added this late aren't hooked
+          // up automatically, hence the forwarded hooks above.
+          updateConfig({ adapter });
+        }
 
         addMiddleware({ order: 'pre', entrypoint: new URL('./src/server/middleware.ts', import.meta.url) });
 
