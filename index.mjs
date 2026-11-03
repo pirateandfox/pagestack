@@ -30,6 +30,12 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
  * @property {boolean} [enabled]  Default: dev, or EDITOR=1.
  * @property {string} [siteName]  Shown in the editor chrome.
  * @property {string} [secretEnv='EDITOR_SECRET']  Name of the env var holding the signing secret.
+ *
+ * Runtime environment (never in the repo):
+ *   EDITOR_SECRET        >= 16 chars; signs sessions, WebAuthn challenges and invite links.
+ *   EDITOR_ORIGIN        Public origin (https://example.com) when the server sits behind a proxy
+ *                        that rewrites Host — passkeys are bound to the origin the browser sees.
+ *   GITHUB_TOKEN         Fine-grained token with contents (+ pull requests) on the repo, github storage only.
  */
 
 /** @param {SectionEditorOptions} userOptions */

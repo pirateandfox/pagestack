@@ -111,3 +111,15 @@ body.ase { display: grid; grid-template-columns: var(--ase-left) 1fr var(--ase-r
 .ase-login h1 { margin: 0 0 8px; font-size: 20px; }
 .ase-login .ase-btn { margin-top: 16px; }
 .ase-login__error { color: var(--ase-danger); margin-top: 12px; }
+
+/* login / enrol / invite */
+.ase-login p { margin: 8px 0; }
+.ase-login__label { display: block; text-align: left; margin-top: 12px; font-size: 13px; color: var(--ase-muted); }
+.ase-login__label input { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--ase-border); border-radius: 6px; font: inherit; }
+.ase-login__hint { font-size: 12px; margin-top: 20px; }
+.ase-invite { margin-top: 32px; border-top: 1px solid var(--ase-border); padding-top: 16px; }
+.ase-invite summary { cursor: pointer; font-weight: 600; }
+.ase-invite__form { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; align-items: center; }
+.ase-invite__form input { padding: 7px 10px; border: 1px solid var(--ase-border); border-radius: 6px; font: inherit; }
+.ase-invite__form output { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
+.ase-invite__url { flex: 1; min-width: 240px; padding: 7px 10px; border: 1px solid var(--ase-border); border-radius: 6px; font: 12px/1.4 ui-monospace, monospace; }

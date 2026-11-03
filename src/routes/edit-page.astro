@@ -36,6 +36,7 @@ const boot = {
         <button type="button" id="ase-redo" title="Redo (⇧⌘Z)" disabled>↷</button>
         <span id="ase-status" class="ase-muted"></span>
         <a id="ase-view" class="ase-btn ase-btn--ghost" href={publicPath(slug)} target="_blank" rel="noopener">View ↗</a>
+        {opts.auth === 'passkey' && user && <a class="ase-btn ase-btn--ghost" href="/api/editor/auth/logout" title={`Signed in as ${user.name}`}>Sign out</a>}
         <button type="button" id="ase-discard" class="ase-btn ase-btn--ghost" hidden>Discard</button>
         <button type="button" id="ase-save" class="ase-btn ase-btn--primary" disabled>Save</button>
       </div>

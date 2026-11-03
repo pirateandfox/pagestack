@@ -5,6 +5,7 @@ import '../client/shell.css';
 export const prerender = false;
 const pages = await listPages();
 const user = (Astro.locals as any).editorUser as { name: string } | undefined;
+const canInvite = opts.auth === 'passkey' && !!user;
 ---
 <!doctype html>
 <html lang="en">
@@ -29,6 +30,19 @@ const user = (Astro.locals as any).editorUser as { name: string } | undefined;
         ))}
       </ul>
       {!pages.length && <p>No pages found in <code>{opts.pagesDir}</code>.</p>}
+      {canInvite && (
+        <details class="ase-invite">
+          <summary>Invite another editor</summary>
+          <form id="ase-invite" class="ase-invite__form">
+            <input type="text" name="name" placeholder="Name" required />
+            <input type="email" name="email" placeholder="Email" required />
+            <button type="submit" class="ase-btn ase-btn--primary ase-btn--small">Create invite link</button>
+            <output></output>
+          </form>
+          <p class="ase-muted">The link lets them create a passkey for this site. It works once and expires after 3 days. Their public key is committed to <code>{opts.usersFile}</code>; nothing secret is stored.</p>
+        </details>
+      )}
     </main>
+    {canInvite && <script>import '../client/invite.ts';</script>}
   </body>
 </html>

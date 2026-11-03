@@ -4,6 +4,7 @@
   "description": "Git-only visual section editor for Astro sites (spike).",
   "license": "MIT",
   "type": "module",
+  "bin": { "astro-section-editor-invite": "bin/invite.mjs" },
   "exports": {
     ".": "./index.mjs",
     "./runtime": "./src/runtime.ts",

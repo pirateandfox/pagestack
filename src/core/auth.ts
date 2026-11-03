@@ -59,18 +59,22 @@ export function parseCookies(header: string | null): Record<string, string> {
 export function cookieHeader(name: string, value: string, maxAge: number, secure: boolean): string {
   return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
 }
+export const clearCookieHeader = (name: string, secure: boolean) => cookieHeader(name, '', 0, secure);
 
 // ---- typed tokens ----
 export interface SessionPayload { kind: 'session'; sub: string; name: string }
-export interface ChallengePayload { kind: 'challenge'; challenge: string; purpose: 'login' | 'register'; userId?: string }
-export interface InvitePayload { kind: 'invite'; name: string; email: string }
+export interface ChallengePayload { kind: 'challenge'; challenge: string; purpose: 'login' | 'register'; invite?: InvitePayload }
+/** `id` makes an invite single-use: it's recorded on the credential created from it. */
+export interface InvitePayload { kind: 'invite'; id: string; name: string; email: string }
 
 export const createSession = (user: { id: string; name: string }, secret: string) => sign<SessionPayload>({ kind: 'session', sub: user.id, name: user.name }, secret, SESSION_TTL);
 export const readSession = async (cookieHeaderValue: string | null, secret: string) => {
   const p = await verify<SessionPayload>(parseCookies(cookieHeaderValue)[SESSION_COOKIE], secret);
   return p?.kind === 'session' ? p : null;
 };
-export const createChallengeToken = (challenge: string, purpose: ChallengePayload['purpose'], secret: string, userId?: string) => sign<ChallengePayload>({ kind: 'challenge', challenge, purpose, userId }, secret, 300);
+export const CHALLENGE_TTL = 300;
+export const createChallengeToken = (challenge: string, purpose: ChallengePayload['purpose'], secret: string, invite?: InvitePayload) => sign<ChallengePayload>({ kind: 'challenge', challenge, purpose, invite }, secret, CHALLENGE_TTL);
 export const readChallengeToken = async (token: string, secret: string) => { const p = await verify<ChallengePayload>(token, secret); return p?.kind === 'challenge' ? p : null; };
-export const createInvite = (name: string, email: string, secret: string, ttlSeconds = 60 * 60 * 24 * 3) => sign<InvitePayload>({ kind: 'invite', name, email }, secret, ttlSeconds);
+export const INVITE_TTL = 60 * 60 * 24 * 3; // 3 days
+export const createInvite = (name: string, email: string, secret: string, ttlSeconds = INVITE_TTL, now = Date.now()) => sign<InvitePayload>({ kind: 'invite', id: randomChallenge(12), name: name.trim(), email: email.trim().toLowerCase() }, secret, ttlSeconds, now);
 export const readInvite = async (token: string, secret: string) => { const p = await verify<InvitePayload>(token, secret); return p?.kind === 'invite' ? p : null; };

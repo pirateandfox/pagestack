@@ -1,4 +1,33 @@
 ---
+// /edit/login — sign in with a passkey. With auth "none" / "none-behind-proxy" there is nothing
+// to do here, so it just links through.
+import { opts, secret } from '../server/context';
+import { readSession } from '../core/auth';
+import '../client/shell.css';
 export const prerender = false;
+const nextRaw = Astro.url.searchParams.get('next') ?? '/edit';
+const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/edit';
+if (opts.auth !== 'passkey') return Astro.redirect(next);
+if (await readSession(Astro.request.headers.get('cookie'), secret())) return Astro.redirect(next);
 ---
-<!doctype html><html><body>login (phase 5)</body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Sign in — {opts.siteName}</title>
+  </head>
+  <body class="ase-index">
+    <main class="ase-login" data-ase-auth="login" data-next={next}>
+      <h1>{opts.siteName}</h1>
+      <p class="ase-muted">Sign in with the passkey you set up for this site.</p>
+      <button type="button" class="ase-btn ase-btn--primary" id="ase-auth-go">Sign in with passkey</button>
+      <p class="ase-login__error" id="ase-auth-error" hidden></p>
+      <p class="ase-muted ase-login__hint">No passkey yet? Ask an existing editor for an invite link.</p>
+    </main>
+    <script>
+      import '../client/auth.ts';
+    </script>
+  </body>
+</html>

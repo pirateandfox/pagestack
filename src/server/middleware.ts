@@ -23,7 +23,13 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
       if (pathname.startsWith('/api/')) return new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401, headers: { 'content-type': 'application/json' } });
       return ctx.redirect(`/edit/login?next=${encodeURIComponent(pathname)}`);
     }
-    ctx.locals.editorUser = session;
+    ctx.locals.editorUser = { id: session.sub, name: session.name };
+  } else if (opts.auth === 'none-behind-proxy') {
+    // Identity comes from the proxy that already authenticated the request (Cloudflare Access,
+    // oauth2-proxy, …) — used for commit attribution only.
+    const h = ctx.request.headers;
+    const who = h.get('cf-access-authenticated-user-email') || h.get('x-forwarded-user') || h.get('x-forwarded-email');
+    if (who) ctx.locals.editorUser = { id: who, name: who };
   }
   const res = await next();
   res.headers.set('x-robots-tag', 'noindex');

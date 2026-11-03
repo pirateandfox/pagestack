@@ -1,4 +1,46 @@
 ---
+// /edit/enroll?invite=<token> — create a passkey from a one-time invite link.
+import { opts, secret } from '../server/context';
+import { readInvite } from '../core/auth';
+import { inviteUsed } from '../core/users';
+import { loadUsers } from '../server/webauthn';
+import '../client/shell.css';
 export const prerender = false;
+const token = Astro.url.searchParams.get('invite') ?? '';
+let error: string | null = null;
+let invite: { name: string; email: string } | null = null;
+if (opts.auth !== 'passkey') error = `Passkey sign-in is not enabled for this site (auth: "${opts.auth}").`;
+else {
+  const inv = await readInvite(token, secret());
+  if (!inv) error = 'This invite link is invalid or has expired. Ask for a new one.';
+  else if (inviteUsed(await loadUsers(), inv.id)) error = 'This invite link has already been used.';
+  else invite = { name: inv.name, email: inv.email };
+}
 ---
-<!doctype html><html><body>enroll (phase 5)</body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Set up your passkey — {opts.siteName}</title>
+  </head>
+  <body class="ase-index">
+    <main class="ase-login" data-ase-auth="enroll" data-invite={invite ? token : undefined}>
+      <h1>{opts.siteName}</h1>
+      {invite ? (
+        <>
+          <p>Hi <strong>{invite.name}</strong>. Create a passkey for <strong>{invite.email}</strong> on this device to edit the site. Your device will ask for Touch ID, Face ID, a PIN or a security key.</p>
+          <label class="ase-login__label">Name this device (optional) <input type="text" id="ase-auth-label" placeholder="e.g. MacBook, iPhone" maxlength="60" /></label>
+          <button type="button" class="ase-btn ase-btn--primary" id="ase-auth-go">Create passkey</button>
+        </>
+      ) : (
+        <p class="ase-login__error">{error}</p>
+      )}
+      <p class="ase-login__error" id="ase-auth-error" hidden></p>
+    </main>
+    <script>
+      import '../client/auth.ts';
+    </script>
+  </body>
+</html>
