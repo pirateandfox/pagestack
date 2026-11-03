@@ -1,6 +1,6 @@
-// astro-section-editor — a git-only visual section editor that ships inside an Astro site.
+// pagestack — a git-only visual section editor that ships inside an Astro site.
 //
-//   import sectionEditor from 'astro-section-editor';
+//   import sectionEditor from 'pagestack';
 //   integrations: [sectionEditor({ renderer: './src/components/SectionPage.astro', sections: './src/sections/index.ts' })]
 //
 // The public site stays fully static. The editor (/edit/*, /api/editor/*) is on-demand rendered
@@ -10,8 +10,8 @@ import node from '@astrojs/node';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const VIRTUAL = 'virtual:astro-section-editor/site';
-const VIRTUAL_RENDERER = 'virtual:astro-section-editor/renderer';
+const VIRTUAL = 'virtual:pagestack/site';
+const VIRTUAL_RENDERER = 'virtual:pagestack/renderer';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
 
@@ -43,7 +43,7 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
 
 /** @param {SectionEditorOptions} userOptions */
 export default function sectionEditor(userOptions) {
-  if (!userOptions?.renderer || !userOptions?.sections) throw new Error('astro-section-editor: `renderer` and `sections` are required');
+  if (!userOptions?.renderer || !userOptions?.sections) throw new Error('pagestack: `renderer` and `sections` are required');
   // When the site has no adapter of its own we bring @astrojs/node along and forward every
   // integration hook to it (an integration added via updateConfig() doesn't get to call
   // setAdapter() in time, so we proxy its hooks instead).
@@ -51,7 +51,7 @@ export default function sectionEditor(userOptions) {
   const forward = (hook) => async (params) => { if (adapter?.hooks?.[hook]) await adapter.hooks[hook](params); };
   const forwarded = Object.fromEntries(['astro:config:done', 'astro:server:setup', 'astro:server:start', 'astro:server:done', 'astro:build:start', 'astro:build:setup', 'astro:build:ssr', 'astro:build:generated', 'astro:build:done'].map((h) => [h, forward(h)]));
   return {
-    name: 'astro-section-editor',
+    name: 'pagestack',
     hooks: {
       ...forwarded,
       'astro:config:setup': async (params) => {
@@ -74,10 +74,10 @@ export default function sectionEditor(userOptions) {
           github: userOptions.github ?? null,
         };
         if (isBuild && options.auth === 'none') {
-          throw new Error('astro-section-editor: auth: "none" is only allowed in `astro dev`. Use "passkey" or "none-behind-proxy" for a build.');
+          throw new Error('pagestack: auth: "none" is only allowed in `astro dev`. Use "passkey" or "none-behind-proxy" for a build.');
         }
         if (options.storage === 'github' && !options.github?.repo) {
-          throw new Error('astro-section-editor: storage "github" needs github.repo ("owner/name")');
+          throw new Error('pagestack: storage "github" needs github.repo ("owner/name")');
         }
         const root = fileURLToPath(config.root);
         const abs = (p) => path.isAbsolute(p) ? p : path.resolve(root, p);
@@ -86,7 +86,7 @@ export default function sectionEditor(userOptions) {
         updateConfig({
           vite: {
             plugins: [{
-              name: 'astro-section-editor:virtual',
+              name: 'pagestack:virtual',
               resolveId(id) { if (id === VIRTUAL || id === VIRTUAL_RENDERER) return '\0' + id; },
               load(id) {
                 // The renderer (and the site layout/CSS behind it) is only imported by the preview
@@ -100,7 +100,7 @@ export default function sectionEditor(userOptions) {
               },
             }],
             // The package is consumed from source (.ts/.astro); make sure Vite transforms it.
-            ssr: { noExternal: ['astro-section-editor'] },
+            ssr: { noExternal: ['pagestack'] },
             // Pre-bundle the editor's browser deps so dev doesn't re-optimise (and reload) mid-session.
             optimizeDeps: { include: ['sortablejs', '@simplewebauthn/browser'] },
           },

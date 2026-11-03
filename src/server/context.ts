@@ -1,5 +1,5 @@
 // Server-side glue shared by the routes: resolved options, the storage adapter, page IO.
-import { options, site } from 'virtual:astro-section-editor/site';
+import { options, site } from 'virtual:pagestack/site';
 import type { PageDoc, SchemaRegistry } from '../runtime';
 import type { Storage } from '../core/storage';
 import { sha256 } from '../core/storage';

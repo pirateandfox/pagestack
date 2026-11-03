@@ -49,7 +49,7 @@ export const ALL: APIRoute = async ({ params, request, url }) => {
     }
   } catch (e: any) {
     if (e instanceof AuthError) return bad(e.message, e.status);
-    console.error('[astro-section-editor] auth error', e);
+    console.error('[pagestack] auth error', e);
     return bad(`authentication error: ${e?.message ?? e}`, 400);
   }
 };

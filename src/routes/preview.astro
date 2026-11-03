@@ -2,7 +2,7 @@
 // Live preview. GET renders the stored page; POST renders the draft in the request body.
 // Both render in edit mode (data-ase-* attributes) through the site's own renderer component,
 // so what the editor shows is exactly what the static build will produce.
-import { Renderer } from 'virtual:astro-section-editor/renderer';
+import { Renderer } from 'virtual:pagestack/renderer';
 import { readPage, validate } from '../server/context';
 export const prerender = false;
 const slug = Astro.params.slug || 'index';

@@ -1,11 +1,11 @@
 {
-  "name": "astro-section-editor",
-  "version": "0.1.0-beta.1",
-  "description": "Git-only visual section editor for Astro sites: static public site, passkey login, saves are commits.",
+  "name": "pagestack",
+  "version": "0.1.0-beta.2",
+  "description": "PageStack: visual section editor for Astro sites. Git-only, static public site, passkey login, saves are commits.",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "astro-section-editor-invite": "bin/invite.mjs"
+    "pagestack-invite": "bin/invite.mjs"
   },
   "exports": {
     ".": "./index.mjs",
@@ -37,13 +37,17 @@
   "keywords": [
     "astro-integration",
     "astro-component",
-    "withastro"
+    "withastro",
+    "visual-editor",
+    "cms",
+    "git-based-cms",
+    "sections"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pirateandfox/astro-section-editor.git"
+    "url": "git+https://github.com/pirateandfox/pagestack.git"
   },
-  "homepage": "https://github.com/pirateandfox/astro-section-editor#readme",
+  "homepage": "https://github.com/pirateandfox/pagestack#readme",
   "publishConfig": {
     "access": "public"
   }

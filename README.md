@@ -1,6 +1,7 @@
-# astro-section-editor
+# PageStack
 
-A git-only, Shopify-style visual section editor that ships inside an Astro site.
+A visual editor for Astro sites where pages are a stack of sections. Git-only: saving is a commit,
+the public site stays static, and nothing lives outside the repo.
 
 - The public site stays **fully static**. `astro build` is unchanged.
 - The editor (`/edit/*`, `/api/editor/*`) is on-demand rendered and only exists in `astro dev`
@@ -19,7 +20,7 @@ and [CHANGELOG.md](CHANGELOG.md).
 Until the npm release, install from a git tag and bump the tag to upgrade:
 
 ```json
-"dependencies": { "astro-section-editor": "github:pirateandfox/astro-section-editor#v0.1.0-beta.1" }
+"dependencies": { "pagestack": "github:pirateandfox/pagestack#v0.1.0-beta.2" }
 ```
 
 ```bash
@@ -32,7 +33,7 @@ Releases are tags `vX.Y.Z[-beta.N]` on `main`; each one has a CHANGELOG entry.
 
 ```js
 // astro.config.mjs
-import sectionEditor from 'astro-section-editor';
+import sectionEditor from 'pagestack';
 
 export default defineConfig({
   integrations: [
@@ -80,7 +81,7 @@ A page is a tree of nodes. Top-level nodes are *sections*; anything can nest (`b
 ### 2. A block registry: `src/sections/index.ts`
 
 ```ts
-import type { BlockSchema, Preset } from 'astro-section-editor/runtime';
+import type { BlockSchema, Preset } from 'pagestack/runtime';
 export const schemas = {
   heading: {
     label: 'Heading',
@@ -112,7 +113,7 @@ Each block component receives `{ node, edit }` and spreads two helpers onto its 
 
 ```astro
 ---
-import { nodeAttrs, fieldAttrs } from 'astro-section-editor/runtime';
+import { nodeAttrs, fieldAttrs } from 'pagestack/runtime';
 const { node, edit } = Astro.props;
 ---
 <div {...nodeAttrs(edit, node)}>
@@ -165,7 +166,7 @@ like any other push.
   one from the CLI, later ones from the "Invite another editor" panel on `/edit`:
 
   ```bash
-  EDITOR_SECRET=… npx astro-section-editor-invite --name "Jane Doe" --email jane@example.com --origin https://example.com
+  EDITOR_SECRET=… npx pagestack-invite --name "Jane Doe" --email jane@example.com --origin https://example.com
   ```
 - `/edit/enroll?invite=…` creates the passkey (Touch ID / Face ID / Windows Hello / security key);
   `/edit/login` signs in with it. Several passkeys per person are fine (enrol again with a new invite).

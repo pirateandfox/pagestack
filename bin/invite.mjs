@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Create the first invite link without a running editor (later invites can be made from /edit).
 //
-//   EDITOR_SECRET=… node packages/astro-section-editor/bin/invite.mjs --name "Jane Doe" --email jane@example.com --origin https://example.com [--days 3]
+//   EDITOR_SECRET=… node packages/pagestack/bin/invite.mjs --name "Jane Doe" --email jane@example.com --origin https://example.com [--days 3]
 //
 // Same token format as src/core/auth.ts (HMAC-SHA256, base64url(json).base64url(mac)) so the
 // running site can verify it. Plain JS so it runs on any Node without a TypeScript step.

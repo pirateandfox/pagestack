@@ -39,7 +39,7 @@ export class GitHubStorage implements Storage {
   private async req<T = any>(method: string, url: string, body?: unknown, allow404 = false): Promise<T | null> {
     const res = await this.fetchImpl(`${this.api}${url}`, {
       method,
-      headers: { authorization: `Bearer ${this.opts.token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', 'user-agent': 'astro-section-editor', ...(body ? { 'content-type': 'application/json' } : {}) },
+      headers: { authorization: `Bearer ${this.opts.token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', 'user-agent': 'pagestack', ...(body ? { 'content-type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
     if (res.status === 404 && allow404) return null;

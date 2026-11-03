@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-beta.2 — 2026-11-03
+
+- Renamed to **PageStack**: package `pagestack`, integration `pagestack`, CLI `pagestack-invite`, imports `pagestack/runtime` and `pagestack/core/*`. No behaviour change.
+
 ## 0.1.0-beta.1 — 2026-11-03
 
 First tagged release, extracted from the LCFCC site repo with history.
