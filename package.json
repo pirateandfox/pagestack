@@ -21,7 +21,7 @@
     "astro": ">=5.0.0"
   },
   "dependencies": {
-    "@astrojs/node": "^10.1.4",
+    "@astrojs/node": "10.1.1",
     "@simplewebauthn/server": "^13.0.0",
     "@simplewebauthn/browser": "^13.0.0",
     "sortablejs": "^1.15.7"
