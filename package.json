@@ -4,7 +4,9 @@
   "description": "Git-only visual section editor for Astro sites (spike).",
   "license": "MIT",
   "type": "module",
-  "bin": { "astro-section-editor-invite": "bin/invite.mjs" },
+  "bin": {
+    "astro-section-editor-invite": "bin/invite.mjs"
+  },
   "exports": {
     ".": "./index.mjs",
     "./runtime": "./src/runtime.ts",
@@ -22,13 +24,13 @@
   },
   "dependencies": {
     "@astrojs/node": "10.1.1",
-    "@simplewebauthn/server": "^13.0.0",
     "@simplewebauthn/browser": "^13.0.0",
+    "@simplewebauthn/server": "^13.0.0",
     "sortablejs": "^1.15.7"
   },
   "devDependencies": {
-    "vitest": "^4.0.0",
-    "@types/sortablejs": "^1.15.8"
+    "@types/sortablejs": "^1.15.8",
+    "vitest": "^4.0.0"
   },
   "keywords": [
     "astro-integration",
