@@ -11,8 +11,22 @@ A git-only, Shopify-style visual section editor that ships inside an Astro site.
   the only server secret is `EDITOR_SECRET`. No database, no session store.
 - Live preview renders the real page with the site's own components, in the browser's iframe.
 
-Status: spike quality. See `docs/spikes/visual-editor-report.md` in the host repo for what is
-and isn't done.
+Status: **early beta** (`0.1.0-beta.x`). The API will move; pin a version. See [ROADMAP.md](ROADMAP.md)
+and [CHANGELOG.md](CHANGELOG.md).
+
+## Versions
+
+Until the npm release, install from a git tag and bump the tag to upgrade:
+
+```json
+"dependencies": { "astro-section-editor": "github:pirateandfox/astro-section-editor#v0.1.0-beta.1" }
+```
+
+```bash
+npm install            # after changing the tag
+```
+
+Releases are tags `vX.Y.Z[-beta.N]` on `main`; each one has a CHANGELOG entry.
 
 ## Install
 
@@ -26,6 +40,7 @@ export default defineConfig({
       renderer: './src/components/SectionPage.astro', // renders { page, editing }
       sections: './src/sections/index.ts',            // exports { schemas, presets }
       siteName: 'Acme site editor',
+      interactiveSelector: 'summary, .tabs__title, .map__load', // preview elements that keep their own click
       auth: 'passkey',                                 // 'passkey' | 'none-behind-proxy' | 'none' (dev only)
       storage: process.env.EDITOR === '1' ? 'github' : 'local',
       github: { repo: 'acme/site', branch: 'main', pullRequest: true },

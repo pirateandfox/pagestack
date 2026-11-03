@@ -11,7 +11,7 @@ const user = (Astro.locals as any).editorUser as { name: string } | undefined;
 const boot = {
   slug, page: r.page, hash: r.hash, registry, presets: presets(),
   pages: (await listPages()).map((p) => ({ slug: p.slug, title: p.title, url: publicPath(p.slug) })),
-  options: { storage: opts.storage, auth: opts.auth, siteName: opts.siteName, user: user?.name ?? null, pullRequest: !!opts.github?.pullRequest, viewUrl: publicPath(slug) },
+  options: { storage: opts.storage, auth: opts.auth, siteName: opts.siteName, user: user?.name ?? null, pullRequest: !!opts.github?.pullRequest, viewUrl: publicPath(slug), interactiveSelector: opts.interactiveSelector },
 };
 ---
 <!doctype html>

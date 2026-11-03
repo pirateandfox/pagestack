@@ -12,7 +12,7 @@ export { options, site };
 export interface EditorOptions {
   root: string; renderer: string; sections: string; pagesDir: string; imagesDir: string; uploadsDir: string; publicDir: string; usersFile: string;
   auth: 'none' | 'passkey' | 'none-behind-proxy'; storage: 'local' | 'github'; github: { repo: string; branch?: string; pullRequest?: boolean } | null;
-  siteName: string; secretEnv: string; command: string;
+  siteName: string; secretEnv: string; command: string; interactiveSelector: string;
 }
 export const opts = options as EditorOptions;
 

@@ -1,7 +1,7 @@
 {
   "name": "astro-section-editor",
-  "version": "0.1.0",
-  "description": "Git-only visual section editor for Astro sites (spike).",
+  "version": "0.1.0-beta.1",
+  "description": "Git-only visual section editor for Astro sites: static public site, passkey login, saves are commits.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -14,6 +14,7 @@
   },
   "files": [
     "index.mjs",
+    "bin",
     "src"
   ],
   "scripts": {
@@ -30,11 +31,20 @@
   },
   "devDependencies": {
     "@types/sortablejs": "^1.15.8",
+    "happy-dom": "^21.0.4",
     "vitest": "^4.0.0"
   },
   "keywords": [
     "astro-integration",
     "astro-component",
     "withastro"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pirateandfox/astro-section-editor.git"
+  },
+  "homepage": "https://github.com/pirateandfox/astro-section-editor#readme",
+  "publishConfig": {
+    "access": "public"
+  }
 }

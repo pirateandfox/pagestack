@@ -15,7 +15,7 @@ interface Boot {
   slug: string; page: PageDoc; hash: string; registry: SchemaRegistry;
   presets: { label: string; description?: string; node: Node }[];
   pages: { slug: string; title: string; url: string }[];
-  options: { storage: string; auth: string; siteName: string; user: string | null; pullRequest: boolean; viewUrl: string };
+  options: { storage: string; auth: string; siteName: string; user: string | null; pullRequest: boolean; viewUrl: string; interactiveSelector: string };
 }
 const boot = (window as any).__ASE__ as Boot;
 const { registry } = boot;
@@ -63,8 +63,8 @@ function onPreviewClick(e: MouseEvent) {
   if (t.closest('[data-ase-toolbar], .ase-toolbar')) return; // handled by their own listeners
   const field = t.closest<HTMLElement>('[data-ase-field]');
   const node = t.closest<HTMLElement>('[data-ase-node]');
-  // Let the page's own interactive bits work (accordion summaries, tab titles); block navigation.
-  const interactive = t.closest('summary, .e-n-menu-title, .e-n-menu-dropdown-icon, .e-n-menu-toggle, .lcf-map__load');
+  // Let the page's own interactive bits work (accordion summaries, tab titles…); block navigation.
+  const interactive = t.closest(boot.options.interactiveSelector || 'summary');
   if (!interactive) e.preventDefault();
   if (field) {
     e.stopPropagation();

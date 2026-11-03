@@ -29,6 +29,9 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
  * @property {{repo: string, branch?: string, pullRequest?: boolean}} [github]
  * @property {boolean} [enabled]  Default: dev, or EDITOR=1.
  * @property {string} [siteName]  Shown in the editor chrome.
+ * @property {string} [interactiveSelector='summary']  Elements in the preview that keep their own click
+ *                        behaviour (accordion summaries, tab titles, load-map buttons…). Everything else is
+ *                        intercepted so links don't navigate while editing.
  * @property {string} [secretEnv='EDITOR_SECRET']  Name of the env var holding the signing secret.
  *
  * Runtime environment (never in the repo):
@@ -66,6 +69,7 @@ export default function sectionEditor(userOptions) {
           storage: isBuild ? 'github' : 'local',
           siteName: 'Site editor',
           secretEnv: 'EDITOR_SECRET',
+          interactiveSelector: 'summary',
           ...userOptions,
           github: userOptions.github ?? null,
         };
