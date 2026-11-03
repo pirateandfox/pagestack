@@ -105,7 +105,7 @@ function swap(html: string) {
   const next = topSections(fresh);
   const d = idoc();
   const cur = topSections(d);
-  const parent = cur[0]?.parentElement ?? d.querySelector('main .elementor, main') ?? d.body;
+  const parent = cur[0]?.parentElement ?? d.querySelector('main') ?? d.body;
   const n = Math.max(cur.length, next.length);
   for (let i = 0; i < n; i++) {
     const a = cur[i], b = next[i] ? d.importNode(next[i], true) : null;
