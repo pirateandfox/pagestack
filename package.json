@@ -1,0 +1,32 @@
+{
+  "name": "astro-section-editor",
+  "version": "0.1.0",
+  "description": "Git-only visual section editor for Astro sites (spike).",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs",
+    "./runtime": "./src/runtime.ts",
+    "./core/*": "./src/core/*.ts"
+  },
+  "files": [
+    "index.mjs",
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "astro": ">=5.0.0"
+  },
+  "dependencies": {
+    "@astrojs/node": "^10.1.4",
+    "@simplewebauthn/server": "^13.0.0",
+    "@simplewebauthn/browser": "^13.0.0",
+    "sortablejs": "^1.15.7"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.0",
+    "@types/sortablejs": "^1.15.8"
+  }
+}
