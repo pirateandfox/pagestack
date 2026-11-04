@@ -1,6 +1,6 @@
 // pagestack — a git-only visual section editor that ships inside an Astro site.
 //
-//   import pagestack from '@pagestack/astro';
+//   import pagestack from '@pirateandfox/pagestack';
 //   integrations: [sectionEditor({ renderer: './src/components/SectionPage.astro', sections: './src/sections/index.ts' })]
 //
 // The public site stays fully static. The editor (/edit/*, /api/editor/*) is on-demand rendered
@@ -100,7 +100,7 @@ export default function sectionEditor(userOptions) {
               },
             }],
             // The package is consumed from source (.ts/.astro); make sure Vite transforms it.
-            ssr: { noExternal: ['@pagestack/astro'] },
+            ssr: { noExternal: ['@pirateandfox/pagestack'] },
             // Pre-bundle the editor's browser deps so dev doesn't re-optimise (and reload) mid-session.
             optimizeDeps: { include: ['sortablejs', '@simplewebauthn/browser'] },
           },

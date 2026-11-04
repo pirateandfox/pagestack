@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.1.0-beta.3 — 2026-11-04
+## 0.1.0-beta.4 — 2026-11-04
 
-- npm name is **`@pagestack/astro`** (the bare `pagestack` is blocked by npm's similarity rule against an unrelated `page-stack`). Imports are `@pagestack/astro` and `@pagestack/astro/runtime`; the integration is still named `pagestack` and the CLI `pagestack-invite`.
+- First npm release as **`@pirateandfox/pagestack`** (`npm install @pirateandfox/pagestack@beta`). The bare `pagestack` is blocked by npm's similarity rule against an unrelated `page-stack`, and the `pagestack` org name was taken; beta.3 was tagged as `@pagestack/astro` but never published. Imports are `@pirateandfox/pagestack` and `@pirateandfox/pagestack/runtime`; the integration is still named `pagestack` and the CLI `pagestack-invite`.
 
 ## 0.1.0-beta.2 — 2026-11-03
 
