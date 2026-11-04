@@ -17,10 +17,16 @@ and [CHANGELOG.md](CHANGELOG.md).
 
 ## Versions
 
-Until the npm release, install from a git tag and bump the tag to upgrade:
+Published on npm as **`@pagestack/astro`** (betas under the `beta` dist-tag):
+
+```bash
+npm install @pagestack/astro@beta
+```
+
+Or install from a git tag and bump the tag to upgrade:
 
 ```json
-"dependencies": { "pagestack": "github:pirateandfox/pagestack#v0.1.0-beta.2" }
+"dependencies": { "@pagestack/astro": "github:pirateandfox/pagestack#v0.1.0-beta.3" }
 ```
 
 ```bash
@@ -33,11 +39,11 @@ Releases are tags `vX.Y.Z[-beta.N]` on `main`; each one has a CHANGELOG entry.
 
 ```js
 // astro.config.mjs
-import sectionEditor from 'pagestack';
+import pagestack from '@pagestack/astro';
 
 export default defineConfig({
   integrations: [
-    sectionEditor({
+    pagestack({
       renderer: './src/components/SectionPage.astro', // renders { page, editing }
       sections: './src/sections/index.ts',            // exports { schemas, presets }
       siteName: 'Acme site editor',
@@ -81,7 +87,7 @@ A page is a tree of nodes. Top-level nodes are *sections*; anything can nest (`b
 ### 2. A block registry: `src/sections/index.ts`
 
 ```ts
-import type { BlockSchema, Preset } from 'pagestack/runtime';
+import type { BlockSchema, Preset } from '@pagestack/astro/runtime';
 export const schemas = {
   heading: {
     label: 'Heading',
@@ -113,7 +119,7 @@ Each block component receives `{ node, edit }` and spreads two helpers onto its 
 
 ```astro
 ---
-import { nodeAttrs, fieldAttrs } from 'pagestack/runtime';
+import { nodeAttrs, fieldAttrs } from '@pagestack/astro/runtime';
 const { node, edit } = Astro.props;
 ---
 <div {...nodeAttrs(edit, node)}>

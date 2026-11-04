@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-beta.3 — 2026-11-04
+
+- npm name is **`@pagestack/astro`** (the bare `pagestack` is blocked by npm's similarity rule against an unrelated `page-stack`). Imports are `@pagestack/astro` and `@pagestack/astro/runtime`; the integration is still named `pagestack` and the CLI `pagestack-invite`.
+
 ## 0.1.0-beta.2 — 2026-11-03
 
 - Renamed to **PageStack**: package `pagestack`, integration `pagestack`, CLI `pagestack-invite`, imports `pagestack/runtime` and `pagestack/core/*`. No behaviour change.
