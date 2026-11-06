@@ -24,7 +24,7 @@ const boot = { id, singular, slugs: items.map((i) => i.slug), reserved: reserved
     <main class="ase-index__main">
       <header class="ase-index__head">
         <div><h1>{c.label} <span class="ase-muted">{items.length}</span></h1></div>
-        <button type="button" id="ase-add-item" class="ase-btn ase-btn--primary">Add {singular}</button>
+        {c.create !== false && <button type="button" id="ase-add-item" class="ase-btn ase-btn--primary">Add {singular}</button>}
       </header>
       <div class="ase-index__tools"><input type="search" id="ase-page-search" placeholder={`Search ${c.label.toLowerCase()}`} aria-label="Search" /></div>
       <ul class="ase-pagelist" id="ase-pagelist">

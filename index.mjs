@@ -18,7 +18,8 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
 
 /**
  * @typedef {object} SectionEditorOptions
- * @property {string} renderer   Astro component rendering a page: props { page, editing }.
+ * @property {string} [renderer] Astro component rendering a page: props { page, editing }. Required unless `pages: false`.
+ * @property {boolean} [pages]   false for a site with no block pages: only collections, globals and media.
  * @property {string} sections   Module exporting { schemas, presets } (see runtime.ts types).
  * @property {string} [pagesDir='src/content/pages']  Directory of <slug>.json pages.
  * @property {string} [imagesDir='public/images']     Browsable image library root.
@@ -58,7 +59,8 @@ function staticRoutes(srcDir) {
 
 /** @param {SectionEditorOptions} userOptions */
 export default function sectionEditor(userOptions) {
-  if (!userOptions?.renderer || !userOptions?.sections) throw new Error('pagestack: `renderer` and `sections` are required');
+  if (!userOptions?.sections) throw new Error('pagestack: `sections` is required');
+  if (!userOptions.renderer && userOptions.pages !== false) throw new Error('pagestack: `renderer` is required unless `pages: false`');
   // When the site has no adapter of its own we bring @astrojs/node along and forward every
   // integration hook to it (an integration added via updateConfig() doesn't get to call
   // setAdapter() in time, so we proxy its hooks instead).
@@ -99,7 +101,7 @@ export default function sectionEditor(userOptions) {
         const root = fileURLToPath(config.root);
         const abs = (p) => path.isAbsolute(p) ? p : path.resolve(root, p);
         const reservedSlugs = [...new Set([...(options.reservedSlugs ?? []), ...staticRoutes(fileURLToPath(config.srcDir))])];
-        const serial = { ...options, reservedSlugs, root, renderer: abs(options.renderer), sections: abs(options.sections), command };
+        const serial = { ...options, reservedSlugs, root, renderer: options.renderer ? abs(options.renderer) : null, sections: abs(options.sections), command };
 
         updateConfig({
           vite: {
@@ -109,7 +111,7 @@ export default function sectionEditor(userOptions) {
               load(id) {
                 // The renderer (and the site layout/CSS behind it) is only imported by the preview
                 // route, so the editor shell doesn't drag the whole site's CSS into its page.
-                if (id === '\0' + VIRTUAL_RENDERER) return `export { default as Renderer } from ${JSON.stringify(serial.renderer)};`;
+                if (id === '\0' + VIRTUAL_RENDERER) return serial.renderer ? `export { default as Renderer } from ${JSON.stringify(serial.renderer)};` : 'export const Renderer = null;';
                 if (id !== '\0' + VIRTUAL) return;
                 return [
                   `export * as site from ${JSON.stringify(serial.sections)};`,

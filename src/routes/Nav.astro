@@ -5,7 +5,7 @@ const { current } = Astro.props as { current: string };
 const user = editorOf(Astro.locals);
 const firstGlobal = Object.keys(globals)[0];
 const links = [
-  { id: 'pages', label: 'Pages', href: '/edit' },
+  ...(opts.pages === false ? [] : [{ id: 'pages', label: 'Pages', href: '/edit' }]),
   ...Object.entries(collections).map(([id, c]) => ({ id: `collection-${id}`, label: c.label, href: `/edit/collection/${id}` })),
   { id: 'media', label: 'Media', href: '/edit/media' },
   ...(firstGlobal ? [{ id: 'settings', label: Object.keys(globals).length > 1 ? 'Site settings' : globals[firstGlobal].label, href: `/edit/global/${firstGlobal}` }] : []),

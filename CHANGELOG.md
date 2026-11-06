@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.6 — 2026-11-06
+
+- **`pages: false`** for a site with no block pages: `renderer` becomes optional, and the Pages screen and Add page go away.
+- **New collection items** start from each field's `default`, so required frontmatter is there. `create: false` on a collection hides Add.
+- Prerendered routes skip the middleware, so a build no longer needs `EDITOR_SECRET`.
+
 ## 0.1.0-beta.5 — 2026-11-05
 
 A WordPress block-editor user should feel at home. Everything is additive: pages, options, routes, `data-ase-*` and `editor-users.json` keep working unchanged, and a site that adopts none of this builds byte-identically.

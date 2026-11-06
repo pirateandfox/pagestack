@@ -5,7 +5,7 @@ import { confirmDialog, promptDialog, toast } from './ui';
 const boot = (window as any).__ASE_COLLECTION__ as { id: string; singular: string; slugs: string[]; reserved: string[] };
 const api = `/api/editor/collection/${boot.id}`;
 
-document.getElementById('ase-add-item')!.addEventListener('click', async () => {
+document.getElementById('ase-add-item')?.addEventListener('click', async () => {
   const title = await promptDialog({ title: `Add ${boot.singular}`, label: 'Title', submit: `Add ${boot.singular}` });
   if (!title) return;
   const slug = uniqueSlug(slugify(title) || boot.singular, [...boot.slugs, ...boot.reserved]);

@@ -5,6 +5,7 @@
 // Preview button) renders the draft without edit mode, for a look at the finished page in a tab.
 import { Renderer } from 'virtual:pagestack/renderer';
 import { clean, readPage, validate } from '../server/context';
+if (!Renderer) return new Response('Not found', { status: 404 });
 const locals = Astro.locals;
 export const prerender = false;
 const slug = Astro.params.slug || 'index';

@@ -1,7 +1,7 @@
 // GET  /api/editor/pages   -> { pages }
 // POST /api/editor/pages   { title, slug, copyOf?, template? } -> creates a draft page.
 import type { APIRoute } from 'astro';
-import { bad, clean, commitMessage, json, listPages, pagePath, readPage, reservedSlugs, serializePage, storage, templates, validate } from '../../server/context';
+import { opts, bad, clean, commitMessage, json, listPages, pagePath, readPage, reservedSlugs, serializePage, storage, templates, validate } from '../../server/context';
 import { copyPage, newPage, slugProblem } from '../../core/pages';
 import type { PageDoc } from '../../runtime';
 export const prerender = false;
@@ -9,6 +9,7 @@ export const prerender = false;
 export const GET: APIRoute = async () => json({ pages: await listPages() });
 
 export const POST: APIRoute = async ({ request, locals }) => {
+  if (opts.pages === false) return bad('This site has no block pages.', 404);
   let body: any;
   try { body = await request.json(); } catch { return bad('invalid JSON'); }
   const title = String(body?.title ?? '').trim();

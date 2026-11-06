@@ -1,9 +1,13 @@
 ---
 // /edit — the Pages screen: every page, with add, duplicate, delete and search.
-import { globals, listPages, opts, publicPath, reservedSlugs, templates } from '../server/context';
+import { collections, globals, listPages, opts, publicPath, reservedSlugs, templates } from '../server/context';
 import Nav from './Nav.astro';
 import '../client/shell.css';
 export const prerender = false;
+if (opts.pages === false) {
+  const first = Object.keys(collections)[0];
+  return Astro.redirect(first ? `/edit/collection/${first}` : '/edit/media');
+}
 const pages = await listPages();
 const boot = {
   pages: pages.map((p) => ({ slug: p.slug, title: p.title })),

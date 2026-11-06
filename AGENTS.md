@@ -63,7 +63,7 @@ something to do piecemeal.)
 
 Options (`index.mjs` JSDoc is the source of truth): `renderer`, `sections` (required); `pagesDir`,
 `imagesDir`, `uploadsDir`, `publicDir`, `usersFile`, `auth` (`passkey` | `none-behind-proxy` | `none`,
-dev only), `storage` (`local` | `github`), `github: { repo, branch?, pullRequest? }`, `enabled`,
+dev only), `pages` (`false` for no block pages), `storage` (`local` | `github`), `github: { repo, branch?, pullRequest? }`, `enabled`,
 `siteName`, `secretEnv`, `interactiveSelector`, `reservedSlugs`, `redirectsFile`, `patternsFile`, `clientIpHeader`.
 
 Environment at runtime (never in the repo): `EDITOR_SECRET` (16+ chars, signs sessions/challenges/

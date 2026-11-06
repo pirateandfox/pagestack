@@ -101,6 +101,8 @@ export interface CollectionDoc {
   fields: Record<string, Field>;
   /** Site URL of an item, for "View" links. */
   url?: (slug: string) => string;
+  /** false hides Add, for a fixed set of items. Otherwise new items start from each field's `default`. */
+  create?: boolean;
 }
 
 /** A starting point offered by "Add page". */

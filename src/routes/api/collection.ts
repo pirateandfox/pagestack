@@ -39,6 +39,7 @@ export const GET: APIRoute = async ({ params }) => {
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const c = find(params.id);
   if (!c || params.slug) return bad('no such collection', 404);
+  if (c.create === false) return bad('Items here cannot be added from the editor.', 405);
   const body = await request.json().catch(() => null);
   const title = plainText(String(body?.title ?? '')).trim();
   const slug = String(body?.slug ?? '').trim();
@@ -47,7 +48,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const problem = SLUG.test(slug) ? slugProblem(slug, { existing, reserved: reservedSlugs() }) : 'Use letters, numbers and dashes in the URL.';
   if (problem) return bad(problem, 409);
   const data: Record<string, unknown> = { title };
-  for (const [k, f] of Object.entries(c.fields)) if (f.type === 'date') data[k] = new Date().toISOString().slice(0, f.time === false ? 10 : 19);
+  for (const [k, f] of Object.entries(c.fields)) if (f.default !== undefined && k !== 'title') data[k] = f.default;
+  // Only the first date is "today": others (modified, reviewed on) mean something else happened.
+  const dated = Object.entries(c.fields).find(([, f]) => f.type === 'date');
+  if (dated && data[dated[0]] === undefined) data[dated[0]] = new Date().toISOString().slice(0, dated[1].time === false ? 10 : 19);
   if (c.fields.draft?.type === 'boolean') data.draft = true;
   try {
     const result = await storage().commit({ message: commitMessage(`Add ${name(c)} ${slug}`, locals), files: [{ path: file(c, slug), content: writeMarkdown(null, data, '\n') }] });

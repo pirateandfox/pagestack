@@ -25,6 +25,7 @@ Host sites pin an npm version and bump when they want a new one.
 - [x] **Media library screen**.
 - [x] **Blog posts**: Markdown collections (frontmatter form + body with live preview).
 - [ ] Change URL and revisions for collection items; a visual body editor.
+- [ ] A group field for nested frontmatter; reading collection fields from the host's Astro schema.
 - [x] **Synced patterns**, written to every copy in one commit.
 - [x] **Block transforms** and `/` in an empty block.
 - [ ] A content security policy that restricts scripts in the editor; hosts' preview scripts need thought first.

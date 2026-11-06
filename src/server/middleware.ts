@@ -47,6 +47,7 @@ function harden(res: Response, url: URL, sandbox: boolean): Response {
 let warned = false;
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
+  if (ctx.isPrerendered) return next(); // public pages, which never carry a session
   const { pathname } = ctx.url;
   const { request } = ctx;
   const isEditor = pathname === '/edit' || pathname.startsWith('/edit/') || pathname.startsWith('/api/editor/');

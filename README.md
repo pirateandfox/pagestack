@@ -293,7 +293,8 @@ editor response is `noindex` and `no-store`.
 
 | option | default | |
 |---|---|---|
-| `renderer` | required | Astro component rendering `{ page, editing }` |
+| `renderer` | required, unless `pages: false` | Astro component rendering `{ page, editing }` |
+| `pages` | `true` | `false` for a site with no block pages: only collections, globals and media |
 | `sections` | required | module exporting `{ schemas, presets }` |
 | `pagesDir` | `src/content/pages` | |
 | `imagesDir` / `uploadsDir` / `publicDir` | `public/images` / `public/images/uploads` / `public` | |
