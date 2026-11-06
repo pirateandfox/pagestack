@@ -1,0 +1,30 @@
+---
+// /edit/media — the image library: browse, upload, see where an image is used, delete.
+import { opts } from '../server/context';
+import Nav from './Nav.astro';
+import '../client/shell.css';
+export const prerender = false;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Media — {opts.siteName}</title>
+  </head>
+  <body class="ase-index">
+    <Nav current="media" />
+    <main class="ase-index__main ase-media">
+      <header class="ase-index__head">
+        <div><h1>Media <span class="ase-muted" id="ase-media-count"></span></h1><p class="ase-muted">Drop images anywhere on this page to upload them.</p></div>
+        <label class="ase-btn ase-btn--primary">Upload<input type="file" id="ase-media-file" accept="image/*" multiple hidden /></label>
+      </header>
+      <div class="ase-index__tools"><input type="search" id="ase-media-search" placeholder="Search images" aria-label="Search images" /></div>
+      <div id="ase-media-grid" class="ase-media__grid" role="list"></div>
+    </main>
+    <div class="ase-media__drop" hidden>Drop images to upload</div>
+    <div id="ase-modal-root"></div>
+    <script>import '../client/media.ts';</script>
+  </body>
+</html>

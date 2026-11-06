@@ -8,6 +8,7 @@
 // when EDITOR=1 (which produces a Node server build with @astrojs/node).
 import node from '@astrojs/node';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const VIRTUAL = 'virtual:pagestack/site';
@@ -33,6 +34,11 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
  *                        behaviour (accordion summaries, tab titles, load-map buttons…). Everything else is
  *                        intercepted so links don't navigate while editing.
  * @property {string} [secretEnv='EDITOR_SECRET']  Name of the env var holding the signing secret.
+ * @property {string[]} [reservedSlugs]  Top-level URLs new pages may not take, beyond the host's own files in
+ *                        src/pages, which are found automatically. For dynamic routes such as blog posts.
+ * @property {string} [redirectsFile='public/_redirects']  When this file exists, moving a page appends a 301 to it.
+ * @property {string} [clientIpHeader]  Header holding the client IP behind a proxy, for login rate limits (e.g. cf-connecting-ip).
+ * @property {string} [patternsFile='src/content/pagestack-patterns.json']  Where saved patterns are kept.
  *
  * Runtime environment (never in the repo):
  *   EDITOR_SECRET        >= 16 chars; signs sessions, WebAuthn challenges and invite links.
@@ -40,6 +46,15 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
  *                        that rewrites Host — passkeys are bound to the origin the browser sees.
  *   GITHUB_TOKEN         Fine-grained token with contents (+ pull requests) on the repo, github storage only.
  */
+
+/** Top-level URLs taken by the host's own route files (dynamic ones can't be known here). */
+function staticRoutes(srcDir) {
+  try {
+    return fs.readdirSync(path.join(srcDir, 'pages'), { withFileTypes: true })
+      .filter((e) => !/^[[_.]/.test(e.name) && e.name !== 'index.astro' && (e.isDirectory() || /\.(astro|md|mdx|html|js|ts)$/.test(e.name)))
+      .map((e) => e.name.replace(/\.[^.]+$/, ''));
+  } catch { return []; }
+}
 
 /** @param {SectionEditorOptions} userOptions */
 export default function sectionEditor(userOptions) {
@@ -70,6 +85,8 @@ export default function sectionEditor(userOptions) {
           siteName: 'Site editor',
           secretEnv: 'EDITOR_SECRET',
           interactiveSelector: 'summary',
+          redirectsFile: 'public/_redirects',
+          patternsFile: 'src/content/pagestack-patterns.json',
           ...userOptions,
           github: userOptions.github ?? null,
         };
@@ -81,7 +98,8 @@ export default function sectionEditor(userOptions) {
         }
         const root = fileURLToPath(config.root);
         const abs = (p) => path.isAbsolute(p) ? p : path.resolve(root, p);
-        const serial = { ...options, root, renderer: abs(options.renderer), sections: abs(options.sections), command };
+        const reservedSlugs = [...new Set([...(options.reservedSlugs ?? []), ...staticRoutes(fileURLToPath(config.srcDir))])];
+        const serial = { ...options, reservedSlugs, root, renderer: abs(options.renderer), sections: abs(options.sections), command };
 
         updateConfig({
           vite: {
@@ -102,7 +120,7 @@ export default function sectionEditor(userOptions) {
             // The package is consumed from source (.ts/.astro); make sure Vite transforms it.
             ssr: { noExternal: ['@pirateandfox/pagestack'] },
             // Pre-bundle the editor's browser deps so dev doesn't re-optimise (and reload) mid-session.
-            optimizeDeps: { include: ['sortablejs', '@simplewebauthn/browser'] },
+            optimizeDeps: { include: ['sortablejs', '@simplewebauthn/browser', 'marked'] },
           },
         });
         if (!config.adapter) {
@@ -119,10 +137,19 @@ export default function sectionEditor(userOptions) {
         injectRoute({ pattern: '/edit/login', entrypoint: route('login.astro'), prerender: false });
         injectRoute({ pattern: '/edit/enroll', entrypoint: route('enroll.astro'), prerender: false });
         injectRoute({ pattern: '/edit/preview/[...slug]', entrypoint: route('preview.astro'), prerender: false });
+        injectRoute({ pattern: '/edit/global/[id]', entrypoint: route('edit-global.astro'), prerender: false });
+        injectRoute({ pattern: '/edit/collection/[id]', entrypoint: route('edit-collection.astro'), prerender: false });
+        injectRoute({ pattern: '/edit/collection/[id]/[...slug]', entrypoint: route('edit-item.astro'), prerender: false });
+        injectRoute({ pattern: '/edit/media', entrypoint: route('edit-media.astro'), prerender: false });
+        injectRoute({ pattern: '/edit/users', entrypoint: route('edit-users.astro'), prerender: false });
         injectRoute({ pattern: '/edit/[...slug]', entrypoint: route('edit-page.astro'), prerender: false });
         injectRoute({ pattern: '/api/editor/pages', entrypoint: route('api/pages.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/page/[...slug]', entrypoint: route('api/page.ts'), prerender: false });
+        injectRoute({ pattern: '/api/editor/patterns', entrypoint: route('api/patterns.ts'), prerender: false });
+        injectRoute({ pattern: '/api/editor/global/[id]', entrypoint: route('api/global.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/images', entrypoint: route('api/images.ts'), prerender: false });
+        injectRoute({ pattern: '/api/editor/collection/[id]/[...slug]', entrypoint: route('api/collection.ts'), prerender: false });
+        injectRoute({ pattern: '/api/editor/users', entrypoint: route('api/users.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/asset/[...path]', entrypoint: route('api/asset.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/auth/[action]', entrypoint: route('api/auth.ts'), prerender: false });
         logger.info(`enabled — storage: ${options.storage}, auth: ${options.auth}. Open /edit`);

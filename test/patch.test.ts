@@ -83,3 +83,19 @@ describe('walk / pathOfId', () => {
     expect(pathOfId(doc(), 'nope')).toBeUndefined();
   });
 });
+
+describe('moveNode into a later sibling', () => {
+  it('lands in the intended node even though removal shifts its path', () => {
+    const d = moveNode(doc(), 'sections.0', 'sections.1.blocks', 0);
+    expect(ids(d)).toEqual(['b', 'c']);
+    expect(ids(d, 'sections.0.blocks')).toEqual(['a']);
+  });
+  it('moves a block out to the page level', () => {
+    const d = moveNode(doc(), 'sections.0.blocks.1', 'sections', 3);
+    expect(ids(d)).toEqual(['a', 'b', 'c', 'a2']);
+    expect(ids(d, 'sections.0.blocks')).toEqual(['a1']);
+  });
+  it('creates the list on a node that has none yet', () => {
+    expect(ids(moveNode(doc(), 'sections.0.blocks.0', 'sections.2.blocks', 0), 'sections.2.blocks')).toEqual(['a1']);
+  });
+});

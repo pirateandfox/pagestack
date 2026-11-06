@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Create the first invite link without a running editor (later invites can be made from /edit).
+// Create the first invite link without a running editor (later invites are made at /edit/users; CLI invites create admins).
 //
 //   EDITOR_SECRET=… node packages/pagestack/bin/invite.mjs --name "Jane Doe" --email jane@example.com --origin https://example.com [--days 3]
 //

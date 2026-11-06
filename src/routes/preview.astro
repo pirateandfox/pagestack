@@ -1,19 +1,28 @@
 ---
 // Live preview. GET renders the stored page; POST renders the draft in the request body.
 // Both render in edit mode (data-ase-* attributes) through the site's own renderer component,
-// so what the editor shows is exactly what the static build will produce.
+// so what the editor shows is exactly what the static build will produce. A form POST (the
+// Preview button) renders the draft without edit mode, for a look at the finished page in a tab.
 import { Renderer } from 'virtual:pagestack/renderer';
-import { readPage, validate } from '../server/context';
+import { clean, readPage, validate } from '../server/context';
+const locals = Astro.locals;
 export const prerender = false;
 const slug = Astro.params.slug || 'index';
 let page: any = null;
 let error: string | null = null;
+let editing = true;
 if (Astro.request.method === 'POST') {
   try {
-    const body = await Astro.request.json();
-    page = body?.page ?? body;
+    if ((Astro.request.headers.get('content-type') ?? '').includes('json')) {
+      const body = await Astro.request.json();
+      page = body?.page ?? body;
+    } else {
+      page = JSON.parse(String((await Astro.request.formData()).get('page')));
+      editing = false;
+    }
     const problems = validate(page);
     if (problems.length) error = problems.join('; ');
+    else page = clean(page, locals, (await readPage(slug).catch(() => null))?.page);
   } catch (e: any) { error = e.message; }
 } else {
   const r = await readPage(slug);
@@ -22,4 +31,4 @@ if (Astro.request.method === 'POST') {
 }
 if (error) return new Response(error, { status: 400 });
 ---
-<Renderer page={page} editing />
+<Renderer page={page} editing={editing} />

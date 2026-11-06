@@ -1,7 +1,7 @@
 ---
 // /edit/<slug> — the editor shell. The page itself renders inside an iframe (preview.astro);
 // everything else is client/editor.ts.
-import { listPages, opts, presets, publicPath, readPage, registry } from '../server/context';
+import { listPages, opts, pageFields, presets, publicPath, readPage, readPatterns, registry, reservedSlugs, storage } from '../server/context';
 import '../client/shell.css';
 export const prerender = false;
 const slug = Astro.params.slug || 'index';
@@ -9,9 +9,10 @@ const r = await readPage(slug);
 if (!r) return new Response('No such page', { status: 404 });
 const user = (Astro.locals as any).editorUser as { name: string } | undefined;
 const boot = {
-  slug, page: r.page, hash: r.hash, registry, presets: presets(),
+  slug, page: r.page, hash: r.hash, registry, presets: presets(), patterns: await readPatterns(), pageFields,
+  reserved: reservedSlugs(),
   pages: (await listPages()).map((p) => ({ slug: p.slug, title: p.title, url: publicPath(p.slug) })),
-  options: { storage: opts.storage, auth: opts.auth, siteName: opts.siteName, user: user?.name ?? null, pullRequest: !!opts.github?.pullRequest, viewUrl: publicPath(slug), interactiveSelector: opts.interactiveSelector },
+  options: { storage: opts.storage, auth: opts.auth, siteName: opts.siteName, user: user?.name ?? null, pullRequest: !!opts.github?.pullRequest, viewUrl: publicPath(slug), interactiveSelector: opts.interactiveSelector, redirects: (await storage().readFile(opts.redirectsFile)) !== null },
 };
 ---
 <!doctype html>
@@ -24,31 +25,40 @@ const boot = {
   </head>
   <body class="ase">
     <header class="ase-top">
-      <a class="ase-top__back" href="/edit" title="All pages">←</a>
-      <div class="ase-top__title"><strong>{r.page.title}</strong><span class="ase-muted">{publicPath(slug)}</span></div>
-      <div class="ase-top__devices" role="group" aria-label="Preview width">
-        <button type="button" data-device="desktop" class="is-active" title="Desktop">⬜</button>
-        <button type="button" data-device="tablet" title="Tablet (1024)">▭</button>
-        <button type="button" data-device="mobile" title="Mobile (390)">▯</button>
-      </div>
+      <a class="ase-top__back" href="/edit" title="All pages" aria-label="All pages" data-icon="back"></a>
+      <button type="button" id="ase-toggle-add" class="ase-add-toggle" title="Add block (/)" aria-label="Add block" data-icon="plus"></button>
+      <button type="button" id="ase-toggle-list" class="ase-iconbtn is-active" title="List View (⌃⌥O)" aria-label="List View" data-icon="list"></button>
+      <button type="button" id="ase-undo" class="ase-iconbtn" title="Undo (⌘Z)" aria-label="Undo" data-icon="undo" disabled></button>
+      <button type="button" id="ase-redo" class="ase-iconbtn" title="Redo (⇧⌘Z)" aria-label="Redo" data-icon="redo" disabled></button>
+      <div class="ase-top__title"><strong id="ase-title">{r.page.title}</strong><span class="ase-muted">{publicPath(slug)} <span id="ase-draft-pill" class="ase-pill" hidden>Draft</span></span></div>
       <div class="ase-top__actions">
-        <button type="button" id="ase-undo" title="Undo (⌘Z)" disabled>↶</button>
-        <button type="button" id="ase-redo" title="Redo (⇧⌘Z)" disabled>↷</button>
-        <span id="ase-status" class="ase-muted"></span>
-        <a id="ase-view" class="ase-btn ase-btn--ghost" href={publicPath(slug)} target="_blank" rel="noopener">View ↗</a>
-        {opts.auth === 'passkey' && user && <a class="ase-btn ase-btn--ghost" href="/api/editor/auth/logout" title={`Signed in as ${user.name}`}>Sign out</a>}
+        <span id="ase-zoom" class="ase-muted" title="The preview is scaled to fit"></span>
+        <div class="ase-top__devices" role="group" aria-label="Preview width">
+          <button type="button" data-device="desktop" class="is-active" title="Desktop" aria-label="Desktop" data-icon="desktop"></button>
+          <button type="button" data-device="tablet" title="Tablet (1024)" aria-label="Tablet" data-icon="tablet"></button>
+          <button type="button" data-device="mobile" title="Mobile (390)" aria-label="Mobile" data-icon="mobile"></button>
+        </div>
+        <span id="ase-status" class="ase-muted" role="status"></span>
         <button type="button" id="ase-discard" class="ase-btn ase-btn--ghost" hidden>Discard</button>
+        <button type="button" id="ase-preview-tab" class="ase-btn ase-btn--ghost" title="See this draft as visitors will, in a new tab">Preview</button>
+        <a id="ase-view" class="ase-btn ase-btn--ghost" href={publicPath(slug)} target="_blank" rel="noopener">View ↗</a>
         <button type="button" id="ase-save" class="ase-btn ase-btn--primary" disabled>Save</button>
+        <button type="button" id="ase-publish" class="ase-btn ase-btn--primary" hidden>Publish</button>
+        <button type="button" id="ase-toggle-settings" class="ase-iconbtn is-active" title="Settings (⇧⌘,)" aria-label="Settings" data-icon="sidebar"></button>
+        <button type="button" id="ase-more" class="ase-iconbtn" title="Options" aria-label="Options" data-icon="more"></button>
       </div>
     </header>
-    <aside class="ase-left">
-      <div class="ase-panel__head"><span>Sections</span><button type="button" id="ase-add-section" class="ase-btn ase-btn--small">+ Add section</button></div>
-      <div id="ase-tree" class="ase-tree"></div>
+    <aside class="ase-left" aria-label="Blocks">
+      <div class="ase-listview">
+        <div class="ase-panel__head"><span>List View</span></div>
+        <div id="ase-tree" class="ase-tree"></div>
+      </div>
+      <div id="ase-inserter" class="ase-inserter"></div>
     </aside>
     <main class="ase-stage" data-device="desktop">
       <iframe id="ase-preview" title="Page preview" src={`/edit/preview/${slug}`}></iframe>
     </main>
-    <aside class="ase-right">
+    <aside class="ase-right" aria-label="Settings">
       <div id="ase-inspector" class="ase-inspector"></div>
     </aside>
     <div id="ase-modal-root"></div>

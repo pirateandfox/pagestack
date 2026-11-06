@@ -1,0 +1,47 @@
+---
+// /edit/collection/<id> — the items of a Markdown collection, e.g. blog posts.
+import { collections, listItems, opts, reservedSlugs } from '../server/context';
+import Nav from './Nav.astro';
+import '../client/shell.css';
+export const prerender = false;
+const id = Astro.params.id!;
+if (!Object.hasOwn(collections, id)) return new Response('No such collection', { status: 404 });
+const c = collections[id];
+const items = await listItems(c);
+const singular = c.singular ?? 'item';
+const boot = { id, singular, slugs: items.map((i) => i.slug), reserved: reservedSlugs() };
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{c.label} — {opts.siteName}</title>
+  </head>
+  <body class="ase-index">
+    <Nav current={`collection-${id}`} />
+    <main class="ase-index__main">
+      <header class="ase-index__head">
+        <div><h1>{c.label} <span class="ase-muted">{items.length}</span></h1></div>
+        <button type="button" id="ase-add-item" class="ase-btn ase-btn--primary">Add {singular}</button>
+      </header>
+      <div class="ase-index__tools"><input type="search" id="ase-page-search" placeholder={`Search ${c.label.toLowerCase()}`} aria-label="Search" /></div>
+      <ul class="ase-pagelist" id="ase-pagelist">
+        {items.map((i) => (
+          <li data-slug={i.slug} data-search={`${i.title} ${i.slug}`.toLowerCase()}>
+            <a class="ase-pagelist__edit" href={`/edit/collection/${id}/${i.slug}`}><strong>{i.title}{i.draft && <span class="ase-pill">Draft</span>}</strong><span class="ase-muted">{i.date.slice(0, 10)}</span></a>
+            <div class="ase-pagelist__actions">
+              {!i.draft && c.url && <a class="ase-btn ase-btn--small ase-btn--ghost" href={c.url(i.slug)} target="_blank" rel="noopener">View ↗</a>}
+              <button type="button" class="ase-btn ase-btn--small ase-btn--ghost ase-btn--danger" data-delete={i.slug}>Delete</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p id="ase-no-match" class="ase-muted" hidden>Nothing matches.</p>
+    </main>
+    <div id="ase-modal-root"></div>
+    <script is:inline set:html={`window.__ASE_COLLECTION__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
+    <script>import '../client/collection.ts';</script>
+  </body>
+</html>

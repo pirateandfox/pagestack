@@ -1,11 +1,16 @@
 ---
-// /edit — list of editable pages.
-import { listPages, opts, publicPath } from '../server/context';
+// /edit — the Pages screen: every page, with add, duplicate, delete and search.
+import { globals, listPages, opts, publicPath, reservedSlugs, templates } from '../server/context';
+import Nav from './Nav.astro';
 import '../client/shell.css';
 export const prerender = false;
 const pages = await listPages();
-const user = (Astro.locals as any).editorUser as { name: string } | undefined;
-const canInvite = opts.auth === 'passkey' && !!user;
+const boot = {
+  pages: pages.map((p) => ({ slug: p.slug, title: p.title })),
+  reserved: reservedSlugs(),
+  templates: templates.map((t, i) => ({ id: i, label: t.label, description: t.description })),
+};
+const globalLinks = Object.entries(globals).map(([id, g]) => ({ id, label: g.label, description: g.description }));
 ---
 <!doctype html>
 <html lang="en">
@@ -16,33 +21,40 @@ const canInvite = opts.auth === 'passkey' && !!user;
     <title>{opts.siteName} — pages</title>
   </head>
   <body class="ase-index">
+    <Nav current="pages" />
     <main class="ase-index__main">
       <header class="ase-index__head">
-        <h1>{opts.siteName}</h1>
-        <p class="ase-muted">Pages you can edit. Saving {opts.storage === 'github' ? 'commits to GitHub' : 'writes to the working tree'}.{user && <> Signed in as <strong>{user.name}</strong>. <a href="/api/editor/auth/logout">Sign out</a></>}</p>
+        <div>
+          <h1>{opts.siteName}</h1>
+          <p class="ase-muted">Saving {opts.storage === 'github' ? 'commits to GitHub' : 'writes to the working tree'}.</p>
+        </div>
+        <button type="button" id="ase-add-page" class="ase-btn ase-btn--primary">Add page</button>
       </header>
-      <ul class="ase-pagelist">
+      {globalLinks.length > 0 && (
+        <nav class="ase-globals" aria-label="Site settings">
+          {globalLinks.map((g) => <a href={`/edit/global/${g.id}`}><strong>{g.label}</strong>{g.description && <span class="ase-muted">{g.description}</span>}</a>)}
+        </nav>
+      )}
+      <div class="ase-index__tools">
+        <h2>Pages <span class="ase-muted">{pages.length}</span></h2>
+        <input type="search" id="ase-page-search" placeholder="Search pages" aria-label="Search pages" />
+      </div>
+      <ul class="ase-pagelist" id="ase-pagelist">
         {pages.map((p) => (
-          <li>
-            <a class="ase-pagelist__edit" href={`/edit/${p.slug}`}><strong>{p.title}</strong><span class="ase-muted">{publicPath(p.slug)} · {p.sections} sections</span></a>
-            <a class="ase-pagelist__view" href={publicPath(p.slug)} target="_blank" rel="noopener">View ↗</a>
+          <li data-slug={p.slug} data-search={`${p.title} ${p.slug}`.toLowerCase()}>
+            <a class="ase-pagelist__edit" href={`/edit/${p.slug}`}><strong>{p.title}{p.status === 'draft' && <span class="ase-pill">Draft</span>}</strong><span class="ase-muted">{publicPath(p.slug)} · {p.sections} {p.sections === 1 ? 'section' : 'sections'}</span></a>
+            <div class="ase-pagelist__actions">
+              {p.status !== 'draft' && <a class="ase-btn ase-btn--small ase-btn--ghost" href={publicPath(p.slug)} target="_blank" rel="noopener">View ↗</a>}
+              <button type="button" class="ase-btn ase-btn--small ase-btn--ghost" data-duplicate={p.slug}>Duplicate</button>
+              {p.slug !== 'index' && <button type="button" class="ase-btn ase-btn--small ase-btn--ghost ase-btn--danger" data-delete={p.slug}>Delete</button>}
+            </div>
           </li>
         ))}
       </ul>
-      {!pages.length && <p>No pages found in <code>{opts.pagesDir}</code>.</p>}
-      {canInvite && (
-        <details class="ase-invite">
-          <summary>Invite another editor</summary>
-          <form id="ase-invite" class="ase-invite__form">
-            <input type="text" name="name" placeholder="Name" required />
-            <input type="email" name="email" placeholder="Email" required />
-            <button type="submit" class="ase-btn ase-btn--primary ase-btn--small">Create invite link</button>
-            <output></output>
-          </form>
-          <p class="ase-muted">The link lets them create a passkey for this site. It works once and expires after 3 days. Their public key is committed to <code>{opts.usersFile}</code>; nothing secret is stored.</p>
-        </details>
-      )}
+      {!pages.length && <p>No pages yet in <code>{opts.pagesDir}</code>. Add the first one.</p>}
+      <p id="ase-no-match" class="ase-muted" hidden>No pages match.</p>
     </main>
-    {canInvite && <script>import '../client/invite.ts';</script>}
+    <script is:inline set:html={`window.__ASE_PAGES__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
+    <script>import '../client/pages.ts';</script>
   </body>
 </html>

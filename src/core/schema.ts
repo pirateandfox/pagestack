@@ -51,6 +51,7 @@ export function validateDoc(doc: unknown, registry: SchemaRegistry): string[] {
   if (!doc || typeof doc !== 'object') return ['document is not an object'];
   const d = doc as PageDoc;
   if (typeof d.title !== 'string') errors.push('title must be a string');
+  if (d.status !== undefined && d.status !== 'draft' && d.status !== 'published') errors.push('status must be "draft" or "published"');
   if (!Array.isArray(d.sections)) return [...errors, 'sections must be an array'];
   const ids = new Set<string>();
   const visit = (n: Node, path: string, parentType: string | null) => {
@@ -74,6 +75,13 @@ export function validateDoc(doc: unknown, registry: SchemaRegistry): string[] {
   return errors;
 }
 
+/** Can a node of `type` live in `parentType`? null means the top level of the page. */
+export function accepts(parentType: string | null, type: string, registry: SchemaRegistry): boolean {
+  if (!(type in registry)) return false;
+  if (parentType === null) return !registry[type].hidden;
+  return allowedChildTypes(parentType, registry)?.includes(type) ?? false;
+}
+
 /** Strip the components from a full registry so it can be sent to the browser. */
 export function serializeRegistry(reg: Record<string, BlockSchema & { component?: unknown }>): SchemaRegistry {
   const out: SchemaRegistry = {};
@@ -93,7 +101,8 @@ export function nodeLabel(node: Node, registry: SchemaRegistry): string {
   }
   if (node.blocks?.length) {
     const flat: Node[] = [];
-    const rec = (n: Node) => { for (const b of n.blocks ?? []) { if (b.type === 'container') rec(b); else flat.push(b); } };
+    // Blocks that hold other blocks say nothing about themselves; look through them for text.
+    const rec = (n: Node) => { for (const b of n.blocks ?? []) { if (b.blocks?.length) rec(b); else flat.push(b); } };
     rec(node);
     const pick = flat.find((b) => b.type === 'heading') ?? flat.find((b) => b.type === 'text') ?? flat[0];
     if (pick) { const inner = nodeLabel(pick, registry); return `${base} · ${inner.replace(/^[^:]+: /, '')}`; }

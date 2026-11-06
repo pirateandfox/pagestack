@@ -2,7 +2,7 @@
 // refresh doesn't lose unsaved work.
 import type { PageDoc } from '../runtime';
 
-export type ChangeSource = 'edit' | 'inline' | 'undo' | 'redo' | 'restore' | 'save' | 'reset';
+export type ChangeSource = 'edit' | 'field' | 'inline' | 'undo' | 'redo' | 'restore' | 'save' | 'reset';
 
 export class EditorState extends EventTarget {
   doc: PageDoc;
@@ -38,6 +38,8 @@ export class EditorState extends EventTarget {
     if (this.past.length > 200) this.past.shift();
     this.future = [];
   }
+  /** Take back a `snapshot` that turned out to have no change after it. */
+  dropSnapshot() { this.past.pop(); }
   undo() {
     const prev = this.past.pop();
     if (prev === undefined) return;

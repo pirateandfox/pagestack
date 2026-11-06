@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 import { bad, storage } from '../../server/context';
 export const prerender = false;
 export const GET: APIRoute = async ({ params }) => {
-  const bytes = storage().pendingAsset(params.path ?? '');
+  const bytes = await storage().pendingAsset(params.path ?? '');
   if (!bytes) return bad('not staged', 404);
   return new Response(bytes, { headers: { 'cache-control': 'no-store' } });
 };

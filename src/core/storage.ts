@@ -19,6 +19,15 @@ export interface CommitResult {
   pullRequest?: string;
 }
 
+export interface Revision {
+  sha: string;
+  /** First line of the commit message. */
+  message: string;
+  author: string;
+  /** ISO 8601. */
+  date: string;
+}
+
 export interface Storage {
   readonly kind: 'local' | 'github';
   /** Text file content at a repo-relative path, or null when missing. */
@@ -27,10 +36,14 @@ export interface Storage {
   listDir(path: string): Promise<{ name: string; type: 'file' | 'dir'; size?: number }[]>;
   /** Stage a binary (upload). It must be reachable at its URL before the next commit. */
   putAsset(path: string, bytes: Uint8Array): Promise<void>;
-  /** Make a set of text changes durable, together with any staged assets. */
-  commit(opts: { message: string; files: FileChange[] }): Promise<CommitResult>;
+  /** Make a set of text changes durable, together with any staged assets. `deletes` are repo-relative paths. */
+  commit(opts: { message: string; files: FileChange[]; deletes?: string[] }): Promise<CommitResult>;
+  /** Commits that touched a file, newest first. [] when there is no history to read. */
+  history(path: string, limit?: number): Promise<Revision[]>;
+  /** Text of a file as of a commit from `history`, or null. */
+  readAt(path: string, sha: string): Promise<string | null>;
   /** A staged (uncommitted) asset, so the server can serve it in github mode. */
-  pendingAsset(path: string): Uint8Array | undefined;
+  pendingAsset(path: string): Promise<Uint8Array | undefined>;
 }
 
 export async function sha256(text: string): Promise<string> {
@@ -47,6 +60,9 @@ export function fromBase64(b64: string): Uint8Array {
   if (typeof Buffer !== 'undefined') return new Uint8Array(Buffer.from(b64, 'base64'));
   const s = atob(b64); const out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out;
 }
+
+/** Commit ids reach `git` and URLs, so only ever accept the real shape. */
+export const isSha = (s: string) => /^[0-9a-f]{7,40}$/i.test(s);
 
 export function safeRelPath(p: string): string {
   const norm = p.replace(/\\/g, '/').replace(/^\/+/, '');

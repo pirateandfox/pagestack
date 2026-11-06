@@ -13,18 +13,23 @@ Read this before changing anything. The non-negotiables are in section 6.
 ```
 index.mjs              the Astro integration: options, virtual modules, injected routes, middleware, adapter handling
 bin/invite.mjs         CLI `pagestack-invite`: mints a one-time passkey invite link (plain JS, no deps)
-src/runtime.ts         the ONLY module hosts import at render time: types, nodeAttrs/fieldAttrs/child, newId, withDefaults
+src/runtime.ts         the ONLY module hosts import at render time: types, nodeAttrs/fieldAttrs/child, newId, withDefaults, staticPages
 src/core/              pure logic, unit-tested, no DOM/Node: schema (validate, form groups), patch (undo/redo ops),
+                       pages (slugs, new/copy page, redirects), insert (inserter items), sanitize (everything saved),
+                       transform (Turn into), synced (patterns), frontmatter (Markdown files), media (upload rules), ratelimit,
                        storage (interface) + storage-local (fs) + storage-github (REST, one commit per save), auth (HMAC
                        tokens, sessions), users (editor-users.json model)
 src/server/            context.ts (resolved options, storage instance, page IO), middleware.ts (auth guard),
                        webauthn.ts (passkey ceremonies)
-src/routes/            edit-index.astro (/edit), edit-page.astro (/edit/<slug>, the shell), preview.astro
+src/routes/            edit-index.astro (/edit), edit-page.astro (/edit/<slug>, the shell), edit-global.astro
+                       (/edit/global/<id>), edit-media, edit-users, edit-collection, edit-item, Nav.astro, preview.astro
                        (/edit/preview/<slug>, renders the host's page in edit mode), login.astro, enroll.astro,
-                       api/{page,pages,images,asset,auth}.ts
+                       api/{page,pages,global,patterns,images,users,collection,asset,auth}.ts
 src/client/            browser code for the shell: editor.ts (orchestration), state.ts (doc + history), tree.ts,
-                       form.ts (schema -> sidebar form), inline.ts (click-to-edit text), picker.ts (images),
-                       auth.ts, invite.ts, shell.css, preview.css (injected into the iframe)
+                       form.ts (schema -> sidebar form), inline.ts (click-to-edit text), rich.ts (rich-text toolbar,
+                       links, paste), inserter.ts, picker.ts (images), pages.ts (/edit), global.ts (/edit/global), media.ts, users.ts, collection.ts, item.ts, upload.ts,
+                       ui.ts (toast, dialog, menu), icons.ts, auth.ts, invite.ts, shell.css, preview.css (injected
+                       into the iframe)
 test/                  vitest unit tests for src/core (+ form.ts via happy-dom)
 ROADMAP.md             what is planned; CHANGELOG.md: what shipped, per version
 ```
@@ -42,6 +47,11 @@ The host passes two files to the integration:
   `virtual:pagestack/renderer`, so the editor shows exactly what the static build will produce.
 - `sections`: a module exporting `schemas` (a `SchemaRegistry`: field definitions per node type)
   and `presets` (`Preset[]`: labelled factories for "Add section"). Loaded via `virtual:pagestack/site`.
+  Optional exports: `pageFields` (Page tab), `templates` (Add page), `globals` (editable JSON files),
+  `collections` (Markdown folders).
+
+Pages the editor adds need the host to render `src/content/pages/**/*.json` from one catch-all route
+using `staticPages()`, which also leaves out drafts. See README.
 
 The host's components mark up what is editable with the runtime helpers:
 `{...nodeAttrs(edit, node)}` on each node's root element, `{...fieldAttrs(edit, 'name', 'text'|'richtext'|'image')}`
@@ -54,10 +64,10 @@ something to do piecemeal.)
 Options (`index.mjs` JSDoc is the source of truth): `renderer`, `sections` (required); `pagesDir`,
 `imagesDir`, `uploadsDir`, `publicDir`, `usersFile`, `auth` (`passkey` | `none-behind-proxy` | `none`,
 dev only), `storage` (`local` | `github`), `github: { repo, branch?, pullRequest? }`, `enabled`,
-`siteName`, `secretEnv`, `interactiveSelector`.
+`siteName`, `secretEnv`, `interactiveSelector`, `reservedSlugs`, `redirectsFile`, `patternsFile`, `clientIpHeader`.
 
 Environment at runtime (never in the repo): `EDITOR_SECRET` (16+ chars, signs sessions/challenges/
-invites), `EDITOR_ORIGIN` (behind a proxy), `GITHUB_TOKEN` (github storage; contents + pull requests
+invites), `EDITOR_ORIGIN` (set it in production), `EDITOR_PROXY_SECRET` (optional, with `none-behind-proxy`), `GITHUB_TOKEN` (github storage; contents + pull requests
 on one repo). The host conventionally gates the integration on `EDITOR=dev` / `EDITOR=1`.
 
 Build modes: with the integration disabled the host's build is untouched. Enabled in a build, the
@@ -73,6 +83,10 @@ npm install
 npm test                 # vitest, ~1s, must stay green
 ```
 
+Node 22.23.4+ is required. Astro 7's `astro dev` backgrounds itself when run by an agent; pass
+`--ignore-lock` to keep it in the foreground. Unit tests don't execute `src/server` or the routes, so
+a broken import there only shows up in a host: run a type check or the host's suite.
+
 Most behaviour can only be seen inside a host. Use the LCFCC site (or any host) with a local link:
 
 ```bash
@@ -81,6 +95,11 @@ npm install ../pagestack            # or: npm link ../pagestack   (symlink; Vite
 npm run dev:editor                  # EDITOR=dev astro dev -> http://localhost:4321/edit
 npm test                            # the host's Playwright suite exercises login, edit, save, rebuild
 ```
+
+A symlink leaves this package's dependencies unhoisted, so Vite cannot pre-bundle `sortablejs` and the
+first load in a fresh dev server reloads itself mid-test. To reproduce what a consumer gets, and to
+check that new files ship, install a tarball instead: `npm pack`, then in the host
+`npm install --no-save <path>.tgz`.
 
 Do **not** commit the host's `package.json`/lockfile pointing at a local path. Before you finish,
 put the host back on a published version (`npm install @pirateandfox/pagestack@<version> --save-exact`).
@@ -165,6 +184,5 @@ Notes:
 
 ## 7. Roadmap pointers
 
-See `ROADMAP.md`. The near-term items: add/delete page from `/edit`, hardening (rate limiting,
-rich-text sanitising, upload limits, user removal), proving the Cloudflare adapter, a Publish
-button over a staging branch, and the `ase` prefix decision before 1.0.
+See `ROADMAP.md`. The near-term items: a real Cloudflare deployment, a staging branch behind Publish,
+and the `ase` prefix decision before 1.0.

@@ -2,6 +2,9 @@
 // public keys of their passkeys. Nothing secret lives here — a public key can't be used to log in.
 // Pure functions; reading/writing goes through the storage adapter (server/webauthn.ts).
 
+/** Admins manage people and may write raw HTML. Editors do everything else. */
+export type Role = 'admin' | 'editor';
+
 export interface StoredCredential {
   /** Credential id (base64url), what the authenticator sends back on login. */
   id: string;
@@ -22,6 +25,8 @@ export interface EditorUser {
   name: string;
   email: string;
   createdAt: string;
+  /** Absent means admin, so files from before roles keep working. */
+  role?: Role;
   credentials: StoredCredential[];
 }
 
@@ -59,12 +64,12 @@ export function newUserId(): string {
 }
 
 /** Add a credential to the user with this email (creating the user when new). Returns a new file. */
-export function addCredential(file: UsersFile, who: { name: string; email: string }, credential: StoredCredential, now = new Date()): { file: UsersFile; user: EditorUser } {
+export function addCredential(file: UsersFile, who: { name: string; email: string; role?: Role }, credential: StoredCredential, now = new Date()): { file: UsersFile; user: EditorUser } {
   if (findByCredential(file, credential.id)) throw new Error('credential already registered');
   const copy: UsersFile = structuredClone(file);
   let user = findByEmail(copy, who.email);
   if (!user) {
-    user = { id: newUserId(), name: who.name.trim(), email: who.email.trim().toLowerCase(), createdAt: now.toISOString(), credentials: [] };
+    user = { id: newUserId(), name: who.name.trim(), email: who.email.trim().toLowerCase(), createdAt: now.toISOString(), ...(who.role ? { role: who.role } : {}), credentials: [] };
     copy.users.push(user);
   }
   user.credentials.push(credential);
@@ -77,3 +82,30 @@ export function removeCredential(file: UsersFile, credentialId: string): UsersFi
   copy.users = copy.users.filter((u) => u.credentials.length);
   return copy;
 }
+
+export const roleOf = (user: { role?: Role }): Role => user.role ?? 'admin';
+const admins = (file: UsersFile) => file.users.filter((u) => roleOf(u) === 'admin');
+const LAST_ADMIN = 'The site needs at least one admin.';
+
+/** Throws when this would leave nobody able to manage users. */
+export function setRole(file: UsersFile, userId: string, role: Role): UsersFile {
+  const copy: UsersFile = structuredClone(file);
+  const user = copy.users.find((u) => u.id === userId);
+  if (!user) throw new Error('No such user.');
+  if (role !== 'admin' && roleOf(user) === 'admin' && admins(copy).length === 1) throw new Error(LAST_ADMIN);
+  user.role = role;
+  return copy;
+}
+
+export function removeUser(file: UsersFile, userId: string): UsersFile {
+  const user = file.users.find((u) => u.id === userId);
+  if (!user) throw new Error('No such user.');
+  if (roleOf(user) === 'admin' && admins(file).length === 1) throw new Error(LAST_ADMIN);
+  return { ...file, users: file.users.filter((u) => u.id !== userId) };
+}
+
+/** What the Users screen sees: no public keys. */
+export const publicUsers = (file: UsersFile) => file.users.map((u) => ({
+  id: u.id, name: u.name, email: u.email, role: roleOf(u), createdAt: u.createdAt,
+  passkeys: u.credentials.map((c) => ({ id: c.id, label: c.label ?? null, createdAt: c.createdAt, synced: !!c.backedUp })),
+}));

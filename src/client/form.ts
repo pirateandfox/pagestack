@@ -1,6 +1,7 @@
 // Schema -> sidebar form. One widget per field type; changes are reported through `onChange`.
 import type { BlockSchema, Field, ImageValue } from '../runtime';
 import { formModel } from '../core/schema';
+import { richField } from './rich';
 
 export interface FormCallbacks {
   onChange: (name: string, value: unknown, opts?: { live?: boolean }) => void;
@@ -31,12 +32,13 @@ export function renderForm(root: HTMLElement, schema: BlockSchema, settings: Rec
   }
 }
 
-function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbacks): HTMLElement {
-  const id = `ase-f-${name}`;
+function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbacks, idPrefix = 'ase-f-'): HTMLElement {
+  const id = `${idPrefix}${name}`;
   const label = el('label', { for: id }, field.label);
   const wrap = el('div', { class: `ase-field ase-field--${field.type}` }, label);
   const help = field.help ? el('small', { class: 'ase-muted' }, field.help) : null;
-  const debounce = <T extends (...a: any[]) => void>(fn: T, ms = 250) => { let t: any; return (...a: Parameters<T>) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  // `cancel` matters: a live update landing after `change` would reorder the edit and split its undo step.
+  const debounce = (fn: () => void, ms = 250) => { let t: ReturnType<typeof setTimeout>; const run = () => { clearTimeout(t); t = setTimeout(fn, ms); }; run.cancel = () => clearTimeout(t); return run; };
 
   switch (field.type) {
     case 'text':
@@ -44,21 +46,38 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       const input = el('input', { id, type: 'text', value: (value as string) ?? '', list: field.type === 'link' && cb.pageUrls?.length ? 'ase-page-urls' : undefined, placeholder: field.type === 'link' ? 'https://… or /page/' : '' }) as HTMLInputElement;
       const live = debounce(() => cb.onChange(name, input.value, { live: true }));
       input.addEventListener('input', live);
-      input.addEventListener('change', () => cb.onChange(name, input.value));
+      input.addEventListener('change', () => { live.cancel(); cb.onChange(name, input.value); });
       wrap.append(input);
       if (field.type === 'link' && cb.pageUrls?.length && !document.getElementById('ase-page-urls')) {
         document.body.append(el('datalist', { id: 'ase-page-urls' }, ...cb.pageUrls.map((p) => el('option', { value: p.url }, p.title))));
       }
       break;
     }
+    case 'date': {
+      // A day with no time isn't a valid datetime-local value and would show as blank.
+      const dayOnly = field.time === false || /^\d{4}-\d{2}-\d{2}$/.test(String(value ?? ''));
+      const input = el('input', dayOnly
+        ? { id, type: 'date', value: String(value ?? '').slice(0, 10) }
+        : { id, type: 'datetime-local', step: '1', value: String(value ?? '').slice(0, 19) }) as HTMLInputElement;
+      input.addEventListener('change', () => cb.onChange(name, input.value));
+      wrap.append(input);
+      break;
+    }
+    case 'tags': {
+      const input = el('input', { id, type: 'text', value: Array.isArray(value) ? value.join(', ') : '', placeholder: 'Separate with commas' }) as HTMLInputElement;
+      input.addEventListener('change', () => cb.onChange(name, input.value.split(',').map((t) => t.trim()).filter(Boolean)));
+      wrap.append(input);
+      break;
+    }
     case 'richtext':
+      wrap.append(richField(id, (value as string) ?? '', (html, live) => cb.onChange(name, html, { live }), cb.pageUrls));
+      break;
     case 'textarea':
     case 'code': {
       const ta = el('textarea', { id, rows: field.type === 'code' ? 10 : 5, class: field.type === 'code' ? 'ase-mono' : '', spellcheck: 'false' }) as HTMLTextAreaElement;
       ta.value = (value as string) ?? '';
       ta.addEventListener('change', () => cb.onChange(name, ta.value));
       wrap.append(ta);
-      if (field.type === 'richtext') wrap.append(el('small', { class: 'ase-muted' }, 'HTML source. Click the text in the page to edit it with formatting.'));
       break;
     }
     case 'number': {
@@ -90,21 +109,24 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       sync();
       swatch.addEventListener('input', () => { text.value = swatch.value; cb.onChange(name, text.value, { live: true }); });
       swatch.addEventListener('change', () => cb.onChange(name, text.value));
-      text.addEventListener('input', debounce(() => { sync(); cb.onChange(name, text.value, { live: true }); }));
-      text.addEventListener('change', () => { sync(); cb.onChange(name, text.value); });
+      const live = debounce(() => { sync(); cb.onChange(name, text.value, { live: true }); });
+      text.addEventListener('input', live);
+      text.addEventListener('change', () => { live.cancel(); sync(); cb.onChange(name, text.value); });
       const clear = el('button', { type: 'button', class: 'ase-btn ase-btn--small ase-btn--ghost', title: 'Clear (use theme CSS)', onclick: () => { text.value = ''; sync(); cb.onChange(name, ''); } }, '×');
       wrap.append(el('div', { class: 'ase-row' }, swatch, text, clear));
       break;
     }
     case 'image': {
-      const img = (value as ImageValue) ?? { src: '', alt: '' };
+      // `asUrl` fields hold a bare URL (social images, menu pictures); the widget is the same.
+      const img: ImageValue = field.asUrl ? { src: (value as string) ?? '', alt: '' } : ((value as ImageValue) ?? { src: '', alt: '' });
+      const put = (v: ImageValue) => cb.onChange(name, field.asUrl ? v.src : v);
       const thumb = el('div', { class: 'ase-thumb' }, img.src ? el('img', { src: img.src, alt: '' }) : el('span', { class: 'ase-muted' }, 'No image'));
       const alt = el('input', { type: 'text', value: img.alt ?? '', placeholder: 'Alt text (describe the image)', 'aria-label': 'Alt text' }) as HTMLInputElement;
-      alt.addEventListener('change', () => cb.onChange(name, { ...img, alt: alt.value }));
-      const choose = el('button', { type: 'button', class: 'ase-btn ase-btn--small', onclick: () => cb.pickImage(img.src ? img : undefined, (chosen) => cb.onChange(name, chosen)) }, img.src ? 'Replace…' : 'Choose…');
-      const clear = el('button', { type: 'button', class: 'ase-btn ase-btn--small ase-btn--ghost', onclick: () => cb.onChange(name, { src: '', alt: '' }) }, 'Remove');
+      alt.addEventListener('change', () => put({ ...img, alt: alt.value }));
+      const choose = el('button', { type: 'button', class: 'ase-btn ase-btn--small', onclick: () => cb.pickImage(img.src ? img : undefined, put) }, img.src ? 'Replace…' : 'Choose…');
+      const clear = el('button', { type: 'button', class: 'ase-btn ase-btn--small ase-btn--ghost', onclick: () => put({ src: '', alt: '' }) }, 'Remove');
       wrap.append(thumb, el('div', { class: 'ase-row' }, choose, img.src ? clear : null));
-      if (img.src) wrap.append(alt, el('small', { class: 'ase-muted ase-ellipsis', title: img.src }, img.src));
+      if (img.src) wrap.append(...(field.asUrl ? [] : [alt]), el('small', { class: 'ase-muted ase-ellipsis', title: img.src }, img.src));
       break;
     }
     case 'svg': {
@@ -121,7 +143,57 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       wrap.append(sel, ta);
       break;
     }
+    case 'list':
+      wrap.append(listWidget(name, field, value, cb, id));
+      break;
   }
   if (help) wrap.append(help);
   return wrap;
+}
+
+/** Repeatable rows, each its own little form. Rows can nest (a menu item holds links). */
+function listWidget(name: string, field: Field, value: unknown, cb: FormCallbacks, id: string): HTMLElement {
+  const fields = field.fields ?? {};
+  let rows: Record<string, any>[] = Array.isArray(value) ? structuredClone(value) : [];
+  const open = new Set<number>();
+  const root = el('div', { class: 'ase-list', id });
+  const rowName = (row: Record<string, any>, i: number) => (field.itemLabel && row[field.itemLabel]) || `Item ${i + 1}`;
+  const save = (live = false) => cb.onChange(name, structuredClone(rows), { live });
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= rows.length) return;
+    rows.splice(to, 0, rows.splice(from, 1)[0]);
+    const was = [from, to].map((i) => open.has(i));
+    [to, from].forEach((i, k) => { if (was[k]) open.add(i); else open.delete(i); });
+    save(); draw();
+  };
+  const draw = () => {
+    root.innerHTML = '';
+    rows.forEach((row, i) => {
+      const title = el('span', { class: 'ase-ellipsis' }, rowName(row, i));
+      const body = el('div', { class: 'ase-fields' });
+      for (const [k, sub] of Object.entries(fields)) {
+        const rowCb: FormCallbacks = { ...cb, onChange: (key, v, o) => {
+          if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) delete row[key]; else row[key] = v;
+          if (key === field.itemLabel) { title.textContent = rowName(row, i); remove.setAttribute('aria-label', `Remove ${rowName(row, i)}`); }
+          save(o?.live);
+        } };
+        body.append(fieldWidget(k, sub, row[k] ?? sub.default, rowCb, `${id}-${i}-`));
+      }
+      const remove = el('button', { type: 'button', title: 'Remove', 'aria-label': `Remove ${rowName(row, i)}`, onclick: (e: Event) => { e.preventDefault(); rows.splice(i, 1); open.clear(); save(); draw(); } }, '×');
+      const details = el('details', { class: 'ase-list__row', open: open.has(i), ontoggle: () => { if (details.open) open.add(i); else open.delete(i); } }, el('summary', {},
+        title,
+        el('span', { class: 'ase-list__tools' },
+          el('button', { type: 'button', title: 'Move up', 'aria-label': 'Move up', disabled: i === 0, onclick: (e: Event) => { e.preventDefault(); move(i, i - 1); } }, '↑'),
+          el('button', { type: 'button', title: 'Move down', 'aria-label': 'Move down', disabled: i === rows.length - 1, onclick: (e: Event) => { e.preventDefault(); move(i, i + 1); } }, '↓'),
+          remove)), body) as HTMLDetailsElement;
+      root.append(details);
+    });
+    root.append(el('button', { type: 'button', class: 'ase-btn ase-btn--small', onclick: () => {
+      rows.push({});
+      open.add(rows.length - 1);
+      save(); draw();
+    } }, '+ Add item'));
+  };
+  draw();
+  return root;
 }

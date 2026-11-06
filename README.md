@@ -48,6 +48,7 @@ export default defineConfig({
       sections: './src/sections/index.ts',            // exports { schemas, presets }
       siteName: 'Acme site editor',
       interactiveSelector: 'summary, .tabs__title, .map__load', // preview elements that keep their own click
+      reservedSlugs: blogSlugs,                        // URLs the site uses some other way
       auth: 'passkey',                                 // 'passkey' | 'none-behind-proxy' | 'none' (dev only)
       storage: process.env.EDITOR === '1' ? 'github' : 'local',
       github: { repo: 'acme/site', branch: 'main', pullRequest: true },
@@ -83,6 +84,25 @@ astro build                 # plain static site, no editor code
 
 A page is a tree of nodes. Top-level nodes are *sections*; anything can nest (`blocks`).
 `attrs` is a passthrough for element attributes the editor never shows (class, aria-*).
+`"status": "draft"` keeps a page out of the build; without it the page is published.
+
+To let editors add pages, render them from one catch-all route. A new JSON file is then a new page,
+and drafts are left out:
+
+```astro
+---
+// src/pages/[...page].astro
+import { staticPages } from '@pirateandfox/pagestack/runtime';
+import SectionPage from '../components/SectionPage.astro';
+export const getStaticPaths = () =>
+  staticPages(import.meta.glob('../content/pages/**/*.json', { eager: true }));
+const { page } = Astro.props;
+---
+<SectionPage page={page} />
+```
+
+A site with its own `.astro` file per page keeps working, but pages added in the editor have no
+route until the catch-all exists.
 
 ### 2. A block registry: `src/sections/index.ts`
 
@@ -133,25 +153,89 @@ renders the page inside the site's normal layout.
 
 ## Editing
 
-- **Sidebar form** generated from the schema; live-debounced for colours and text.
-- **Inline**: click text to edit it in place (plain text, or bold / italic / link for rich text);
-  click an image to open the picker (library browse, search, upload; alt text is required).
-- **Structure**: tree on the left (drag to reorder sections and nested blocks), in-page toolbar
-  (move, duplicate, delete, select parent), "+ Add section" from presets, "+ Add block" from the
-  schema's allowed children.
-- **Preview**: every change POSTs the draft document to `/edit/preview/<slug>`; the server renders
-  the full page in edit mode and the editor swaps only the sections that changed. Typically well
-  under 20 ms server-side in dev.
+Coming from the WordPress block editor:
+
+| WordPress | PageStack |
+|---|---|
+| Pages list | `/edit`: search, status, add, copy, delete |
+| Block inserter, Patterns | `+` or `/`: searchable blocks by category, Patterns tab, `+` between sections |
+| List View | Same, with drag to reorder and to move between containers |
+| Block toolbar, ⋮ menu | Move, parent, add, duplicate, delete, copy, save as pattern |
+| Settings sidebar, Page / Block tabs | Same, generated from the schema |
+| Rich text toolbar, links | Same; `⌘B`, `⌘I`, `⌘K`, and an HTML view |
+| Save draft, Publish, Preview | Same; Preview opens the unsaved draft in a new tab |
+| Revisions | The page's git history |
+| Permalink | Change URL, which also adds a redirect |
+| Menus, site options | Global content, at `/edit/global/<id>` |
+| Patterns, synced patterns | Saved patterns; synced ones update every copy in one commit |
+| Block transforms | ⋮ → Turn into… |
+| `/` in an empty block | Same |
+| Posts | `/edit/collection/<id>`: details form, Markdown with live preview |
+| Media Library | `/edit/media` |
+| Users, roles | `/edit/users`: Admin and Editor |
+
+- **Preview**: the page renders in a frame at real device widths, scaled to fit. Every change POSTs
+  the draft to `/edit/preview/<slug>`; the server renders it and only changed sections are swapped.
+- **Inline**: click text to edit it in place; click an image to open the picker (alt text required).
 - **Drafts** are kept in `localStorage` until saved; undo/redo is per session.
-- **Save** validates the document and either writes the file (local) or commits (github). A hash of
-  the content you loaded is sent along; if someone saved first you get a 409 and a reload prompt.
+- **Save** sanitises rich text, validates the document, and writes the file (local) or commits
+  (github). A hash of what you loaded is sent along; if someone saved first you get a 409 and a
+  reload prompt.
+
+Optional exports from the `sections` module:
+
+```ts
+// Fields on the Page tab, stored in page.layout
+export const pageFields = {
+  footer: { type: 'select', label: 'Footer', options: [{ value: 'big', label: 'Big' }, { value: 'small', label: 'Small' }] },
+};
+
+// Starting points offered by Add page
+export const templates = [{ label: 'Standard page', create: ({ title }) => ({ title, sections: [/* … */] }) }];
+
+// JSON files edited at /edit/global/<id>
+// Markdown folders edited at /edit/collection/<id>
+export const collections = {
+  blog: {
+    label: 'Posts', singular: 'post', dir: 'src/content/blog', url: (slug) => `/${slug}/`,
+    fields: { title: { type: 'text', label: 'Title' }, draft: { type: 'boolean', label: 'Draft' }, date: { type: 'date', label: 'Date' }, tags: { type: 'tags', label: 'Tags' } },
+  },
+};
+
+export const globals = {
+  menus: {
+    label: 'Menus',
+    file: 'src/data/menus.json',
+    fields: {
+      nav: { type: 'list', label: 'Main menu', itemLabel: 'label', fields: { label: { type: 'text', label: 'Label' } } },
+    },
+  },
+};
+```
+
+Blocks can set `category` and `keywords` for the inserter. A `list` field is a repeatable group of
+`fields`, with `itemLabel` naming the field that titles each row.
+
+## Security
+
+Everything an editor sends is treated as untrusted. On save, every field is cleaned by its type,
+and anything outside the schema is cleaned as HTML, so components can render fields with
+`set:html`. Only admins can put raw HTML in a `code` field. Uploads are checked by their bytes and
+SVGs are sanitised. Set `EDITOR_ORIGIN` to the public https origin in production.
+
+With `auth: "none-behind-proxy"`, set `EDITOR_PROXY_SECRET` if the app can be reached without going
+through the proxy: requests must then carry the same value in `x-editor-proxy-secret`. Otherwise the
+identity headers could be forged by anyone who reaches the app directly.
+
+The login rate limit is held in memory per server instance, so on Workers it slows guessing rather
+than setting a hard limit. Passkeys are what actually stops guessing.
 
 ## Storage
 
 | `storage` | Reads | Saves | Uploads |
 |---|---|---|---|
 | `local` (dev default) | working tree | writes the JSON file (you commit) | written to `public/images/uploads/` |
-| `github` (build default) | Contents API on `github.branch` | one commit via the Git Data API: blobs → tree → commit → ref; with `pullRequest: true` a new `site-editor/<timestamp>-<sha>` branch + PR instead | staged in memory, served by the editor server until the next save commits them |
+| `github` (build default) | Contents API on `github.branch` | one commit via the Git Data API: blobs → tree → commit → ref; with `pullRequest: true` a new `site-editor/<timestamp>-<sha>` branch + PR instead | wait on a `pagestack-uploads` branch, shown to signed-in editors, until the next save brings them along |
 
 The GitHub token (`GITHUB_TOKEN` or `EDITOR_GITHUB_TOKEN`) is read from the environment on the
 server only. A fine-grained token with *Contents: write* (and *Pull requests: write* for PR mode)
@@ -196,6 +280,9 @@ Dev only. A build with `auth: "none"` is refused.
 
 ## Deploying the editor
 
+Requires Node 22.23.4+ and Astro 7.2.1+. On Cloudflare, add `@astrojs/cloudflare` as the host's
+adapter and set `EDITOR_SECRET`, `EDITOR_ORIGIN` and `GITHUB_TOKEN` as secrets.
+
 The editor server is a normal `@astrojs/node` standalone build. Run `node dist/server/entry.mjs`
 on any small Node host (Fly, Railway, a VPS…) with `EDITOR_SECRET`, `GITHUB_TOKEN` and
 `EDITOR_ORIGIN` set, behind HTTPS. It serves the editor routes and the static pages it was built
@@ -216,6 +303,10 @@ editor response is `noindex` and `no-store`.
 | `github` | — | `{ repo, branch, pullRequest }` |
 | `enabled` | dev, or `EDITOR=1` | |
 | `siteName`, `secretEnv` | `Site editor`, `EDITOR_SECRET` | |
+| `reservedSlugs` | `[]` | URLs Add page must refuse, on top of the editor's own and `src/pages` |
+| `redirectsFile` | `public/_redirects` | Change URL appends here, only if the file exists |
+| `patternsFile` | `src/content/pagestack-patterns.json` | where saved patterns live |
+| `clientIpHeader` | none | header with the client IP behind a proxy, for login rate limits, e.g. `cf-connecting-ip` |
 
 ## Open-source pieces used
 

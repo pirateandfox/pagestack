@@ -12,7 +12,10 @@ export type FieldType =
   | 'boolean'
   | 'textarea' // multi-line plain text, sidebar only
   | 'code' // raw HTML / SVG, sidebar textarea
-  | 'svg'; // SVG markup or a named icon
+  | 'svg' // SVG markup or a named icon
+  | 'date' // ISO date and time
+  | 'tags' // array of strings
+  | 'list'; // repeatable rows of sub-fields (menus, link lists); value is an array of objects
 
 export interface Field {
   type: FieldType;
@@ -29,6 +32,14 @@ export interface Field {
   help?: string;
   /** For 'svg': named icons offered in a dropdown besides raw SVG. */
   icons?: string[];
+  /** For 'list': the fields of one row. */
+  fields?: Record<string, Field>;
+  /** For 'list': sub-field whose value names a row ("Item 3" otherwise). */
+  itemLabel?: string;
+  /** For 'date': false stores a day (2026-11-05) with no time. */
+  time?: boolean;
+  /** For 'image': store just the URL string instead of { src, alt }. */
+  asUrl?: boolean;
 }
 
 export interface BlockSchema {
@@ -40,6 +51,12 @@ export interface BlockSchema {
   blocks?: string[] | '*';
   /** Hidden from the "add block" menus (e.g. items that only live inside their parent). */
   hidden?: boolean;
+  /** Group in the block inserter. Defaults to "Blocks". */
+  category?: string;
+  /** Extra words the inserter's search matches. */
+  keywords?: string[];
+  /** Types this block may turn into. Omit to allow any type its content fits. */
+  transforms?: string[];
 }
 
 export interface ImageValue { src: string; alt: string; width?: number; height?: number }
@@ -51,10 +68,14 @@ export interface Node {
   blocks?: Node[];
   /** Passthrough HTML attributes for the root element (class, tag, aria-*…). Not shown as fields. */
   attrs?: Record<string, any>;
+  /** Id of the synced pattern this node is a copy of. */
+  synced?: string;
 }
 
 export interface PageDoc {
   title: string;
+  /** 'draft' pages are editable but left out of the public build. Absent means published. */
+  status?: 'draft' | 'published';
   description?: string;
   ogImage?: string;
   /** Site-specific frame data (layout, CSS files…); the editor never interprets it. */
@@ -66,6 +87,36 @@ export interface Preset {
   label: string;
   description?: string;
   create: () => Node;
+}
+
+/** A folder of Markdown files with frontmatter (blog posts…), edited at /edit/collection/<id>. */
+export interface CollectionDoc {
+  /** Shown in the navigation, e.g. "Posts". */
+  label: string;
+  /** One item, e.g. "post". */
+  singular?: string;
+  /** Repo-relative folder of `.md` files. */
+  dir: string;
+  /** Frontmatter fields, in form order. `title` is the item's name; a boolean `draft` means Draft / Publish. */
+  fields: Record<string, Field>;
+  /** Site URL of an item, for "View" links. */
+  url?: (slug: string) => string;
+}
+
+/** A starting point offered by "Add page". */
+export interface PageTemplate {
+  label: string;
+  description?: string;
+  create: (ctx: { title: string }) => Partial<PageDoc>;
+}
+
+/** A site-wide document edited on its own screen (menus, footer, contact details). */
+export interface GlobalDoc {
+  label: string;
+  description?: string;
+  /** Repo-relative JSON file. Keys not listed in `fields` are preserved on save. */
+  file: string;
+  fields: Record<string, Field>;
 }
 
 /** Serialisable registry the editor UI receives (components stripped). */
@@ -90,6 +141,22 @@ export function rootEdit(editing: boolean, i: number): EditCtx | undefined {
 
 export function newId(): string {
   return Math.random().toString(16).slice(2, 9);
+}
+
+/**
+ * getStaticPaths for one catch-all page route, so a new JSON file is a new page with no wrapper:
+ *
+ *   export const getStaticPaths = () => staticPages(import.meta.glob('../content/pages/**\/*.json', { eager: true }));
+ *
+ * Drafts are left out. `base` is the path segment that ends the prefix of each glob key.
+ */
+export function staticPages(modules: Record<string, unknown>, { param = 'page', base = 'pages/' }: { param?: string; base?: string } = {}) {
+  return Object.entries(modules).flatMap(([file, mod]) => {
+    const page = ((mod as { default?: PageDoc }).default ?? mod) as PageDoc;
+    if (page.status === 'draft') return [];
+    const slug = file.slice(file.lastIndexOf(base) + base.length).replace(/\.json$/, '');
+    return [{ params: { [param]: slug === 'index' ? undefined : slug }, props: { page } }];
+  });
 }
 
 /** Apply schema defaults to a node's settings (does not mutate). */

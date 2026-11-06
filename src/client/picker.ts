@@ -1,5 +1,7 @@
 // Image picker modal: browse the site's image library, search, or upload. Alt text is required.
 import type { ImageValue } from '../runtime';
+import { toast } from './ui';
+import { uploadImage } from './upload';
 
 export function pickImage(current: ImageValue | undefined, done: (img: ImageValue) => void) {
   const root = document.getElementById('ase-modal-root')!;
@@ -9,10 +11,11 @@ export function pickImage(current: ImageValue | undefined, done: (img: ImageValu
         <header class="ase-modal__head">
           <strong>Choose an image</strong>
           <input type="search" class="ase-picker__search" placeholder="Search by file name…" />
-          <label class="ase-btn ase-btn--small">Upload… <input type="file" accept="image/*" hidden /></label>
+          <label class="ase-btn ase-btn--small">Upload… <input type="file" accept="image/*" multiple hidden /></label>
           <button type="button" class="ase-btn ase-btn--ghost ase-modal__close" aria-label="Close">×</button>
         </header>
         <div class="ase-picker__grid" aria-live="polite"><p class="ase-muted">Loading…</p></div>
+        <div class="ase-picker__drop" hidden>Drop images to upload</div>
         <footer class="ase-modal__foot">
           <img class="ase-picker__preview" alt="" hidden />
           <div class="ase-picker__meta">
@@ -76,18 +79,29 @@ export function pickImage(current: ImageValue | undefined, done: (img: ImageValu
   }
   let t: any;
   search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(load, 200); });
-  (q('input[type=file]') as HTMLInputElement).addEventListener('change', async (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0]; if (!file) return;
-    const fd = new FormData(); fd.append('file', file);
+  /** Uploads each file; the last one comes back selected, ready for its alt text. */
+  async function upload(files: File[]) {
+    if (!files.length) return;
     grid.insertAdjacentHTML('afterbegin', '<p class="ase-muted ase-picker__uploading">Uploading…</p>');
-    const res = await fetch('/api/editor/images', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok) { alert(data.error || 'Upload failed'); grid.querySelector('.ase-picker__uploading')?.remove(); return; }
+    let last: { src: string; file: File } | null = null;
+    for (const file of files) {
+      const { src, error } = await uploadImage(file);
+      if (!src) { toast(`${file.name}: ${error}`, 'error'); continue; }
+      last = { src, file };
+    }
+    grid.querySelector('.ase-picker__uploading')?.remove();
+    if (!last) return;
     await load();
-    select(data.src);
-    if (!altInput.value) altInput.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+    select(last.src);
+    if (!altInput.value) altInput.value = last.file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
     validate();
-  });
+  }
+  (q('input[type=file]') as HTMLInputElement).addEventListener('change', (e) => upload([...(e.target as HTMLInputElement).files ?? []]));
+  const box = q('.ase-modal__box'), drop = q('.ase-picker__drop');
+  const hasFiles = (e: DragEvent) => [...e.dataTransfer?.types ?? []].includes('Files');
+  box.addEventListener('dragover', (e) => { if (!hasFiles(e)) return; e.preventDefault(); drop.hidden = false; });
+  box.addEventListener('dragleave', (e) => { if (e.target === drop) drop.hidden = true; });
+  box.addEventListener('drop', (e) => { e.preventDefault(); drop.hidden = true; upload([...e.dataTransfer?.files ?? []].filter((f) => f.type.startsWith('image/'))); });
   if (current?.src) select(current.src);
   load();
 }

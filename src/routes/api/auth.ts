@@ -1,12 +1,11 @@
 // /api/editor/auth/<action> — passkey login, enrolment via invite, logout, invites.
 // Everything here is reachable without a session except `invite` (and `me` reports the session).
 import type { APIRoute } from 'astro';
-import { bad, json, opts, secret } from '../../server/context';
+import { activeUser, bad, json, opts, secret } from '../../server/context';
 import { AuthError, loginOptions, loginVerify, registerOptions, registerVerify, relyingParty } from '../../server/webauthn';
-import { SESSION_COOKIE, SESSION_TTL, INVITE_TTL, clearCookieHeader, cookieHeader, createInvite, readSession } from '../../core/auth';
+import { SESSION_COOKIE, SESSION_TTL, INVITE_TTL, clearCookieHeader, cookieHeader, createInvite, readSession, safeNext } from '../../core/auth';
+import { roleOf } from '../../core/users';
 export const prerender = false;
-
-const safeNext = (n: unknown) => (typeof n === 'string' && n.startsWith('/') && !n.startsWith('//') ? n : '/edit');
 
 export const ALL: APIRoute = async ({ params, request, url }) => {
   const action = params.action;
@@ -38,10 +37,12 @@ export const ALL: APIRoute = async ({ params, request, url }) => {
       }
       case 'invite': {
         const s = await readSession(request.headers.get('cookie'), secret());
-        if (!s) return bad('unauthenticated', 401);
+        const inviter = s && await activeUser(s.sub);
+        if (!inviter) return bad('unauthenticated', 401);
+        if (roleOf(inviter) !== 'admin') return bad('Only admins can invite people.', 403);
         const name = String(body.name ?? '').trim(), email = String(body.email ?? '').trim();
         if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad('name and a valid email are required');
-        const token = await createInvite(name, email, secret());
+        const token = await createInvite(name, email, secret(), INVITE_TTL, Date.now(), body.role === 'admin' ? 'admin' : 'editor');
         const { origin } = relyingParty(url);
         return json({ url: `${origin}/edit/enroll?invite=${encodeURIComponent(token)}`, expiresIn: INVITE_TTL, invitedBy: s.name });
       }

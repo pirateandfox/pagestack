@@ -3,9 +3,9 @@
 // server-side state is the committed users file (public keys) read/written through storage.
 import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from '@simplewebauthn/server';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
-import { opts, secret, storage } from './context';
+import { loadUsers, opts, secret, saveUsers } from './context';
 import { b64url, createChallengeToken, createSession, readChallengeToken, readInvite, unb64url, type InvitePayload } from '../core/auth';
-import { addCredential, findByCredential, findByEmail, inviteUsed, parseUsers, serializeUsers, type StoredCredential, type UsersFile } from '../core/users';
+import { addCredential, findByCredential, findByEmail, inviteUsed, type StoredCredential } from '../core/users';
 
 /**
  * Relying-party identity. WebAuthn binds credentials to the origin the browser sees, so behind a
@@ -16,12 +16,7 @@ export function relyingParty(url: URL) {
   return { origin, rpID: new URL(origin).hostname, rpName: opts.siteName, secure: origin.startsWith('https:') };
 }
 
-export async function loadUsers(): Promise<UsersFile> {
-  return parseUsers(await storage().readFile(opts.usersFile));
-}
-export async function saveUsers(file: UsersFile, message: string) {
-  return storage().commit({ message, files: [{ path: opts.usersFile, content: serializeUsers(file) }] });
-}
+export { loadUsers, saveUsers };
 
 export async function loginOptions(url: URL) {
   const { rpID } = relyingParty(url);
@@ -73,6 +68,9 @@ export async function registerVerify(url: URL, token: string, response: Registra
   const ch = await readChallengeToken(token, secret());
   if (!ch || ch.purpose !== 'register' || !ch.invite) throw new AuthError('The enrolment attempt expired. Open the invite link again.');
   const invite: InvitePayload = ch.invite;
+  if (claimed.has(invite.id)) throw new AuthError('This invite link has already been used.');
+  claimed.add(invite.id); // two tabs racing the same link: only one gets past here
+  try {
   const users = await loadUsers();
   if (inviteUsed(users, invite.id)) throw new AuthError('This invite link has already been used.');
   const result = await verifyRegistrationResponse({ response, expectedChallenge: ch.challenge, expectedOrigin: origin, expectedRPID: rpID });
@@ -86,6 +84,8 @@ export async function registerVerify(url: URL, token: string, response: Registra
   const { file, user } = addCredential(users, invite, credential);
   const commit = await saveUsers(file, `Add passkey for ${user.name} (site editor)`);
   return { user, commit, session: await createSession({ id: user.id, name: user.name }, secret()) };
+  } finally { claimed.delete(invite.id); }
 }
+const claimed = new Set<string>();
 
 export class AuthError extends Error { status = 400; }

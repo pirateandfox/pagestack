@@ -1,44 +1,101 @@
 // Guards /edit/* and /api/editor/*. Public pages are untouched (and don't exist in SSR anyway:
 // they're prerendered). In github mode it also serves uploads that are staged but not committed.
 import { defineMiddleware } from 'astro:middleware';
-import { opts, secret, storage, publicUrl } from './context';
-import { readSession } from '../core/auth';
+import { activeUser, opts, secret, storage, publicUrl } from './context';
+import { SESSION_COOKIE, clearCookieHeader, readSession } from '../core/auth';
+import { roleOf } from '../core/users';
+import { EXT_MIME, IMAGE_RE } from '../core/media';
+import { rateLimiter } from '../core/ratelimit';
 
 const PUBLIC = [/^\/edit\/login\/?$/, /^\/edit\/enroll\/?$/, /^\/api\/editor\/auth\//];
+const authAttempts = rateLimiter({ limit: 30, windowMs: 5 * 60_000 });
+
+const json = (body: unknown, status: number, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
+
+function clientIp(ctx: { request: Request; clientAddress: string }): string {
+  const fromProxy = opts.clientIpHeader && ctx.request.headers.get(opts.clientIpHeader);
+  if (fromProxy) return fromProxy.split(',')[0].trim();
+  try { return ctx.clientAddress; } catch { return 'unknown'; }
+}
+
+/** Writes come from our own pages. Covers proxy logins too, where SameSite is not ours to set. */
+function crossSite(request: Request, url: URL): boolean {
+  if (request.method === 'GET' || request.method === 'HEAD') return false;
+  const site = request.headers.get('sec-fetch-site');
+  if (site === 'cross-site' || site === 'same-site') return true;
+  const origin = request.headers.get('origin');
+  if (!origin) return false;
+  if (origin === (process.env.EDITOR_ORIGIN || url.origin).replace(/\/$/, '')) return false;
+  try { return new URL(origin).host !== request.headers.get('host'); } catch { return true; }
+}
+
+function harden(res: Response, url: URL, sandbox: boolean): Response {
+  const h = res.headers;
+  try {
+    h.set('x-robots-tag', 'noindex');
+    h.set('cache-control', 'no-store');
+    h.set('x-content-type-options', 'nosniff');
+    h.set('x-frame-options', 'SAMEORIGIN');
+    h.set('referrer-policy', 'same-origin');
+    h.set('cross-origin-opener-policy', 'same-origin');
+    h.set('content-security-policy', `frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'${sandbox ? '; sandbox allow-scripts allow-forms allow-popups' : ''}`);
+    if ((process.env.EDITOR_ORIGIN || url.origin).startsWith('https:')) h.set('strict-transport-security', 'max-age=31536000');
+  } catch { /* an immutable Response, e.g. a redirect from a host's own middleware */ }
+  return res;
+}
+
+let warned = false;
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const { pathname } = ctx.url;
+  const { request } = ctx;
   const isEditor = pathname === '/edit' || pathname.startsWith('/edit/') || pathname.startsWith('/api/editor/');
 
   // Staged uploads (github storage) — served until the next save commits them.
-  if (!isEditor && opts.storage === 'github') {
-    const pending = storage().pendingAsset(opts.publicDir + pathname);
-    if (pending) return new Response(pending, { headers: { 'content-type': mime(pathname), 'cache-control': 'no-store' } });
+  // Only for a signed-in editor: drafts preview them, and visitors shouldn't spend the API quota.
+  if (!isEditor && opts.storage === 'github' && (opts.publicDir + pathname).startsWith(`${opts.uploadsDir}/`) && IMAGE_RE.test(pathname)
+    && (opts.auth !== 'passkey' || await readSession(request.headers.get('cookie'), secret()))) {
+    const pending = await storage().pendingAsset(opts.publicDir + pathname).catch(() => undefined);
+    if (pending) return new Response(pending as BodyInit, { headers: { 'content-type': EXT_MIME[pathname.slice(pathname.lastIndexOf('.') + 1).toLowerCase()] ?? 'application/octet-stream', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" } });
   }
   if (!isEditor) return next();
 
+  // A form POST here is the Preview button: an unsaved draft shown in its own tab, walled off from the session.
+  const sandbox = pathname.startsWith('/edit/preview') && request.method === 'POST' && !(request.headers.get('content-type') ?? '').includes('json');
+  const done = (res: Response) => harden(res, ctx.url, sandbox);
+
+  if (opts.command === 'build' && !warned) {
+    warned = true;
+    if (opts.auth === 'passkey' && !process.env.EDITOR_ORIGIN) console.warn('[pagestack] Set EDITOR_ORIGIN to the public https origin: without it invite links trust the Host header, and behind a proxy cookies may not be marked Secure.');
+  }
+  if (crossSite(request, ctx.url)) return done(json({ error: 'cross-site request refused' }, 403));
+
+  if (pathname.startsWith('/api/editor/auth/') && request.method === 'POST') {
+    const { ok, retryAfter } = authAttempts(clientIp(ctx));
+    if (!ok) return done(json({ error: 'Too many attempts. Try again in a few minutes.' }, 429, { 'retry-after': String(retryAfter) }));
+  }
+
   if (opts.auth === 'passkey' && !PUBLIC.some((re) => re.test(pathname))) {
-    const session = await readSession(ctx.request.headers.get('cookie'), secret());
-    if (!session) {
-      if (pathname.startsWith('/api/')) return new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401, headers: { 'content-type': 'application/json' } });
-      return ctx.redirect(`/edit/login?next=${encodeURIComponent(pathname)}`);
+    const session = await readSession(request.headers.get('cookie'), secret());
+    const user = session && await activeUser(session.sub);
+    if (!user) {
+      // A valid session for someone who was removed ends here, without waiting for it to expire.
+      const headers: Record<string, string> = session ? { 'set-cookie': clearCookieHeader(SESSION_COOKIE, ctx.url.protocol === 'https:') } : {};
+      if (pathname.startsWith('/api/')) return done(json({ error: 'unauthenticated' }, 401, headers));
+      return done(new Response(null, { status: 302, headers: { ...headers, location: `/edit/login?next=${encodeURIComponent(pathname)}` } }));
     }
-    ctx.locals.editorUser = { id: session.sub, name: session.name };
+    ctx.locals.editorUser = { id: user.id, name: user.name, role: roleOf(user) };
   } else if (opts.auth === 'none-behind-proxy') {
     // Identity comes from the proxy that already authenticated the request (Cloudflare Access,
-    // oauth2-proxy, …) — used for commit attribution only.
-    const h = ctx.request.headers;
+    // oauth2-proxy, …). No identity means the request didn't come through it.
+    const h = request.headers;
+    const shared = process.env.EDITOR_PROXY_SECRET;
+    if (shared && h.get('x-editor-proxy-secret') !== shared) return done(json({ error: 'not from the proxy' }, 403));
     const who = h.get('cf-access-authenticated-user-email') || h.get('x-forwarded-user') || h.get('x-forwarded-email');
-    if (who) ctx.locals.editorUser = { id: who, name: who };
+    if (!who && opts.command === 'build') return done(json({ error: 'no identity from the proxy' }, 401));
+    if (who) ctx.locals.editorUser = { id: who, name: who, role: 'admin' };
   }
-  const res = await next();
-  res.headers.set('x-robots-tag', 'noindex');
-  res.headers.set('cache-control', 'no-store');
-  return res;
+  return done(await next());
 });
 
-function mime(p: string) {
-  const ext = p.slice(p.lastIndexOf('.') + 1).toLowerCase();
-  return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif' } as Record<string, string>)[ext] ?? 'application/octet-stream';
-}
 export { publicUrl };

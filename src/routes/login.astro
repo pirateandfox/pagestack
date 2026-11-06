@@ -2,11 +2,10 @@
 // /edit/login — sign in with a passkey. With auth "none" / "none-behind-proxy" there is nothing
 // to do here, so it just links through.
 import { opts, secret } from '../server/context';
-import { readSession } from '../core/auth';
+import { readSession, safeNext } from '../core/auth';
 import '../client/shell.css';
 export const prerender = false;
-const nextRaw = Astro.url.searchParams.get('next') ?? '/edit';
-const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/edit';
+const next = safeNext(Astro.url.searchParams.get('next'));
 if (opts.auth !== 'passkey') return Astro.redirect(next);
 if (await readSession(Astro.request.headers.get('cookie'), secret())) return Astro.redirect(next);
 ---

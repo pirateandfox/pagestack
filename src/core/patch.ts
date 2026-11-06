@@ -93,9 +93,10 @@ export function moveNode(doc: PageDoc, fromPath: Path, toListPath: Path, toIndex
   if (toListPath.startsWith(fromPath + '.')) throw new Error('cannot move a node into itself');
   const copy = structuredClone(doc);
   const { listPath, index } = splitNodePath(fromPath);
+  // Resolve both lists first: removing the node shifts the paths of its later siblings.
   const from = listAt(copy, listPath);
-  const [node] = from.splice(index, 1);
   const to = listAt(copy, toListPath, true);
+  const [node] = from.splice(index, 1);
   to.splice(Math.max(0, Math.min(toIndex, to.length)), 0, node);
   return copy;
 }

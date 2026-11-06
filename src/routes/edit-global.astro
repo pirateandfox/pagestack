@@ -1,0 +1,39 @@
+---
+// /edit/global/<id> — a site-wide document (menus, footer…) the host declares in its sections module.
+import { globals, listPages, opts, publicPath } from '../server/context';
+import Nav from './Nav.astro';
+import '../client/shell.css';
+export const prerender = false;
+const id = Astro.params.id!;
+if (!Object.hasOwn(globals, id)) return new Response('No such document', { status: 404 });
+const def = globals[id];
+const boot = {
+  id, label: def.label, fields: def.fields,
+  pages: (await listPages()).filter((p) => p.status !== 'draft').map((p) => ({ title: p.title.split(/\s[-–|]\s/)[0], url: publicPath(p.slug) })),
+};
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{def.label} — {opts.siteName}</title>
+  </head>
+  <body class="ase-index">
+    <Nav current="settings" />
+    <main class="ase-index__main ase-global">
+      <header class="ase-index__head">
+        <div>
+          <h1>{def.label}</h1>
+          {def.description && <p class="ase-muted">{def.description}</p>}
+        </div>
+        <button type="button" id="ase-global-save" class="ase-btn ase-btn--primary" disabled>Save</button>
+      </header>
+      <div id="ase-global-form" class="ase-global__form"><p class="ase-muted">Loading…</p></div>
+    </main>
+    <div id="ase-modal-root"></div>
+    <script is:inline set:html={`window.__ASE_GLOBAL__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
+    <script>import '../client/global.ts';</script>
+  </body>
+</html>

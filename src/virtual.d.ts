@@ -7,6 +7,6 @@ declare module 'virtual:pagestack/site' {
 declare namespace App {
   interface Locals {
     /** Set by the editor middleware when a request is authenticated (passkey session or proxy header). */
-    editorUser?: { id: string; name: string };
+    editorUser?: { id: string; name: string; role: 'admin' | 'editor' };
   }
 }

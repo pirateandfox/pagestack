@@ -73,3 +73,78 @@ describe('renderForm', () => {
     expect(root.textContent).toContain('no settings');
   });
 });
+
+describe('list fields', () => {
+  const schema: BlockSchema = { label: 'Menu', fields: { nav: { type: 'list', label: 'Items', itemLabel: 'label', fields: {
+    label: { type: 'text', label: 'Label' },
+    links: { type: 'list', label: 'Links', itemLabel: 'label', fields: { label: { type: 'text', label: 'Label' } } },
+  } } } };
+  const setup = (nav: any[]) => {
+    const root = document.createElement('div');
+    const changes: any[] = [];
+    renderForm(root, schema, { nav }, { onChange: (_n, v) => changes.push(v), pickImage: () => {} });
+    return { root, changes, last: () => changes[changes.length - 1] };
+  };
+  const fire = (el: Element, type: string) => el.dispatchEvent(new (window as any).Event(type, { bubbles: true }));
+
+  it('names rows from their label', () => {
+    const { root } = setup([{ label: 'Home' }, {}]);
+    expect([...root.querySelectorAll('#ase-f-nav > .ase-list__row > summary > .ase-ellipsis')].map((e) => e.textContent)).toEqual(['Home', 'Item 2']);
+  });
+  it('edits, adds and removes rows without touching the caller’s array', () => {
+    const nav = [{ label: 'Home' }, { label: 'About' }];
+    const { root, last } = setup(nav);
+    const input = root.querySelector('#ase-f-nav-0-label') as HTMLInputElement;
+    input.value = 'Start';
+    fire(input, 'change');
+    expect(last()).toEqual([{ label: 'Start' }, { label: 'About' }]);
+    expect(nav[0].label).toBe('Home');
+    (root.querySelector('#ase-f-nav > .ase-btn') as HTMLElement).click();
+    expect(last()).toHaveLength(3);
+    (root.querySelector('[aria-label="Remove Start"]') as HTMLElement).click();
+    expect(last()).toEqual([{ label: 'About' }, {}]);
+  });
+  it('reorders rows', () => {
+    const { root, last } = setup([{ label: 'A' }, { label: 'B' }]);
+    (root.querySelector('#ase-f-nav > .ase-list__row [aria-label="Move down"]') as HTMLElement).click();
+    expect(last().map((r: any) => r.label)).toEqual(['B', 'A']);
+  });
+  it('edits nested rows, and an emptied nested list disappears from the row', () => {
+    const { root, last } = setup([{ label: 'A', links: [{ label: 'x' }] }]);
+    const input = root.querySelector('#ase-f-nav-0-links-0-label') as HTMLInputElement;
+    input.value = 'y';
+    fire(input, 'change');
+    expect(last()).toEqual([{ label: 'A', links: [{ label: 'y' }] }]);
+    (root.querySelector('[aria-label="Remove y"]') as HTMLElement).click();
+    expect(last()).toEqual([{ label: 'A' }]);
+  });
+});
+
+describe('image fields stored as a URL', () => {
+  it('picks and clears a bare string', () => {
+    const root = document.createElement('div');
+    const out: unknown[] = [];
+    let pick: (img: any) => void = () => {};
+    renderForm(root, { label: 'P', fields: { og: { type: 'image', label: 'Image', asUrl: true } } }, { og: '/a.jpg' }, { onChange: (_n, v) => out.push(v), pickImage: (_c, done) => { pick = done; } });
+    expect(root.querySelector('.ase-thumb img')?.getAttribute('src')).toBe('/a.jpg');
+    (root.querySelector('.ase-field--image .ase-btn') as HTMLElement).click();
+    pick({ src: '/b.jpg', alt: 'x' });
+    expect(out).toEqual(['/b.jpg']);
+    (root.querySelector('.ase-field--image .ase-btn--ghost') as HTMLElement).click();
+    expect(out).toEqual(['/b.jpg', '']);
+  });
+});
+
+describe('date fields', () => {
+  const input = (value: unknown, time?: boolean) => {
+    const root = document.createElement('div');
+    renderForm(root, { label: 'D', fields: { d: { type: 'date', label: 'Date', time } } } as BlockSchema, { d: value }, { onChange: vi.fn() } as any);
+    return root.querySelector('input')!;
+  };
+  it('shows a stored day in a date input rather than a blank datetime', () => {
+    expect(input('2026-10-19').type).toBe('date');
+    expect(input('2026-10-19').value).toBe('2026-10-19');
+  });
+  it('keeps the time when there is one', () => expect(input('2026-10-19T08:30:00').type).toBe('datetime-local'));
+  it('time: false wins', () => expect(input('2026-10-19T08:30:00', false).type).toBe('date'));
+});

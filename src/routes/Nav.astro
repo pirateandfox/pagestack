@@ -1,0 +1,22 @@
+---
+// The bar across the top of every screen except the block editor, which has its own.
+import { collections, editorOf, globals, opts } from '../server/context';
+const { current } = Astro.props as { current: string };
+const user = editorOf(Astro.locals);
+const firstGlobal = Object.keys(globals)[0];
+const links = [
+  { id: 'pages', label: 'Pages', href: '/edit' },
+  ...Object.entries(collections).map(([id, c]) => ({ id: `collection-${id}`, label: c.label, href: `/edit/collection/${id}` })),
+  { id: 'media', label: 'Media', href: '/edit/media' },
+  ...(firstGlobal ? [{ id: 'settings', label: Object.keys(globals).length > 1 ? 'Site settings' : globals[firstGlobal].label, href: `/edit/global/${firstGlobal}` }] : []),
+  ...(opts.auth === 'passkey' && user?.role === 'admin' ? [{ id: 'users', label: 'Users', href: '/edit/users' }] : []),
+];
+---
+<nav class="ase-nav" aria-label="Editor">
+  <a class="ase-nav__site" href="/edit">{opts.siteName}</a>
+  {links.map((l) => <a href={l.href} aria-current={l.id === current ? 'page' : undefined}>{l.label}</a>)}
+  <span class="ase-nav__user">
+    <a href="/" target="_blank" rel="noopener">View site ↗</a>
+    {user && opts.auth === 'passkey' && <span>Signed in as <strong>{user.name}</strong> · <a href="/api/editor/auth/logout">Sign out</a></span>}
+  </span>
+</nav>

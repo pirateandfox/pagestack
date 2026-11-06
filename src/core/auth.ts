@@ -65,7 +65,7 @@ export const clearCookieHeader = (name: string, secure: boolean) => cookieHeader
 export interface SessionPayload { kind: 'session'; sub: string; name: string }
 export interface ChallengePayload { kind: 'challenge'; challenge: string; purpose: 'login' | 'register'; invite?: InvitePayload }
 /** `id` makes an invite single-use: it's recorded on the credential created from it. */
-export interface InvitePayload { kind: 'invite'; id: string; name: string; email: string }
+export interface InvitePayload { kind: 'invite'; id: string; name: string; email: string; role?: 'admin' | 'editor' }
 
 export const createSession = (user: { id: string; name: string }, secret: string) => sign<SessionPayload>({ kind: 'session', sub: user.id, name: user.name }, secret, SESSION_TTL);
 export const readSession = async (cookieHeaderValue: string | null, secret: string) => {
@@ -76,5 +76,11 @@ export const CHALLENGE_TTL = 300;
 export const createChallengeToken = (challenge: string, purpose: ChallengePayload['purpose'], secret: string, invite?: InvitePayload) => sign<ChallengePayload>({ kind: 'challenge', challenge, purpose, invite }, secret, CHALLENGE_TTL);
 export const readChallengeToken = async (token: string, secret: string) => { const p = await verify<ChallengePayload>(token, secret); return p?.kind === 'challenge' ? p : null; };
 export const INVITE_TTL = 60 * 60 * 24 * 3; // 3 days
-export const createInvite = (name: string, email: string, secret: string, ttlSeconds = INVITE_TTL, now = Date.now()) => sign<InvitePayload>({ kind: 'invite', id: randomChallenge(12), name: name.trim(), email: email.trim().toLowerCase() }, secret, ttlSeconds, now);
+export const createInvite = (name: string, email: string, secret: string, ttlSeconds = INVITE_TTL, now = Date.now(), role?: InvitePayload['role']) => sign<InvitePayload>({ kind: 'invite', id: randomChallenge(12), name: name.trim(), email: email.trim().toLowerCase(), ...(role ? { role } : {}) }, secret, ttlSeconds, now);
 export const readInvite = async (token: string, secret: string) => { const p = await verify<InvitePayload>(token, secret); return p?.kind === 'invite' ? p : null; };
+
+/** Where to go after login: a path on this site only. Browsers read `/\\host` as `//host`. */
+export function safeNext(next: unknown): string {
+  if (typeof next !== 'string' || !next.startsWith('/') || /[\\\u0000-\u001f]/.test(next)) return '/edit';
+  try { return new URL(next, 'http://x').host === 'x' ? next : '/edit'; } catch { return '/edit'; }
+}
