@@ -90,6 +90,9 @@ describe('GitHubStorage', () => {
     expect(await s.listDir('nope')).toEqual([]);
     expect(await s.pendingAsset('public/images/new.png')).toEqual(new Uint8Array([1, 2, 3]));
     expect(await s.pendingAsset('public/images/a.jpg')).toBeUndefined();
+    expect(await s.asset('public/images/new.png')).toEqual(new Uint8Array([1, 2, 3])); // staged
+    expect(await s.asset('public/images/a.jpg')).toEqual(new TextEncoder().encode('xx')); // committed since the build
+    expect(await s.asset('public/images/none.jpg')).toBeUndefined();
   });
   it('commits text changes plus staged assets as one commit on the branch', async () => {
     const gh = fakeGitHub();

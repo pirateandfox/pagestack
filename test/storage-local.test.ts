@@ -34,6 +34,7 @@ describe('LocalStorage', () => {
     await s.putAsset('public/images/uploads/x.png', bytes);
     expect(new Uint8Array(await fs.readFile(path.join(root, 'public/images/uploads/x.png')))).toEqual(bytes);
     expect(await s.pendingAsset()).toBeUndefined();
+    expect(await s.asset()).toBeUndefined();
   });
   it('refuses to escape the root', async () => {
     const s = new LocalStorage(root);

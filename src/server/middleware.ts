@@ -1,10 +1,9 @@
 // Guards /edit/* and /api/editor/*. Public pages are untouched (and don't exist in SSR anyway:
-// they're prerendered). In github mode it also serves uploads that are staged but not committed.
+// they're prerendered). Uploads the build doesn't have are served by routes/uploaded.ts.
 import { defineMiddleware } from 'astro:middleware';
 import { activeUser, opts, secret, storage, publicUrl } from './context';
 import { SESSION_COOKIE, clearCookieHeader, readSession } from '../core/auth';
 import { roleOf } from '../core/users';
-import { EXT_MIME, IMAGE_RE } from '../core/media';
 import { rateLimiter } from '../core/ratelimit';
 
 const PUBLIC = [/^\/edit\/login\/?$/, /^\/edit\/enroll\/?$/, /^\/api\/editor\/auth\//];
@@ -52,13 +51,6 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const { request } = ctx;
   const isEditor = pathname === '/edit' || pathname.startsWith('/edit/') || pathname.startsWith('/api/editor/');
 
-  // Staged uploads (github storage) — served until the next save commits them.
-  // Only for a signed-in editor: drafts preview them, and visitors shouldn't spend the API quota.
-  if (!isEditor && opts.storage === 'github' && (opts.publicDir + pathname).startsWith(`${opts.uploadsDir}/`) && IMAGE_RE.test(pathname)
-    && (opts.auth !== 'passkey' || await readSession(request.headers.get('cookie'), secret()))) {
-    const pending = await storage().pendingAsset(opts.publicDir + pathname).catch(() => undefined);
-    if (pending) return new Response(pending as BodyInit, { headers: { 'content-type': EXT_MIME[pathname.slice(pathname.lastIndexOf('.') + 1).toLowerCase()] ?? 'application/octet-stream', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" } });
-  }
   if (!isEditor) return next();
 
   // A form POST here is the Preview button: an unsaved draft shown in its own tab, walled off from the session.

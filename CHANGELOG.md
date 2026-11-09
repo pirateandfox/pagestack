@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-beta.7 — 2026-11-09
+
+- **Collection items on their own page**: with `previews: { <collection>: './Layout.astro' }`, an item opens in the site's layout and is edited in place: title and fields, paragraphs and headings (back to Markdown, only that block's lines change), images, with Page / Markdown views and Preview in a tab. New runtime export `itemField` and type `ItemPreviewProps`. The frame is sandboxed, so the site's own scripts (analytics, spam checks) don't run in the editor.
+- **Uploads show in a deployed editor**: images uploaded or committed after the editor was built were 404s on Workers (the static 404 page answered before any editor code ran). They are now served from the repo to signed-in editors by a route at the uploads URL. Storage adapters gain `asset(path)`.
+- Image fields redraw after a pick in the item and global editors (they used to show "No image" until a reload). `altField` on an `asUrl` image field takes the alt text from the picker.
+- Passkeys must verify the user (Touch ID, PIN). The request said "preferred" while the check required it, so an authenticator that skipped it was refused with a confusing error.
+- The item editor's title is the large heading it was meant to be (an invalid `font` shorthand was ignored).
+
 ## 0.1.0-beta.6 — 2026-11-06
 
 - **`pages: false`** for a site with no block pages: `renderer` becomes optional, and the Pages screen and Add page go away.

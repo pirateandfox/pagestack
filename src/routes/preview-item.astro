@@ -1,0 +1,33 @@
+---
+// A collection item on its own page layout: the component the site names in `previews`, fed the
+// item's frontmatter and its body rendered to HTML. GET renders what is stored; a JSON POST renders
+// the unsaved item in edit mode (data-ase-* markers); a form POST (Preview button) renders it
+// plainly for a look in a tab, sandboxed by the middleware.
+import { previews } from 'virtual:pagestack/previews';
+import { collections, storage } from '../server/context';
+import { parseMarkdown } from '../core/frontmatter';
+import { renderMarkdown } from '../core/markdown';
+export const prerender = false;
+const id = Astro.params.id ?? '';
+const slug = Astro.params.slug ?? '';
+const Preview = Object.hasOwn(previews, id) ? (previews as Record<string, any>)[id] : null;
+if (!Preview || !Object.hasOwn(collections, id) || !/^[a-z0-9][a-z0-9_-]*$/i.test(slug)) return new Response('Not found', { status: 404 });
+let data: Record<string, any> = {};
+let body = '';
+let editing = true;
+try {
+  if (Astro.request.method === 'POST') {
+    const json = (Astro.request.headers.get('content-type') ?? '').includes('json');
+    const item = json ? await Astro.request.json() : JSON.parse(String((await Astro.request.formData()).get('item')));
+    editing = json;
+    data = item?.data && typeof item.data === 'object' && !Array.isArray(item.data) ? item.data : {};
+    body = typeof item?.body === 'string' ? item.body : '';
+  } else {
+    const raw = await storage().readFile(`${collections[id].dir}/${slug}.md`);
+    if (raw === null) return new Response('Not found', { status: 404 });
+    ({ data, body } = parseMarkdown(raw));
+  }
+} catch { return new Response('Bad preview request', { status: 400 }); }
+const { html, headings } = renderMarkdown(body, { editing });
+---
+<Preview item={{ id: slug, collection: id, data, body, html, headings }} editing={editing} />

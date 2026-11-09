@@ -84,7 +84,15 @@ export class GitHubStorage implements Storage {
   }
 
   async pendingAsset(p: string): Promise<Uint8Array | undefined> {
-    const data = await this.req<any>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${UPLOADS}`, undefined, true);
+    return this.bytesAt(p, UPLOADS);
+  }
+
+  async asset(p: string): Promise<Uint8Array | undefined> {
+    return (await this.pendingAsset(p)) ?? this.bytesAt(p, this.branch);
+  }
+
+  private async bytesAt(p: string, ref: string): Promise<Uint8Array | undefined> {
+    const data = await this.req<any>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${encodeURIComponent(ref)}`, undefined, true);
     if (!data || data.type !== 'file') return undefined;
     const content = data.encoding === 'base64' ? data.content : (await this.req<any>('GET', `${this.repoUrl}/git/blobs/${data.sha}`)).content;
     return fromBase64(String(content).replace(/\n/g, ''));

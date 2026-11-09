@@ -13,6 +13,7 @@ import path from 'node:path';
 
 const VIRTUAL = 'virtual:pagestack/site';
 const VIRTUAL_RENDERER = 'virtual:pagestack/renderer';
+const VIRTUAL_PREVIEWS = 'virtual:pagestack/previews';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
 
@@ -20,6 +21,9 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
  * @typedef {object} SectionEditorOptions
  * @property {string} [renderer] Astro component rendering a page: props { page, editing }. Required unless `pages: false`.
  * @property {boolean} [pages]   false for a site with no block pages: only collections, globals and media.
+ * @property {Record<string, string>} [previews]  Per collection id, an Astro component that lays out one item
+ *                        the way the site does: props { item: { id, collection, data, body, html, headings }, editing }.
+ *                        With one, the item opens on its page and its text is edited in place.
  * @property {string} sections   Module exporting { schemas, presets } (see runtime.ts types).
  * @property {string} [pagesDir='src/content/pages']  Directory of <slug>.json pages.
  * @property {string} [imagesDir='public/images']     Browsable image library root.
@@ -49,6 +53,14 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
  */
 
 /** Top-level URLs taken by the host's own route files (dynamic ones can't be known here). */
+/** URL prefix of the uploads folder ('/images/uploads'), or null when uploads aren't public files or would be a site-wide catch-all. */
+export function uploadsUrlPrefix(uploadsDir, publicDir) {
+  const up = uploadsDir.replace(/\\/g, '/').replace(/\/+$/, ''), pub = publicDir.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!up.startsWith(pub + '/')) return null;
+  const rest = up.slice(pub.length + 1);
+  return rest && !rest.split('/').some((s) => s === '..' || s === '.' || /[[\]]/.test(s)) ? '/' + rest : null;
+}
+
 function staticRoutes(srcDir) {
   try {
     return fs.readdirSync(path.join(srcDir, 'pages'), { withFileTypes: true })
@@ -101,17 +113,22 @@ export default function sectionEditor(userOptions) {
         const root = fileURLToPath(config.root);
         const abs = (p) => path.isAbsolute(p) ? p : path.resolve(root, p);
         const reservedSlugs = [...new Set([...(options.reservedSlugs ?? []), ...staticRoutes(fileURLToPath(config.srcDir))])];
-        const serial = { ...options, reservedSlugs, root, renderer: options.renderer ? abs(options.renderer) : null, sections: abs(options.sections), command };
+        const serial = { ...options, reservedSlugs, root, renderer: options.renderer ? abs(options.renderer) : null, previews: Object.fromEntries(Object.entries(options.previews ?? {}).map(([k, v]) => [k, abs(v)])), sections: abs(options.sections), command };
 
         updateConfig({
           vite: {
             plugins: [{
               name: 'pagestack:virtual',
-              resolveId(id) { if (id === VIRTUAL || id === VIRTUAL_RENDERER) return '\0' + id; },
+              resolveId(id) { if (id === VIRTUAL || id === VIRTUAL_RENDERER || id === VIRTUAL_PREVIEWS) return '\0' + id; },
               load(id) {
                 // The renderer (and the site layout/CSS behind it) is only imported by the preview
                 // route, so the editor shell doesn't drag the whole site's CSS into its page.
                 if (id === '\0' + VIRTUAL_RENDERER) return serial.renderer ? `export { default as Renderer } from ${JSON.stringify(serial.renderer)};` : 'export const Renderer = null;';
+                // Item layouts, like the renderer, load only on the route that shows them.
+                if (id === '\0' + VIRTUAL_PREVIEWS) {
+                  const entries = Object.entries(serial.previews);
+                  return [...entries.map(([, file], i) => `import P${i} from ${JSON.stringify(file)};`), `export const previews = { ${entries.map(([k], i) => `${JSON.stringify(k)}: P${i}`).join(', ')} };`].join('\n');
+                }
                 if (id !== '\0' + VIRTUAL) return;
                 return [
                   `export * as site from ${JSON.stringify(serial.sections)};`,
@@ -139,6 +156,7 @@ export default function sectionEditor(userOptions) {
         injectRoute({ pattern: '/edit/login', entrypoint: route('login.astro'), prerender: false });
         injectRoute({ pattern: '/edit/enroll', entrypoint: route('enroll.astro'), prerender: false });
         injectRoute({ pattern: '/edit/preview/[...slug]', entrypoint: route('preview.astro'), prerender: false });
+        injectRoute({ pattern: '/edit/preview-item/[id]/[...slug]', entrypoint: route('preview-item.astro'), prerender: false });
         injectRoute({ pattern: '/edit/global/[id]', entrypoint: route('edit-global.astro'), prerender: false });
         injectRoute({ pattern: '/edit/collection/[id]', entrypoint: route('edit-collection.astro'), prerender: false });
         injectRoute({ pattern: '/edit/collection/[id]/[...slug]', entrypoint: route('edit-item.astro'), prerender: false });
@@ -154,6 +172,9 @@ export default function sectionEditor(userOptions) {
         injectRoute({ pattern: '/api/editor/users', entrypoint: route('api/users.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/asset/[...path]', entrypoint: route('api/asset.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/auth/[action]', entrypoint: route('api/auth.ts'), prerender: false });
+        // Uploads saved after this editor was built aren't static files in it; serve them from the repo.
+        const uploadsUrl = options.storage === 'github' && uploadsUrlPrefix(options.uploadsDir, options.publicDir);
+        if (uploadsUrl) injectRoute({ pattern: `${uploadsUrl}/[...path]`, entrypoint: route('uploaded.ts'), prerender: false });
         logger.info(`enabled — storage: ${options.storage}, auth: ${options.auth}. Open /edit`);
       },
     },

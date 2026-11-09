@@ -40,6 +40,8 @@ export interface Field {
   time?: boolean;
   /** For 'image': store just the URL string instead of { src, alt }. */
   asUrl?: boolean;
+  /** With `asUrl`: the text field that holds the image's alt text; the picker fills it. */
+  altField?: string;
 }
 
 export interface BlockSchema {
@@ -132,6 +134,18 @@ export function nodeAttrs(edit: EditCtx | undefined, node: Node): Record<string,
 }
 export function fieldAttrs(edit: EditCtx | undefined, name: string, type: FieldType): Record<string, string> {
   return edit ? { 'data-ase-field': `${edit.path}.settings.${name}`, 'data-ase-field-type': type } : {};
+}
+/**
+ * Click-to-edit markers for a collection item's own fields in its `previews` layout, e.g.
+ * `<h1 {...itemField(editing, 'title')}>`. Empty outside the editor.
+ */
+export function itemField(editing: boolean | undefined, name: string, type: 'text' | 'image' = 'text'): Record<string, string> {
+  return editing ? { 'data-ase-field': name, 'data-ase-field-type': type } : {};
+}
+/** What a `previews` layout receives. `html` is the sanitised body; render it with set:html. */
+export interface ItemPreviewProps {
+  item: { id: string; collection: string; data: Record<string, any>; body: string; html: string; headings: { depth: number; slug: string; text: string }[] };
+  editing: boolean;
 }
 /** Edit context for the i-th child block. */
 export function child(edit: EditCtx | undefined, i: number): EditCtx | undefined {

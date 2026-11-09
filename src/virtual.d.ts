@@ -1,4 +1,5 @@
 declare module 'virtual:pagestack/renderer' { export const Renderer: any; }
+declare module 'virtual:pagestack/previews' { export const previews: Record<string, any>; }
 declare module 'virtual:pagestack/site' {
   export const site: { schemas: Record<string, any>; presets: { label: string; description?: string; create: () => any }[] };
   export const options: Record<string, any>;

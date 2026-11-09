@@ -296,7 +296,14 @@ body.ase[data-left="add"] .ase-listview, body:not([data-left="add"]) .ase-insert
 .ase-item__grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
 .ase-item__grid > main { padding: 20px; min-width: 0; }
 .ase-item__side { padding: 16px; background: #fff; border-left: 1px solid var(--ase-border); min-height: calc(100vh - 100px); }
-.ase-item__title { width: 100%; box-sizing: border-box; border: 0; background: none; font: 600 28px/1.25 inherit; font-family: inherit; padding: 4px 0 12px; outline: none; }
+.ase-item__title { width: 100%; box-sizing: border-box; border: 0; background: none; font-family: inherit; font-weight: 600; font-size: 28px; line-height: 1.25; color: inherit; padding: 4px 0 12px; outline: none; }
+.ase-item__page { height: calc(100vh - 140px); min-height: 420px; border: 1px solid var(--ase-border); border-radius: 6px; overflow: hidden; background: #fff; }
+.ase-item__page iframe { width: 100%; height: 100%; border: 0; display: block; }
+.ase-item__grid > main:has(> .ase-item__page:not([hidden])) { padding: 12px; }
+.ase-seg { display: inline-flex; border: 1px solid var(--ase-border); border-radius: 6px; overflow: hidden; }
+.ase-seg__btn { all: unset; cursor: pointer; padding: 5px 12px; font-size: 13px; color: inherit; }
+.ase-seg__btn[aria-pressed="true"] { background: #1f2937; color: #fff; }
+.ase-seg__btn:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 .ase-mdbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; background: #fff; border: 1px solid var(--ase-border); border-bottom: 0; border-radius: 6px 6px 0 0; }
 .ase-mdsplit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 240px); min-height: 360px; border: 1px solid var(--ase-border); border-radius: 0 0 6px 6px; background: #fff; }
 .ase-mdsplit textarea { border: 0; border-right: 1px solid var(--ase-border); padding: 14px; font: 14px/1.6 ui-monospace, Menlo, monospace; resize: none; outline: none; background: none; }

@@ -12,7 +12,7 @@ Host sites pin an npm version and bump when they want a new one.
 - [x] Rich-text sanitising on save.
 - [x] **Hardening**: login rate limiting, upload validation, resizing and size cap, removing users and passkeys, roles, CSRF and header protection.
 - [x] **Cloudflare adapter** runs on workerd locally, against a stand-in for the GitHub API.
-- [ ] Deploy to a real Worker with a real repo, and sign in with a passkey there.
+- [x] Deploy to a real Worker with a real repo, and sign in with a passkey there (sentiosonics.com, 2026-11).
 - [ ] **Dev default off**: hosts enable the editor explicitly (`EDITOR=dev astro dev`) so plain `npm run dev` never writes content.
 
 ## Next
@@ -24,7 +24,10 @@ Host sites pin an npm version and bump when they want a new one.
 - [x] **Global content**: `globals` JSON files with their own fields, repeatable rows via the `list` field.
 - [x] **Media library screen**.
 - [x] **Blog posts**: Markdown collections (frontmatter form + body with live preview).
-- [ ] Change URL and revisions for collection items; a visual body editor.
+- [x] A visual body editor: collection items edited on their own page (`previews`).
+- [ ] Change URL and revisions for collection items.
+- [ ] Page view for the other Sentiosonics collections (research, news, science), and a way to add a list or table from the page.
+- [ ] Keep host scripts out of the block-page preview too (the item frame is already sandboxed).
 - [ ] A group field for nested frontmatter; reading collection fields from the host's Astro schema.
 - [x] **Synced patterns**, written to every copy in one commit.
 - [x] **Block transforms** and `/` in an empty block.

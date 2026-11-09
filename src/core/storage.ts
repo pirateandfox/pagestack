@@ -44,6 +44,11 @@ export interface Storage {
   readAt(path: string, sha: string): Promise<string | null>;
   /** A staged (uncommitted) asset, so the server can serve it in github mode. */
   pendingAsset(path: string): Promise<Uint8Array | undefined>;
+  /**
+   * An image the deployed build may not have yet: staged, else committed since the editor was
+   * built (the editor deployment doesn't rebuild on every save). undefined when neither.
+   */
+  asset(path: string): Promise<Uint8Array | undefined>;
 }
 
 export async function sha256(text: string): Promise<string> {

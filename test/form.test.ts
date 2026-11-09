@@ -121,6 +121,28 @@ describe('list fields', () => {
 });
 
 describe('image fields stored as a URL', () => {
+  it('redraws itself after a pick, for callers that never re-render', () => {
+    const root = document.createElement('div');
+    let pick: (img: any) => void = () => {};
+    renderForm(root, { label: 'P', fields: { og: { type: 'image', label: 'Image', asUrl: true } } }, {}, { onChange: () => {}, pickImage: (_c, done) => { pick = done; } });
+    expect(root.querySelector('.ase-field--image')?.textContent).toContain('No image');
+    (root.querySelector('.ase-field--image .ase-btn') as HTMLElement).click();
+    pick({ src: '/new.png', alt: 'x' });
+    expect(root.querySelector('.ase-thumb img')?.getAttribute('src')).toBe('/new.png');
+    expect(root.querySelector('.ase-field--image .ase-btn')?.textContent).toBe('Replace…');
+  });
+  it('fills the alt-text field named by altField, and hands it back to the picker', () => {
+    const root = document.createElement('div');
+    const out: [string, unknown][] = [];
+    let pick: (img: any) => void = () => {};
+    let given: any;
+    renderForm(root, { label: 'P', fields: { image: { type: 'image', label: 'Image', asUrl: true, altField: 'imageAlt' }, imageAlt: { type: 'text', label: 'Image description' } } }, { image: '/a.jpg', imageAlt: 'Old' }, { onChange: (n, v) => out.push([n, v]), pickImage: (c, done) => { given = c; pick = done; } });
+    (root.querySelector('.ase-field--image .ase-btn') as HTMLElement).click();
+    expect(given).toEqual({ src: '/a.jpg', alt: 'Old' });
+    pick({ src: '/b.jpg', alt: 'A gradient' });
+    expect(out).toEqual([['image', '/b.jpg'], ['imageAlt', 'A gradient']]);
+    expect((root.querySelector('#ase-f-imageAlt') as HTMLInputElement).value).toBe('A gradient');
+  });
   it('picks and clears a bare string', () => {
     const root = document.createElement('div');
     const out: unknown[] = [];

@@ -118,15 +118,35 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
     }
     case 'image': {
       // `asUrl` fields hold a bare URL (social images, menu pictures); the widget is the same.
-      const img: ImageValue = field.asUrl ? { src: (value as string) ?? '', alt: '' } : ((value as ImageValue) ?? { src: '', alt: '' });
-      const put = (v: ImageValue) => cb.onChange(name, field.asUrl ? v.src : v);
-      const thumb = el('div', { class: 'ase-thumb' }, img.src ? el('img', { src: img.src, alt: '' }) : el('span', { class: 'ase-muted' }, 'No image'));
-      const alt = el('input', { type: 'text', value: img.alt ?? '', placeholder: 'Alt text (describe the image)', 'aria-label': 'Alt text' }) as HTMLInputElement;
-      alt.addEventListener('change', () => put({ ...img, alt: alt.value }));
-      const choose = el('button', { type: 'button', class: 'ase-btn ase-btn--small', onclick: () => cb.pickImage(img.src ? img : undefined, put) }, img.src ? 'Replace…' : 'Choose…');
-      const clear = el('button', { type: 'button', class: 'ase-btn ase-btn--small ase-btn--ghost', onclick: () => put({ src: '', alt: '' }) }, 'Remove');
-      wrap.append(thumb, el('div', { class: 'ase-row' }, choose, img.src ? clear : null));
-      if (img.src) wrap.append(...(field.asUrl ? [] : [alt]), el('small', { class: 'ase-muted ase-ellipsis', title: img.src }, img.src));
+      // It redraws itself: not every caller re-renders the form after a change.
+      const box = el('div', { class: 'ase-field__image' });
+      const sibling = () => { if (!field.asUrl || !field.altField) return null; let top: HTMLElement = box; while (top.parentElement) top = top.parentElement; return top.querySelector<HTMLInputElement>(`#${CSS.escape(idPrefix + field.altField)}`); };
+      const draw = (img: ImageValue) => {
+        const put = (v: ImageValue) => {
+          cb.onChange(name, field.asUrl ? v.src : v);
+          // The picker always asks for alt text; with a bare URL it belongs in the sibling field.
+          if (field.asUrl && field.altField && v.src) {
+            cb.onChange(field.altField, v.alt);
+            const sib = sibling();
+            if (sib) sib.value = v.alt;
+          }
+          draw(v);
+        };
+        const thumb = el('div', { class: 'ase-thumb' }, img.src ? el('img', { src: img.src, alt: '' }) : el('span', { class: 'ase-muted' }, 'No image'));
+        const alt = el('input', { type: 'text', value: img.alt ?? '', placeholder: 'Alt text (describe the image)', 'aria-label': 'Alt text' }) as HTMLInputElement;
+        alt.addEventListener('change', () => { img = { ...img, alt: alt.value }; cb.onChange(name, img); });
+        const current = (): ImageValue | undefined => {
+          if (!img.src) return undefined;
+          const sib = sibling();
+          return sib ? { ...img, alt: sib.value } : img;
+        };
+        const choose = el('button', { type: 'button', class: 'ase-btn ase-btn--small', onclick: () => cb.pickImage(current(), put) }, img.src ? 'Replace…' : 'Choose…');
+        const clear = el('button', { type: 'button', class: 'ase-btn ase-btn--small ase-btn--ghost', onclick: () => put({ src: '', alt: '' }) }, 'Remove');
+        box.replaceChildren(thumb, el('div', { class: 'ase-row' }, choose, img.src ? clear : null));
+        if (img.src) box.append(...(field.asUrl ? [] : [alt]), el('small', { class: 'ase-muted ase-ellipsis', title: img.src }, img.src));
+      };
+      draw(field.asUrl ? { src: (value as string) ?? '', alt: '' } : ((value as ImageValue) ?? { src: '', alt: '' }));
+      wrap.append(box);
       break;
     }
     case 'svg': {

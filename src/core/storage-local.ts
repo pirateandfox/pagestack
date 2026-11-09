@@ -58,4 +58,5 @@ export class LocalStorage implements Storage {
     try { return (await run('git', ['show', `${sha}:${safeRelPath(p)}`], { cwd: this.root, maxBuffer: 16 * 1024 * 1024 })).stdout; } catch { return null; }
   }
   async pendingAsset(): Promise<undefined> { return undefined; }
+  async asset(): Promise<undefined> { return undefined; } // the dev server serves the working tree
 }

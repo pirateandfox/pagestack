@@ -22,7 +22,7 @@ export async function loginOptions(url: URL) {
   const { rpID } = relyingParty(url);
   // No allowCredentials: the browser offers every passkey it has for this site (discoverable
   // credentials), so there's no username step.
-  const options = await generateAuthenticationOptions({ rpID, userVerification: 'preferred' });
+  const options = await generateAuthenticationOptions({ rpID, userVerification: 'required' });
   const token = await createChallengeToken(options.challenge, 'login', secret());
   return { options, token };
 }
@@ -57,7 +57,7 @@ export async function registerOptions(url: URL, inviteToken: string) {
     userID: new TextEncoder().encode(existing?.id ?? `pending:${invite.id}`),
     attestationType: 'none',
     excludeCredentials: existing?.credentials.map((c) => ({ id: c.id, transports: c.transports as any })) ?? [],
-    authenticatorSelection: { residentKey: 'preferred', userVerification: 'preferred' },
+    authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
   });
   const token = await createChallengeToken(options.challenge, 'register', secret(), invite);
   return { options, token, invite: { name: invite.name, email: invite.email } };

@@ -213,6 +213,44 @@ export const globals = {
 };
 ```
 
+#### Editing a collection item on its own page
+
+Give a collection a layout in `previews` (an option on the integration) and its items open on that
+page in the editor: click the title, a paragraph or a heading and type; click an image to pick
+another; lists, tables and code open the Markdown with that block selected. **Page** and **Markdown**
+switch views, and Preview ↗ shows the unsaved item in a tab. An edited paragraph is turned back into
+Markdown and replaces only its own lines, so the rest of the file stays byte-for-byte as it was.
+
+```js
+pagestack({ /* … */ previews: { blog: './src/editor/PostPreview.astro' } })
+```
+
+The layout gets `{ item: { id, collection, data, body, html, headings }, editing }`. `html` is the
+sanitised body (render it with `set:html`), blocks already marked; `data` is the frontmatter as
+written, so apply the defaults and date parsing your content schema would. Mark the item's own
+fields with `itemField(editing, 'title')` from the runtime, or write the same two attributes
+(`data-ase-field`, `data-ase-field-type`) yourself. Sharing one component between the real page
+and the preview keeps them identical:
+
+```astro
+---
+// src/editor/PostPreview.astro
+import PostPage from '../components/PostPage.astro';
+const { item, editing } = Astro.props;
+---
+<PostPage data={{ ...item.data, date: new Date(item.data.date) }} headings={item.headings} editing={editing}>
+  <Fragment set:html={item.html} />
+</PostPage>
+```
+
+The preview renders on the editor's server (a Worker on Cloudflare), so whatever the layout imports
+must run there: no `node:fs` reads of the project, no native modules (sharp, resvg), and no import of
+`content.config.ts` (its loaders only run in a build). `getCollection` works. The page's own scripts
+don't run in the editor's frame.
+
+An image field stored as a bare URL can name its alt-text field, `{ type: 'image', asUrl: true,
+altField: 'imageAlt' }`, and the picker fills it in.
+
 Blocks can set `category` and `keywords` for the inserter. A `list` field is a repeatable group of
 `fields`, with `itemLabel` naming the field that titles each row.
 
@@ -235,7 +273,7 @@ than setting a hard limit. Passkeys are what actually stops guessing.
 | `storage` | Reads | Saves | Uploads |
 |---|---|---|---|
 | `local` (dev default) | working tree | writes the JSON file (you commit) | written to `public/images/uploads/` |
-| `github` (build default) | Contents API on `github.branch` | one commit via the Git Data API: blobs → tree → commit → ref; with `pullRequest: true` a new `site-editor/<timestamp>-<sha>` branch + PR instead | wait on a `pagestack-uploads` branch, shown to signed-in editors, until the next save brings them along |
+| `github` (build default) | Contents API on `github.branch` | one commit via the Git Data API: blobs → tree → commit → ref; with `pullRequest: true` a new `site-editor/<timestamp>-<sha>` branch + PR instead | wait on a `pagestack-uploads` branch until the next save brings them along; the editor serves them, and anything committed since it was built, to signed-in editors |
 
 The GitHub token (`GITHUB_TOKEN` or `EDITOR_GITHUB_TOKEN`) is read from the environment on the
 server only. A fine-grained token with *Contents: write* (and *Pull requests: write* for PR mode)
@@ -295,6 +333,7 @@ editor response is `noindex` and `no-store`.
 |---|---|---|
 | `renderer` | required, unless `pages: false` | Astro component rendering `{ page, editing }` |
 | `pages` | `true` | `false` for a site with no block pages: only collections, globals and media |
+| `previews` | `{}` | per collection id, an Astro layout for editing items on their page (see above) |
 | `sections` | required | module exporting `{ schemas, presets }` |
 | `pagesDir` | `src/content/pages` | |
 | `imagesDir` / `uploadsDir` / `publicDir` | `public/images` / `public/images/uploads` / `public` | |

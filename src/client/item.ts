@@ -5,8 +5,12 @@ import { sanitizeHtml } from '../core/sanitize';
 import { renderForm } from './form';
 import { pickImage } from './picker';
 import { promptDialog, toast } from './ui';
+import { InlineEditor } from './inline';
+import { blockAt, replaceBlock } from '../core/markdown';
+import { blockToMarkdown } from './tomarkdown';
+import previewCss from './preview.css?raw';
 
-interface Boot { id: string; slug: string; singular: string; fields: Record<string, Field>; data: Record<string, any>; body: string; hash: string; viewUrl: string | null; pages: { title: string; url: string }[] }
+interface Boot { id: string; slug: string; singular: string; fields: Record<string, Field>; data: Record<string, any>; body: string; hash: string; viewUrl: string | null; preview: boolean; pages: { title: string; url: string }[] }
 const boot = (window as any).__ASE_ITEM__ as Boot;
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const title = $<HTMLInputElement>('ase-item-title');
@@ -73,7 +77,7 @@ for (const [label, text, run] of tools) {
   b.addEventListener('click', run);
   $('ase-mdbar').append(b);
 }
-function changed() { draw(); touch(); }
+function changed() { draw(); touch(); schedulePage(); }
 body.addEventListener('input', changed);
 body.addEventListener('keydown', (e) => {
   if (!(e.metaKey || e.ctrlKey)) return;
@@ -83,6 +87,7 @@ body.addEventListener('keydown', (e) => {
 
 // ---- saving ----
 async function save(): Promise<boolean> {
+  if (frame && inline.isActive) inline.stop(true);
   saveBtn.disabled = true; status.textContent = 'Saving…';
   const res = await fetch(`/api/editor/collection/${boot.id}/${boot.slug}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data, body: body.value, base: hash }) });
   const d = await res.json();
@@ -100,8 +105,146 @@ addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
 
 // ---- start ----
 title.value = data.title ?? '';
-title.addEventListener('input', () => { data.title = title.value; touch(); });
+title.addEventListener('input', () => { data.title = title.value; touch(); schedulePage(); });
 body.value = boot.body;
 const { title: _, draft: __, ...side } = boot.fields;
-renderForm($('ase-item-form'), { label: boot.singular, fields: side }, data, { pickImage, pageUrls: boot.pages, onChange: (name, value) => { data[name] = value; touch(); } });
+const drawForm = () => renderForm($('ase-item-form'), { label: boot.singular, fields: side }, data, { pickImage, pageUrls: boot.pages, onChange: (name, value) => { data[name] = value; touch(); schedulePage(); } });
+drawForm();
 draw(); chrome();
+
+// ---- page mode: the item on its own layout, edited in place ----
+// The site's `previews` component renders it; body blocks carry data-ase-md="<index>", and an
+// edited paragraph or heading is turned back into Markdown and replaces only its own source.
+const frame = document.getElementById('ase-item-frame') as HTMLIFrameElement | null;
+const pageBox = document.getElementById('ase-item-page');
+const previewUrl = `/edit/preview-item/${boot.id}/${boot.slug}`;
+let mode: 'page' | 'markdown' = 'markdown';
+let frameReady = false;
+let pageTimer: ReturnType<typeof setTimeout> | undefined;
+let pageSeq = 0;
+let pageQueued = false;
+let editingBlock: { el: HTMLElement; index: number; depth?: number } | null = null;
+const fdoc = () => frame!.contentDocument!;
+
+function setMode(m: 'page' | 'markdown') {
+  if (!frame) return;
+  if (inline.isActive) inline.stop(true);
+  mode = m;
+  pageBox!.hidden = m !== 'page';
+  $('ase-item-md').hidden = m === 'page';
+  document.querySelectorAll<HTMLElement>('.ase-seg__btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  try { localStorage.setItem('ase-item-mode', m); } catch { /* private mode */ }
+  if (m === 'page') { if (!frame.src) frame.src = previewUrl; else if (frameReady) renderPage(); }
+}
+function schedulePage(ms = 300) { if (frame && mode === 'page') { clearTimeout(pageTimer); pageTimer = setTimeout(renderPage, ms); } }
+
+async function renderPage() {
+  if (!frameReady) return;
+  if (inline.isActive) { pageQueued = true; return; } // never swap the text under the cursor
+  const seq = ++pageSeq;
+  const res = await fetch(previewUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data, body: body.value }) }).catch(() => null);
+  if (!res || seq !== pageSeq) return;
+  const html = await res.text();
+  if (!res.ok) { toast(`Preview failed: ${html.slice(0, 160)}`, 'error'); return; }
+  if (inline.isActive) { pageQueued = true; return; }
+  const fresh = new DOMParser().parseFromString(html, 'text/html');
+  const win = frame!.contentWindow!; const y = win.scrollY;
+  fdoc().body.innerHTML = fresh.body.innerHTML;
+  fdoc().body.className = fresh.body.className;
+  win.scrollTo(0, y);
+}
+
+const inline = new InlineEditor({
+  pages: boot.pages,
+  onStart: () => {},
+  onInput: () => {},
+  onCommit: (path, value, didChange) => {
+    const blk = editingBlock; editingBlock = null;
+    if (didChange) {
+      if (blk) {
+        const md = blockToMarkdown(blk.el, blk.depth);
+        body.value = md ? replaceBlock(body.value, blk.index, md) : removeBlock(body.value, blk.index);
+      } else {
+        data[path] = value;
+        if (path === 'title') title.value = value;
+        else drawForm();
+      }
+      draw(); touch();
+    }
+    if (didChange || pageQueued) { pageQueued = false; schedulePage(0); }
+  },
+});
+const removeBlock = (md: string, i: number) => { const b = blockAt(md, i); return b ? md.slice(0, b.start) + md.slice(b.end) : md; };
+
+function onFrameClick(e: MouseEvent) {
+  const t = e.target as HTMLElement;
+  if (t.closest('.ase-rt, .ase-link, [data-ase-ui]')) return;
+  if (!t.closest('summary')) e.preventDefault(); // links don't navigate while editing
+  const field = t.closest<HTMLElement>('[data-ase-field]');
+  const blockEl = t.closest<HTMLElement>('[data-ase-md]');
+  if (field && !field.dataset.aseField!.startsWith('md:')) {
+    const name = field.dataset.aseField!;
+    if (field.dataset.aseFieldType === 'image') {
+      const f = boot.fields[name];
+      const cur = data[name];
+      pickImage(cur ? (typeof cur === 'string' ? { src: cur, alt: f?.altField ? data[f.altField] ?? '' : '' } : cur) : undefined, (img) => {
+        data[name] = f?.asUrl ? img.src : img;
+        if (f?.asUrl && f.altField) data[f.altField] = img.alt;
+        drawForm(); touch(); schedulePage(0);
+      });
+      return;
+    }
+    if (inline.activePath !== name) inline.start(field);
+    return;
+  }
+  if (blockEl) {
+    const index = Number(blockEl.dataset.aseMd);
+    const kind = blockEl.dataset.aseMdKind;
+    if (kind === 'text') {
+      if (editingBlock?.el === blockEl) return;
+      if (inline.isActive) inline.stop(true);
+      const src = blockAt(body.value, index);
+      editingBlock = { el: blockEl, index, depth: src?.type === 'heading' ? src.depth : undefined };
+      blockEl.dataset.aseField = `md:${index}`; blockEl.dataset.aseFieldType = 'richtext';
+      inline.start(blockEl);
+      return;
+    }
+    if (inline.isActive) inline.stop(true);
+    if (kind === 'image') {
+      const m = blockAt(body.value, index)?.raw.match(/!\[([^\]]*)\]\(([^)\s]+)/);
+      pickImage(m ? { src: m[2], alt: m[1] } : undefined, (img) => { body.value = replaceBlock(body.value, index, `![${img.alt.replace(/[[\]]/g, '')}](${img.src})`); changed(); });
+      return;
+    }
+    // Lists, tables, code: edit their Markdown, with the block selected.
+    const b = blockAt(body.value, index);
+    setMode('markdown');
+    if (b) { body.focus(); body.setSelectionRange(b.start, b.start + b.raw.trimEnd().length); }
+    return;
+  }
+  if (inline.isActive) inline.stop(true);
+}
+
+if (frame) {
+  frame.addEventListener('load', () => {
+    const d = fdoc();
+    const style = d.createElement('style'); style.textContent = previewCss + '[data-ase-md]{cursor:text}[data-ase-md]:hover{outline:1px dotted #2563eb;outline-offset:2px}[data-ase-md-kind="block"],[data-ase-md-kind="image"]{cursor:pointer}';
+    d.head.append(style);
+    d.addEventListener('click', onFrameClick, true);
+    d.addEventListener('submit', (e) => e.preventDefault(), true);
+    d.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (inline.isActive) inline.stop(true); if (dirty) save(); } });
+    frameReady = true;
+    if (dirty) renderPage();
+  });
+  document.querySelectorAll<HTMLElement>('.ase-seg__btn').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode as 'page' | 'markdown')));
+  let saved: string | null = null;
+  try { saved = localStorage.getItem('ase-item-mode'); } catch { /* private mode */ }
+  setMode(saved === 'markdown' ? 'markdown' : 'page');
+  // A look at the unsaved item as visitors will see it, in its own tab.
+  document.getElementById('ase-item-tab')?.addEventListener('click', () => {
+    if (inline.isActive) inline.stop(true);
+    const form = document.createElement('form');
+    form.method = 'POST'; form.action = previewUrl; form.target = '_blank'; form.hidden = true;
+    const input = document.createElement('input'); input.type = 'hidden'; input.name = 'item'; input.value = JSON.stringify({ data, body: body.value });
+    form.append(input); document.body.append(form); form.submit(); form.remove();
+  });
+}
