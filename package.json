@@ -1,6 +1,6 @@
 {
   "name": "@pirateandfox/pagestack",
-  "version": "0.1.0-beta.7",
+  "version": "0.1.0-beta.8",
   "description": "PageStack: visual section editor for Astro sites. Git-only, static public site, passkey login, saves are commits.",
   "license": "MIT",
   "type": "module",
