@@ -4,41 +4,41 @@ import { toast } from './ui';
 import { uploadImage } from './upload';
 
 export function pickImage(current: ImageValue | undefined, done: (img: ImageValue) => void) {
-  const root = document.getElementById('ase-modal-root')!;
+  const root = document.getElementById('ps-modal-root')!;
   root.innerHTML = `
-    <div class="ase-modal" role="dialog" aria-modal="true" aria-label="Choose an image">
-      <div class="ase-modal__box">
-        <header class="ase-modal__head">
+    <div class="ps-modal" role="dialog" aria-modal="true" aria-label="Choose an image">
+      <div class="ps-modal__box">
+        <header class="ps-modal__head">
           <strong>Choose an image</strong>
-          <input type="search" class="ase-picker__search" placeholder="Search by file name…" />
-          <label class="ase-btn ase-btn--small">Upload… <input type="file" accept="image/*" multiple hidden /></label>
-          <button type="button" class="ase-btn ase-btn--ghost ase-modal__close" aria-label="Close">×</button>
+          <input type="search" class="ps-picker__search" placeholder="Search by file name…" />
+          <label class="ps-btn ps-btn--small">Upload… <input type="file" accept="image/*" multiple hidden /></label>
+          <button type="button" class="ps-btn ps-btn--ghost ps-modal__close" aria-label="Close">×</button>
         </header>
-        <div class="ase-picker__grid" aria-live="polite"><p class="ase-muted">Loading…</p></div>
-        <div class="ase-picker__drop" hidden>Drop images to upload</div>
-        <footer class="ase-modal__foot">
-          <img class="ase-picker__preview" alt="" hidden />
-          <div class="ase-picker__meta">
-            <div class="ase-ellipsis ase-picker__src ase-muted"></div>
-            <input type="text" class="ase-picker__alt" placeholder="Alt text (required): describe the image for screen readers" value="${esc(current?.alt ?? '')}" />
+        <div class="ps-picker__grid" aria-live="polite"><p class="ps-muted">Loading…</p></div>
+        <div class="ps-picker__drop" hidden>Drop images to upload</div>
+        <footer class="ps-modal__foot">
+          <img class="ps-picker__preview" alt="" hidden />
+          <div class="ps-picker__meta">
+            <div class="ps-ellipsis ps-picker__src ps-muted"></div>
+            <input type="text" class="ps-picker__alt" placeholder="Alt text (required): describe the image for screen readers" value="${esc(current?.alt ?? '')}" />
           </div>
-          <button type="button" class="ase-btn ase-btn--primary ase-picker__use" disabled>Use image</button>
+          <button type="button" class="ps-btn ps-btn--primary ps-picker__use" disabled>Use image</button>
         </footer>
       </div>
     </div>`;
   const q = (s: string) => root.querySelector(s) as HTMLElement;
-  const grid = q('.ase-picker__grid');
-  const search = q('.ase-picker__search') as HTMLInputElement;
-  const altInput = q('.ase-picker__alt') as HTMLInputElement;
-  const useBtn = q('.ase-picker__use') as HTMLButtonElement;
-  const preview = q('.ase-picker__preview') as HTMLImageElement;
-  const srcLabel = q('.ase-picker__src');
+  const grid = q('.ps-picker__grid');
+  const search = q('.ps-picker__search') as HTMLInputElement;
+  const altInput = q('.ps-picker__alt') as HTMLInputElement;
+  const useBtn = q('.ps-picker__use') as HTMLButtonElement;
+  const preview = q('.ps-picker__preview') as HTMLImageElement;
+  const srcLabel = q('.ps-picker__src');
   let chosen: { src: string; width?: number; height?: number } | null = current?.src ? { src: current.src } : null;
   const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
   const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
-  q('.ase-modal__close').addEventListener('click', close);
-  q('.ase-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) close(); });
+  q('.ps-modal__close').addEventListener('click', close);
+  q('.ps-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) close(); });
 
   const select = (src: string) => {
     chosen = { src };
@@ -66,30 +66,30 @@ export function pickImage(current: ImageValue | undefined, done: (img: ImageValu
     const data = await res.json();
     if (my !== seq) return;
     grid.innerHTML = '';
-    if (!data.images?.length) { grid.innerHTML = '<p class="ase-muted">No images match.</p>'; return; }
+    if (!data.images?.length) { grid.innerHTML = '<p class="ps-muted">No images match.</p>'; return; }
     for (const img of data.images as { src: string; name: string }[]) {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'ase-picker__item' + (chosen?.src === img.src ? ' is-selected' : ''); b.dataset.src = img.src; b.title = img.src;
-      b.innerHTML = `<img loading="lazy" alt="" /><span class="ase-ellipsis">${esc(img.name)}</span>`;
+      b.type = 'button'; b.className = 'ps-picker__item' + (chosen?.src === img.src ? ' is-selected' : ''); b.dataset.src = img.src; b.title = img.src;
+      b.innerHTML = `<img loading="lazy" alt="" /><span class="ps-ellipsis">${esc(img.name)}</span>`;
       (b.firstElementChild as HTMLImageElement).src = img.src;
       b.addEventListener('click', () => select(img.src));
       grid.append(b);
     }
-    if (data.total > data.images.length) grid.append(Object.assign(document.createElement('p'), { className: 'ase-muted', textContent: `Showing ${data.images.length} of ${data.total}. Search to narrow down.` }));
+    if (data.total > data.images.length) grid.append(Object.assign(document.createElement('p'), { className: 'ps-muted', textContent: `Showing ${data.images.length} of ${data.total}. Search to narrow down.` }));
   }
   let t: any;
   search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(load, 200); });
   /** Uploads each file; the last one comes back selected, ready for its alt text. */
   async function upload(files: File[]) {
     if (!files.length) return;
-    grid.insertAdjacentHTML('afterbegin', '<p class="ase-muted ase-picker__uploading">Uploading…</p>');
+    grid.insertAdjacentHTML('afterbegin', '<p class="ps-muted ps-picker__uploading">Uploading…</p>');
     let last: { src: string; file: File } | null = null;
     for (const file of files) {
       const { src, error } = await uploadImage(file);
       if (!src) { toast(`${file.name}: ${error}`, 'error'); continue; }
       last = { src, file };
     }
-    grid.querySelector('.ase-picker__uploading')?.remove();
+    grid.querySelector('.ps-picker__uploading')?.remove();
     if (!last) return;
     await load();
     select(last.src);
@@ -97,7 +97,7 @@ export function pickImage(current: ImageValue | undefined, done: (img: ImageValu
     validate();
   }
   (q('input[type=file]') as HTMLInputElement).addEventListener('change', (e) => upload([...(e.target as HTMLInputElement).files ?? []]));
-  const box = q('.ase-modal__box'), drop = q('.ase-picker__drop');
+  const box = q('.ps-modal__box'), drop = q('.ps-picker__drop');
   const hasFiles = (e: DragEvent) => [...e.dataTransfer?.types ?? []].includes('Files');
   box.addEventListener('dragover', (e) => { if (!hasFiles(e)) return; e.preventDefault(); drop.hidden = false; });
   box.addEventListener('dragleave', (e) => { if (e.target === drop) drop.hidden = true; });

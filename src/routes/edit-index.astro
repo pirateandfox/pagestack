@@ -24,41 +24,41 @@ const globalLinks = Object.entries(globals).map(([id, g]) => ({ id, label: g.lab
     <meta name="robots" content="noindex" />
     <title>{opts.siteName} — pages</title>
   </head>
-  <body class="ase-index">
+  <body class="ps-index">
     <Nav current="pages" />
-    <main class="ase-index__main">
-      <header class="ase-index__head">
+    <main class="ps-index__main">
+      <header class="ps-index__head">
         <div>
           <h1>{opts.siteName}</h1>
-          <p class="ase-muted">Saving {opts.storage === 'github' ? 'commits to GitHub' : 'writes to the working tree'}.</p>
+          <p class="ps-muted">Saving {opts.storage === 'github' ? 'commits to GitHub' : 'writes to the working tree'}.</p>
         </div>
-        <button type="button" id="ase-add-page" class="ase-btn ase-btn--primary">Add page</button>
+        <button type="button" id="ps-add-page" class="ps-btn ps-btn--primary">Add page</button>
       </header>
       {globalLinks.length > 0 && (
-        <nav class="ase-globals" aria-label="Site settings">
-          {globalLinks.map((g) => <a href={`/edit/global/${g.id}`}><strong>{g.label}</strong>{g.description && <span class="ase-muted">{g.description}</span>}</a>)}
+        <nav class="ps-globals" aria-label="Site settings">
+          {globalLinks.map((g) => <a href={`/edit/global/${g.id}`}><strong>{g.label}</strong>{g.description && <span class="ps-muted">{g.description}</span>}</a>)}
         </nav>
       )}
-      <div class="ase-index__tools">
-        <h2>Pages <span class="ase-muted">{pages.length}</span></h2>
-        <input type="search" id="ase-page-search" placeholder="Search pages" aria-label="Search pages" />
+      <div class="ps-index__tools">
+        <h2>Pages <span class="ps-muted">{pages.length}</span></h2>
+        <input type="search" id="ps-page-search" placeholder="Search pages" aria-label="Search pages" />
       </div>
-      <ul class="ase-pagelist" id="ase-pagelist">
+      <ul class="ps-pagelist" id="ps-pagelist">
         {pages.map((p) => (
           <li data-slug={p.slug} data-search={`${p.title} ${p.slug}`.toLowerCase()}>
-            <a class="ase-pagelist__edit" href={`/edit/${p.slug}`}><strong>{p.title}{p.status === 'draft' && <span class="ase-pill">Draft</span>}</strong><span class="ase-muted">{publicPath(p.slug)} · {p.sections} {p.sections === 1 ? 'section' : 'sections'}</span></a>
-            <div class="ase-pagelist__actions">
-              {p.status !== 'draft' && <a class="ase-btn ase-btn--small ase-btn--ghost" href={publicPath(p.slug)} target="_blank" rel="noopener">View ↗</a>}
-              <button type="button" class="ase-btn ase-btn--small ase-btn--ghost" data-duplicate={p.slug}>Duplicate</button>
-              {p.slug !== 'index' && <button type="button" class="ase-btn ase-btn--small ase-btn--ghost ase-btn--danger" data-delete={p.slug}>Delete</button>}
+            <a class="ps-pagelist__edit" href={`/edit/${p.slug}`}><strong>{p.title}{p.status === 'draft' && <span class="ps-pill">Draft</span>}</strong><span class="ps-muted">{publicPath(p.slug)} · {p.sections} {p.sections === 1 ? 'section' : 'sections'}</span></a>
+            <div class="ps-pagelist__actions">
+              {p.status !== 'draft' && <a class="ps-btn ps-btn--small ps-btn--ghost" href={publicPath(p.slug)} target="_blank" rel="noopener">View ↗</a>}
+              <button type="button" class="ps-btn ps-btn--small ps-btn--ghost" data-duplicate={p.slug}>Duplicate</button>
+              {p.slug !== 'index' && <button type="button" class="ps-btn ps-btn--small ps-btn--ghost ps-btn--danger" data-delete={p.slug}>Delete</button>}
             </div>
           </li>
         ))}
       </ul>
       {!pages.length && <p>No pages yet in <code>{opts.pagesDir}</code>. Add the first one.</p>}
-      <p id="ase-no-match" class="ase-muted" hidden>No pages match.</p>
+      <p id="ps-no-match" class="ps-muted" hidden>No pages match.</p>
     </main>
-    <script is:inline set:html={`window.__ASE_PAGES__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
+    <script is:inline set:html={`window.__PS_PAGES__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
     <script>import '../client/pages.ts';</script>
   </body>
 </html>

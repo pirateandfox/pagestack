@@ -18,7 +18,7 @@ export class EditorState extends EventTarget {
     this.doc = doc;
     this.hash = hash;
     this.savedJson = JSON.stringify(doc);
-    this.key = `ase:draft:${slug}`;
+    this.key = `ps:draft:${slug}`;
   }
 
   get dirty() { return JSON.stringify(this.doc) !== this.savedJson; }
@@ -80,7 +80,7 @@ export class EditorState extends EventTarget {
   /** A draft saved earlier for this page, if it was based on the same stored version. */
   static restore(slug: string, hash: string): { doc: PageDoc; at: number } | null | 'stale' {
     try {
-      const raw = localStorage.getItem(`ase:draft:${slug}`);
+      const raw = localStorage.getItem(`ps:draft:${slug}`);
       if (!raw) return null;
       const d = JSON.parse(raw);
       if (d.base !== hash) return 'stale';

@@ -17,13 +17,13 @@ if (await readSession(Astro.request.headers.get('cookie'), secret())) return Ast
     <meta name="robots" content="noindex" />
     <title>Sign in — {opts.siteName}</title>
   </head>
-  <body class="ase-index">
-    <main class="ase-login" data-ase-auth="login" data-next={next}>
+  <body class="ps-index">
+    <main class="ps-login" data-ps-auth="login" data-next={next}>
       <h1>{opts.siteName}</h1>
-      <p class="ase-muted">Sign in with the passkey you set up for this site.</p>
-      <button type="button" class="ase-btn ase-btn--primary" id="ase-auth-go">Sign in with passkey</button>
-      <p class="ase-login__error" id="ase-auth-error" hidden></p>
-      <p class="ase-muted ase-login__hint">No passkey yet? Ask an existing editor for an invite link.</p>
+      <p class="ps-muted">Sign in with the passkey you set up for this site.</p>
+      <button type="button" class="ps-btn ps-btn--primary" id="ps-auth-go">Sign in with passkey</button>
+      <p class="ps-login__error" id="ps-auth-error" hidden></p>
+      <p class="ps-muted ps-login__hint">No passkey yet? Ask an existing editor for an invite link.</p>
     </main>
     <script>
       import '../client/auth.ts';

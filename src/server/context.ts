@@ -17,8 +17,8 @@ import type { SavedPattern } from '../core/insert';
 export { options, site };
 
 export interface EditorOptions {
-  root: string; renderer: string | null; previews?: Record<string, string>; pages?: boolean; sections: string; pagesDir: string; imagesDir: string; uploadsDir: string; publicDir: string; usersFile: string;
-  auth: 'none' | 'passkey' | 'none-behind-proxy'; storage: 'local' | 'github'; github: { repo: string; branch?: string; pullRequest?: boolean } | null;
+  root: string; renderer: string | null; previews?: Record<string, string>; previewScripts?: "site" | "all"; pages?: boolean; sections: string; pagesDir: string; imagesDir: string; uploadsDir: string; publicDir: string; usersFile: string;
+  auth: 'none' | 'passkey' | 'none-behind-proxy'; storage: 'local' | 'github'; github: { repo: string; branch?: string; pullRequest?: boolean; live?: string; stagingUrl?: string } | null;
   siteName: string; secretEnv: string; command: string; interactiveSelector: string;
   reservedSlugs: string[]; redirectsFile: string; patternsFile: string;
   /** Header carrying the client's IP behind a proxy, e.g. cf-connecting-ip. */
@@ -37,7 +37,7 @@ export function storage(): Storage {
   if (storageInstance) return storageInstance;
   if (opts.storage === 'github') {
     const token = process.env.GITHUB_TOKEN ?? process.env.EDITOR_GITHUB_TOKEN ?? '';
-    storageInstance = new GitHubStorage({ repo: opts.github!.repo, branch: opts.github!.branch, pullRequest: opts.github!.pullRequest, token, apiBase: process.env.EDITOR_GITHUB_API });
+    storageInstance = new GitHubStorage({ repo: opts.github!.repo, branch: opts.github!.branch, pullRequest: opts.github!.pullRequest, live: opts.github!.live, token, apiBase: process.env.EDITOR_GITHUB_API });
   } else {
     storageInstance = new LocalStorage(opts.root);
   }

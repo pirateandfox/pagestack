@@ -29,7 +29,7 @@ function inline(node: Node): string {
   }
 }
 
-/** Markdown for an edited paragraph or heading. `depth` makes its own text a heading of that level. */
+/** Markdown for an edited paragraph, heading, flat list or quote. `depth` makes its own text a heading of that level. */
 export function blockToMarkdown(el: HTMLElement, depth?: number): string {
   const out: string[] = [];
   const text = (nodes: Node[]) => nodes.map(inline).join('').replace(/ {2}\n$/, '').trim();
@@ -37,7 +37,9 @@ export function blockToMarkdown(el: HTMLElement, depth?: number): string {
   let loose: Node[] = [];
   const flush = () => { const t = text(loose); loose = []; if (t) out.push(depth ? head(depth, t) : t); };
   // The toolbar's heading, quote and list buttons, and Enter, leave block elements inside the edited one.
-  for (const n of el.childNodes) {
+  // A list or quote edited as a whole is its own first block.
+  const nodes = /^(UL|OL|BLOCKQUOTE)$/.test(el.tagName) ? [el as Node] : [...el.childNodes];
+  for (const n of nodes) {
     const tag = n.nodeType === 1 ? (n as HTMLElement).tagName : '';
     if (!BLOCK.has(tag)) { loose.push(n); continue; }
     flush();

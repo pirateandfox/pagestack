@@ -24,13 +24,13 @@ export class InlineEditor {
   start(el: HTMLElement) {
     if (this.active?.el === el) return;
     this.stop();
-    const path = el.dataset.aseField!;
-    const type = el.dataset.aseFieldType!;
+    const path = el.dataset.psField!;
+    const type = el.dataset.psFieldType!;
     if (type !== 'text' && type !== 'richtext') return;
     const original = el.innerHTML;
     this.active = { el, path, type, original };
     el.setAttribute('contenteditable', type === 'text' ? 'plaintext-only' : 'true');
-    el.setAttribute('data-ase-editing', '');
+    el.setAttribute('data-ps-editing', '');
     el.addEventListener('input', this.onInput);
     el.addEventListener('keydown', this.onKey);
     el.addEventListener('blur', this.onBlur);
@@ -53,7 +53,7 @@ export class InlineEditor {
     a.el.removeEventListener('blur', this.onBlur);
     a.el.removeEventListener('paste', this.onPaste);
     a.el.removeAttribute('contenteditable');
-    a.el.removeAttribute('data-ase-editing');
+    a.el.removeAttribute('data-ps-editing');
     a.el.ownerDocument.defaultView?.removeEventListener('scroll', this.place);
     a.toolbar?.remove();
     const value = this.read(a.el, a.type);

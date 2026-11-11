@@ -7,8 +7,27 @@ import { sanitizeHtml } from './sanitize';
 
 export interface Heading { depth: number; slug: string; text: string }
 
-/** Blocks whose text can be edited in place; the rest (lists, tables, code, HTML) open the Markdown. */
+/** Blocks whose text can be edited in place; the rest (tables, code, HTML) open the Markdown. */
 export const INLINE_BLOCKS = new Set(['paragraph', 'heading']);
+
+const PLAIN = new Set(['text', 'paragraph', 'space']);
+/**
+ * Whether a block can be edited on the page and turned back into Markdown without losing anything:
+ * paragraphs and headings; a flat list (no nesting, tasks or numbering that doesn't start at 1); a
+ * quote of one paragraph.
+ */
+function inlineEditable(tok: Token): boolean {
+  if (INLINE_BLOCKS.has(tok.type)) return true;
+  if (tok.type === 'list') {
+    const l = tok as Tokens.List;
+    return (!l.ordered || l.start === 1 || l.start === '') && l.items.every((it) => !it.task && it.tokens.every((t) => PLAIN.has(t.type)));
+  }
+  if (tok.type === 'blockquote') {
+    const q = (tok as Tokens.Blockquote).tokens.filter((t) => t.type !== 'space');
+    return q.length === 1 && q[0].type === 'paragraph';
+  }
+  return false;
+}
 
 /** github-slugger's rules, which Astro uses for heading ids. */
 export function slugger() {
@@ -24,7 +43,7 @@ export function slugger() {
 const lex = (md: string) => new Lexer({ gfm: true }).lex(md);
 const plain = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 
-/** Sanitised HTML for a Markdown body, with heading ids, and with `data-ase-md` block markers when editing. */
+/** Sanitised HTML for a Markdown body, with heading ids, and with `data-ps-md` block markers when editing. */
 export function renderMarkdown(md: string, { editing = false } = {}): { html: string; headings: Heading[] } {
   const tokens = lex(md);
   const slug = slugger();
@@ -43,9 +62,9 @@ export function renderMarkdown(md: string, { editing = false } = {}): { html: st
     }
     if (editing) {
       const only = (tok as Tokens.Paragraph).tokens?.filter((t) => !(t.type === 'text' && !t.raw.trim()));
-      const kind = tok.type === 'paragraph' && only?.length === 1 && only[0].type === 'image' ? 'image' : INLINE_BLOCKS.has(tok.type) ? 'text' : 'block';
-      html = html.replace(/^(\s*<[a-z][a-z0-9]*)/i, `$1 data-ase-md="${i}" data-ase-md-kind="${kind}"`);
-      if (!/^\s*</.test(html)) html = `<div data-ase-md="${i}" data-ase-md-kind="block">${html}</div>`;
+      const kind = tok.type === 'paragraph' && only?.length === 1 && only[0].type === 'image' ? 'image' : inlineEditable(tok) ? 'text' : 'block';
+      html = html.replace(/^(\s*<[a-z][a-z0-9]*)/i, `$1 data-ps-md="${i}" data-ps-md-kind="${kind}"`);
+      if (!/^\s*</.test(html)) html = `<div data-ps-md="${i}" data-ps-md-kind="block">${html}</div>`;
     }
     parts.push(html);
   });
@@ -76,3 +95,33 @@ export function replaceBlock(md: string, index: number, source: string): string 
   const trailing = b.raw.match(/\s*$/)![0];
   return md.slice(0, b.start) + source.trim() + trailing + md.slice(b.end);
 }
+
+/**
+ * `md` with a new block after block `after` (null: at the top), one blank line either side, and the
+ * index the new block has in `renderMarkdown` numbering.
+ */
+export function insertBlock(md: string, after: number | null, source: string): { md: string; index: number } {
+  const at = after === null ? 0 : (blockAt(md, after)?.end ?? md.length);
+  const before = md.slice(0, at).replace(/\s*$/, '');
+  const rest = md.slice(at).replace(/^\s*/, '');
+  const head = before ? `${before}\n\n` : '';
+  const next = `${head}${source.trim()}\n${rest ? `\n${rest}` : ''}`;
+  const tokens = lex(next);
+  let pos = 0, index = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    if (pos >= head.length && tokens[i].type !== 'space') { index = i; break; }
+    pos += tokens[i].raw.length;
+  }
+  return { md: next, index };
+}
+
+/** Starting Markdown for each kind of block the page can add. */
+export const NEW_BLOCKS = {
+  paragraph: 'Type here',
+  heading: '## Heading',
+  subheading: '### Subheading',
+  list: '- List item',
+  numbered: '1. List item',
+  quote: '> Quote',
+  table: '| Column | Column |\n| --- | --- |\n| Cell | Cell |',
+} as const;

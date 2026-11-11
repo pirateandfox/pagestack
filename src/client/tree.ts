@@ -21,14 +21,14 @@ export function renderTree(root: HTMLElement, doc: PageDoc, registry: SchemaRegi
 
   function list(nodes: Node[], listPath: string, depth: number): HTMLElement {
     const ul = document.createElement('ul');
-    ul.className = `ase-tree__list ase-tree__list--d${Math.min(depth, 3)}`;
+    ul.className = `ps-tree__list ps-tree__list--d${Math.min(depth, 3)}`;
     ul.dataset.list = listPath;
     nodes.forEach((n, i) => ul.append(item(n, `${listPath}.${i}`, depth)));
     Sortable.create(ul, {
-      group: { name: 'ase-tree', pull: true, put: (to, _from, dragEl) => cb.canDrop((dragEl as HTMLElement).dataset.path!, (to.el as HTMLElement).dataset.list!) },
+      group: { name: 'ps-tree', pull: true, put: (to, _from, dragEl) => cb.canDrop((dragEl as HTMLElement).dataset.path!, (to.el as HTMLElement).dataset.list!) },
       animation: 120,
-      handle: '.ase-tree__grip',
-      draggable: '.ase-tree__item',
+      handle: '.ps-tree__grip',
+      draggable: '.ps-tree__item',
       fallbackOnBody: true,
       swapThreshold: 0.65,
       onEnd: (evt) => {
@@ -44,18 +44,18 @@ export function renderTree(root: HTMLElement, doc: PageDoc, registry: SchemaRegi
     const canHold = !!allowedChildTypes(n.type, registry)?.length;
     const open = opened.has(n.id) || !!selected?.startsWith(path + '.');
     const li = document.createElement('li');
-    li.className = 'ase-tree__item' + (path === selected ? ' is-selected' : '') + (open ? ' is-open' : '');
+    li.className = 'ps-tree__item' + (path === selected ? ' is-selected' : '') + (open ? ' is-open' : '');
     li.dataset.path = path;
     const row = document.createElement('div');
-    row.className = 'ase-tree__row';
-    row.innerHTML = `<span class="ase-tree__grip" title="Drag to move">${icons.grip}</span>${hasKids || canHold ? `<button type="button" class="ase-tree__toggle" aria-label="Show contents" aria-expanded="${open}">▸</button>` : '<span class="ase-tree__toggle ase-tree__toggle--leaf"></span>'}<span class="ase-tree__label"></span><button type="button" class="ase-tree__menu" aria-label="Block options">${icons.more}</button>`;
-    row.querySelector('.ase-tree__label')!.textContent = nodeLabel(n, registry);
-    if (n.synced) { const pill = document.createElement('span'); pill.className = 'ase-pill ase-pill--synced'; pill.textContent = 'Synced'; row.querySelector('.ase-tree__label')!.after(pill); }
+    row.className = 'ps-tree__row';
+    row.innerHTML = `<span class="ps-tree__grip" title="Drag to move">${icons.grip}</span>${hasKids || canHold ? `<button type="button" class="ps-tree__toggle" aria-label="Show contents" aria-expanded="${open}">▸</button>` : '<span class="ps-tree__toggle ps-tree__toggle--leaf"></span>'}<span class="ps-tree__label"></span><button type="button" class="ps-tree__menu" aria-label="Block options">${icons.more}</button>`;
+    row.querySelector('.ps-tree__label')!.textContent = nodeLabel(n, registry);
+    if (n.synced) { const pill = document.createElement('span'); pill.className = 'ps-pill ps-pill--synced'; pill.textContent = 'Synced'; row.querySelector('.ps-tree__label')!.after(pill); }
     row.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
-      const menu = t.closest<HTMLElement>('.ase-tree__menu');
+      const menu = t.closest<HTMLElement>('.ps-tree__menu');
       if (menu) { cb.onMenu(path, menu); return; }
-      if (t.closest('.ase-tree__toggle')) {
+      if (t.closest('.ps-tree__toggle')) {
         const on = li.classList.toggle('is-open');
         if (on) opened.add(n.id); else opened.delete(n.id);
         return;

@@ -16,6 +16,7 @@ const { data, body } = parseMarkdown(raw);
 const boot = {
   id, slug, singular: c.singular ?? 'item', fields: c.fields, data, body, hash: await sha256(raw),
   viewUrl: c.url?.(slug) ?? null,
+  redirects: !!c.url && (await storage().readFile(opts.redirectsFile)) !== null,
   preview: Object.hasOwn(opts.previews ?? {}, id),
   pages: (await listPages()).filter((p) => p.status !== 'draft').map((p) => ({ title: p.title.split(/\s[-–|]\s/)[0], url: publicPath(p.slug) })),
 };
@@ -28,41 +29,42 @@ const boot = {
     <meta name="robots" content="noindex" />
     <title>Edit: {data.title ?? slug}</title>
   </head>
-  <body class="ase-index ase-item">
+  <body class="ps-index ps-item">
     <Nav current={`collection-${id}`} />
-    <header class="ase-item__top">
+    <header class="ps-item__top">
       <a href={`/edit/collection/${id}`}>← {c.label}</a>
       {boot.preview && (
-        <span class="ase-seg" role="group" aria-label="Edit as">
-          <button type="button" class="ase-seg__btn" data-mode="page" aria-pressed="true">Page</button>
-          <button type="button" class="ase-seg__btn" data-mode="markdown" aria-pressed="false">Markdown</button>
+        <span class="ps-seg" role="group" aria-label="Edit as">
+          <button type="button" class="ps-seg__btn" data-mode="page" aria-pressed="true">Page</button>
+          <button type="button" class="ps-seg__btn" data-mode="markdown" aria-pressed="false">Markdown</button>
         </span>
       )}
-      <span id="ase-item-status" class="ase-muted"></span>
-      <span class="ase-item__actions">
-        {boot.viewUrl && <a id="ase-item-view" class="ase-btn ase-btn--ghost" href={boot.viewUrl} target="_blank" rel="noopener">View ↗</a>}
-        {boot.preview && <button type="button" id="ase-item-tab" class="ase-btn ase-btn--ghost">Preview ↗</button>}
-        <button type="button" id="ase-item-draft" class="ase-btn ase-btn--ghost" hidden>Switch to draft</button>
-        <button type="button" id="ase-item-save" class="ase-btn" disabled>Save</button>
-        <button type="button" id="ase-item-publish" class="ase-btn ase-btn--primary" hidden>Publish</button>
+      <span id="ps-item-status" class="ps-muted"></span>
+      <span class="ps-item__actions">
+        {boot.viewUrl && <a id="ps-item-view" class="ps-btn ps-btn--ghost" href={boot.viewUrl} target="_blank" rel="noopener">View ↗</a>}
+        {boot.preview && <button type="button" id="ps-item-tab" class="ps-btn ps-btn--ghost">Preview ↗</button>}
+        <button type="button" id="ps-item-draft" class="ps-btn ps-btn--ghost" hidden>Switch to draft</button>
+        <button type="button" id="ps-item-save" class="ps-btn" disabled>Save</button>
+        <button type="button" id="ps-item-publish" class="ps-btn ps-btn--primary" hidden>Publish</button>
+        <button type="button" id="ps-item-more" class="ps-iconbtn" title="Options" aria-label="Options" data-icon="more"></button>
       </span>
     </header>
-    <div class="ase-item__grid">
+    <div class="ps-item__grid">
       <main>
-        {boot.preview && <div class="ase-item__page" id="ase-item-page" hidden><iframe id="ase-item-frame" title="Page preview" sandbox="allow-same-origin"></iframe></div>}
-        <div id="ase-item-md">
-        <input id="ase-item-title" class="ase-item__title" type="text" placeholder="Add title" aria-label="Title" />
-        <div class="ase-mdbar" id="ase-mdbar" role="toolbar" aria-label="Formatting"></div>
-        <div class="ase-mdsplit">
-          <textarea id="ase-item-body" aria-label="Content in Markdown" spellcheck="true"></textarea>
-          <article id="ase-item-preview" class="ase-mdpreview" aria-label="Preview"></article>
+        {boot.preview && <div class="ps-item__page" id="ps-item-page" hidden><iframe id="ps-item-frame" title="Page preview" sandbox="allow-same-origin"></iframe></div>}
+        <div id="ps-item-md">
+        <input id="ps-item-title" class="ps-item__title" type="text" placeholder="Add title" aria-label="Title" />
+        <div class="ps-mdbar" id="ps-mdbar" role="toolbar" aria-label="Formatting"></div>
+        <div class="ps-mdsplit">
+          <textarea id="ps-item-body" aria-label="Content in Markdown" spellcheck="true"></textarea>
+          <article id="ps-item-preview" class="ps-mdpreview" aria-label="Preview"></article>
         </div>
         </div>
       </main>
-      <aside id="ase-item-form" class="ase-item__side" aria-label="Details"></aside>
+      <aside id="ps-item-form" class="ps-item__side" aria-label="Details"></aside>
     </div>
-    <div id="ase-modal-root"></div>
-    <script is:inline set:html={`window.__ASE_ITEM__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
+    <div id="ps-modal-root"></div>
+    <script is:inline set:html={`window.__PS_ITEM__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
     <script>import '../client/item.ts';</script>
   </body>
 </html>

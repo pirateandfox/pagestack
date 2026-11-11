@@ -5,9 +5,9 @@ import { pickImage } from './picker';
 import { toast } from './ui';
 
 interface Boot { id: string; label: string; fields: Record<string, Field>; pages: { title: string; url: string }[] }
-const boot = (window as any).__ASE_GLOBAL__ as Boot;
-const root = document.getElementById('ase-global-form')!;
-const saveBtn = document.getElementById('ase-global-save') as HTMLButtonElement;
+const boot = (window as any).__PS_GLOBAL__ as Boot;
+const root = document.getElementById('ps-global-form')!;
+const saveBtn = document.getElementById('ps-global-save') as HTMLButtonElement;
 const url = `/api/editor/global/${boot.id}`;
 let doc: Record<string, unknown> = {};
 let hash: string | null = null;
@@ -28,6 +28,6 @@ saveBtn.addEventListener('click', async () => {
   const d = await r.json();
   if (!r.ok) { toast(d.error || 'Save failed', 'error'); saveBtn.disabled = false; return; }
   hash = d.hash; dirty = false;
-  toast(d.result.kind === 'github' ? 'Saved. The site will rebuild.' : "Saved to the working tree. Commit it with git when you're happy.", 'ok');
+  toast(d.result.kind === 'github' ? (document.getElementById('ps-live') ? 'Saved. Use Go live to put it on the site.' : 'Saved. The site will rebuild.') : "Saved to the working tree. Commit it with git when you're happy.", 'ok');
 });
 window.addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });

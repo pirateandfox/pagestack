@@ -15,28 +15,28 @@ const passkey = opts.auth === 'passkey';
     <meta name="robots" content="noindex" />
     <title>Users — {opts.siteName}</title>
   </head>
-  <body class="ase-index">
+  <body class="ps-index">
     <Nav current="users" />
-    <main class="ase-index__main">
-      <header class="ase-index__head"><div><h1>Users</h1><p class="ase-muted">Admins manage people and can write raw HTML. Editors do everything else.</p></div></header>
+    <main class="ps-index__main">
+      <header class="ps-index__head"><div><h1>Users</h1><p class="ps-muted">Admins manage people and can write raw HTML. Editors do everything else.</p></div></header>
       {passkey ? (
         <>
-          <ul class="ase-pagelist" id="ase-users"></ul>
-          <details class="ase-invite" open>
+          <ul class="ps-pagelist" id="ps-users"></ul>
+          <details class="ps-invite" open>
             <summary>Invite someone</summary>
-            <form id="ase-invite" class="ase-invite__form">
+            <form id="ps-invite" class="ps-invite__form">
               <input type="text" name="name" placeholder="Name" required />
               <input type="email" name="email" placeholder="Email" required />
               <select name="role" aria-label="Role"><option value="editor">Editor</option><option value="admin">Admin</option></select>
-              <button type="submit" class="ase-btn ase-btn--primary ase-btn--small">Create invite link</button>
+              <button type="submit" class="ps-btn ps-btn--primary ps-btn--small">Create invite link</button>
               <output></output>
             </form>
-            <p class="ase-muted">The link lets them create a passkey for this site. It works once and expires after 3 days. Their public key is committed to <code>{opts.usersFile}</code>; nothing secret is stored.</p>
+            <p class="ps-muted">The link lets them create a passkey for this site. It works once and expires after 3 days. Their public key is committed to <code>{opts.usersFile}</code>; nothing secret is stored.</p>
           </details>
         </>
       ) : <p>People are managed by your login proxy, not here.</p>}
     </main>
-    <div id="ase-modal-root"></div>
+    <div id="ps-modal-root"></div>
     {passkey && <script>import '../client/users.ts';</script>}
     {passkey && <script>import '../client/invite.ts';</script>}
   </body>

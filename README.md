@@ -4,8 +4,8 @@ A visual editor for Astro sites where pages are a stack of sections. Git-only: s
 the public site stays static, and nothing lives outside the repo.
 
 - The public site stays **fully static**. `astro build` is unchanged.
-- The editor (`/edit/*`, `/api/editor/*`) is on-demand rendered and only exists in `astro dev`
-  or in a build made with `EDITOR=1` (which adds `@astrojs/node`).
+- The editor (`/edit/*`, `/api/editor/*`) is on-demand rendered and only exists when asked for:
+  `EDITOR=dev astro dev`, or a build made with `EDITOR=1` (which adds `@astrojs/node` unless the site has an adapter).
 - Pages are JSON documents in the repo (`src/content/pages/<slug>.json`). Saving writes a file
   (dev) or makes **one commit** through the GitHub API (production). Nothing is stored anywhere else.
 - Login is **passkeys** (WebAuthn). Users' public keys live in a committed `editor-users.json`;
@@ -58,7 +58,8 @@ export default defineConfig({
 ```
 
 ```bash
-npm run dev                 # editor at http://localhost:4321/edit, saves to the working tree
+EDITOR=dev astro dev        # editor at http://localhost:4321/edit, saves to the working tree
+astro dev                   # the site alone: no editor, nothing can write content
 EDITOR=1 astro build        # dist/server (node) + dist/client — the editor for a host
 astro build                 # plain static site, no editor code
 ```
@@ -216,10 +217,16 @@ export const globals = {
 #### Editing a collection item on its own page
 
 Give a collection a layout in `previews` (an option on the integration) and its items open on that
-page in the editor: click the title, a paragraph or a heading and type; click an image to pick
-another; lists, tables and code open the Markdown with that block selected. **Page** and **Markdown**
-switch views, and Preview ↗ shows the unsaved item in a tab. An edited paragraph is turned back into
-Markdown and replaces only its own lines, so the rest of the file stays byte-for-byte as it was.
+page in the editor: click the title, a paragraph, a heading, a list or a quote and type; click an
+image to pick another; tables, code and nested lists open the Markdown with that block selected. The
+**+** beside a block, or `/` in an empty one, adds a paragraph, heading, list, quote, image or table
+there. **Page** and **Markdown** switch views, and Preview ↗ shows the unsaved item in a tab. An
+edited block is turned back into Markdown and replaces only its own lines, so the rest of the file
+stays byte-for-byte as it was.
+
+The ⋮ menu has **Change URL** (moves the file; with the collection's `url` and a redirects file, the
+old address redirects in the same commit), **Revisions** (the file's git history; Restore loads one
+as unsaved changes, covering the body and the fields the editor shows) and **Delete**.
 
 ```js
 pagestack({ /* … */ previews: { blog: './src/editor/PostPreview.astro' } })
@@ -229,7 +236,7 @@ The layout gets `{ item: { id, collection, data, body, html, headings }, editing
 sanitised body (render it with `set:html`), blocks already marked; `data` is the frontmatter as
 written, so apply the defaults and date parsing your content schema would. Mark the item's own
 fields with `itemField(editing, 'title')` from the runtime, or write the same two attributes
-(`data-ase-field`, `data-ase-field-type`) yourself. Sharing one component between the real page
+(`data-ps-field`, `data-ps-field-type`) yourself. Sharing one component between the real page
 and the preview keeps them identical:
 
 ```astro
@@ -246,7 +253,11 @@ const { item, editing } = Astro.props;
 The preview renders on the editor's server (a Worker on Cloudflare), so whatever the layout imports
 must run there: no `node:fs` reads of the project, no native modules (sharp, resvg), and no import of
 `content.config.ts` (its loaders only run in a build). `getCollection` works. The page's own scripts
-don't run in the editor's frame.
+are left out of the editor's frame.
+
+In the block editor's preview the site's own scripts do run (tabs, accordions), but scripts from
+other origins are refused, so analytics, captchas and chat widgets stay out of the editor.
+`previewScripts: 'all'` lifts that for a site whose preview needs an outside script.
 
 An image field stored as a bare URL can name its alt-text field, `{ type: 'image', asUrl: true,
 altField: 'imageAlt' }`, and the picker fills it in.
@@ -275,6 +286,21 @@ than setting a hard limit. Passkeys are what actually stops guessing.
 | `local` (dev default) | working tree | writes the JSON file (you commit) | written to `public/images/uploads/` |
 | `github` (build default) | Contents API on `github.branch` | one commit via the Git Data API: blobs → tree → commit → ref; with `pullRequest: true` a new `site-editor/<timestamp>-<sha>` branch + PR instead | wait on a `pagestack-uploads` branch until the next save brings them along; the editor serves them, and anything committed since it was built, to signed-in editors |
 
+### Staging and Go live
+
+With `github.live`, saves stay on `github.branch` (staging) and the public site builds from `live`.
+Every screen gets a **Go live** button counting the saved changes the live site doesn't have yet;
+it lists them, links to `github.stagingUrl` if you give one, and puts them all on `live` in one step.
+That is a fast-forward when nobody committed to `live` directly. When someone did, it makes a merge
+commit and moves staging to it; when their change conflicts, it refuses and says so, and a person
+merges in GitHub. A burst of saves becomes one production build.
+
+```js
+github: { repo: 'acme/site', branch: 'develop', live: 'main', stagingUrl: 'https://develop.acme.pages.dev/' }
+```
+
+Point the host's production deploy at `live` and its preview deploys at the staging branch.
+
 The GitHub token (`GITHUB_TOKEN` or `EDITOR_GITHUB_TOKEN`) is read from the environment on the
 server only. A fine-grained token with *Contents: write* (and *Pull requests: write* for PR mode)
 on the one repo is enough. The host that runs the editor rebuilds and deploys from the commit
@@ -287,7 +313,7 @@ like any other push.
 - `editor-users.json` (committed, path configurable with `usersFile`) holds users and the
   **public keys** of their passkeys. Nothing in it is secret.
 - `EDITOR_SECRET` (≥ 16 chars, environment only) signs three kinds of short-lived tokens:
-  WebAuthn challenges (5 min), the session cookie (`ase_session`, HttpOnly, SameSite=Lax, 12 h) and
+  WebAuthn challenges (5 min), the session cookie (`ps_session`, HttpOnly, SameSite=Lax, 12 h) and
   invite links (3 days). Tokens are `base64url(json).base64url(hmac-sha256)` with the expiry inside,
   so there is no server state.
 - **Invites** are single-use: the invite id is recorded on the credential it created. Make the first
@@ -340,8 +366,9 @@ editor response is `noindex` and `no-store`.
 | `usersFile` | `editor-users.json` | |
 | `auth` | `passkey` | `passkey` \| `none-behind-proxy` \| `none` |
 | `storage` | `local` in dev, `github` in build | |
-| `github` | — | `{ repo, branch, pullRequest }` |
-| `enabled` | dev, or `EDITOR=1` | |
+| `github` | — | `{ repo, branch, live?, stagingUrl?, pullRequest? }`: see Staging and Go live |
+| `previewScripts` | `'site'` | block-editor preview runs the site's own scripts only; `'all'` allows other origins too |
+| `enabled` | `EDITOR=dev` (dev) or `EDITOR=1` | Off otherwise, so plain `astro dev` never writes content |
 | `siteName`, `secretEnv` | `Site editor`, `EDITOR_SECRET` | |
 | `reservedSlugs` | `[]` | URLs Add page must refuse, on top of the editor's own and `src/pages` |
 | `redirectsFile` | `public/_redirects` | Change URL appends here, only if the file exists |

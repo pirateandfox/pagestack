@@ -130,17 +130,17 @@ export type SchemaRegistry = Record<string, BlockSchema>;
 export interface EditCtx { path: string }
 
 export function nodeAttrs(edit: EditCtx | undefined, node: Node): Record<string, string> {
-  return edit ? { 'data-ase-node': edit.path, 'data-ase-type': node.type, 'data-ase-id': node.id } : {};
+  return edit ? { 'data-ps-node': edit.path, 'data-ps-type': node.type, 'data-ps-id': node.id } : {};
 }
 export function fieldAttrs(edit: EditCtx | undefined, name: string, type: FieldType): Record<string, string> {
-  return edit ? { 'data-ase-field': `${edit.path}.settings.${name}`, 'data-ase-field-type': type } : {};
+  return edit ? { 'data-ps-field': `${edit.path}.settings.${name}`, 'data-ps-field-type': type } : {};
 }
 /**
  * Click-to-edit markers for a collection item's own fields in its `previews` layout, e.g.
  * `<h1 {...itemField(editing, 'title')}>`. Empty outside the editor.
  */
 export function itemField(editing: boolean | undefined, name: string, type: 'text' | 'image' = 'text'): Record<string, string> {
-  return editing ? { 'data-ase-field': name, 'data-ase-field-type': type } : {};
+  return editing ? { 'data-ps-field': name, 'data-ps-field-type': type } : {};
 }
 /** What a `previews` layout receives. `html` is the sanitised body; render it with set:html. */
 export interface ItemPreviewProps {

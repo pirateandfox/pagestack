@@ -23,33 +23,33 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string,
 export function renderForm(root: HTMLElement, schema: BlockSchema, settings: Record<string, unknown>, cb: FormCallbacks) {
   root.innerHTML = '';
   const groups = formModel(schema, settings);
-  if (!groups.length) { root.append(el('p', { class: 'ase-muted' }, 'This block has no settings.')); return; }
+  if (!groups.length) { root.append(el('p', { class: 'ps-muted' }, 'This block has no settings.')); return; }
   for (const g of groups) {
-    const body = el('div', { class: 'ase-fields' });
+    const body = el('div', { class: 'ps-fields' });
     for (const f of g.fields) body.append(fieldWidget(f.name, f.field, f.value, cb));
-    const details = el('details', { class: 'ase-group', open: g.name !== 'advanced' }, el('summary', {}, g.label), body) as HTMLDetailsElement;
+    const details = el('details', { class: 'ps-group', open: g.name !== 'advanced' }, el('summary', {}, g.label), body) as HTMLDetailsElement;
     root.append(details);
   }
 }
 
-function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbacks, idPrefix = 'ase-f-'): HTMLElement {
+function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbacks, idPrefix = 'ps-f-'): HTMLElement {
   const id = `${idPrefix}${name}`;
   const label = el('label', { for: id }, field.label);
-  const wrap = el('div', { class: `ase-field ase-field--${field.type}` }, label);
-  const help = field.help ? el('small', { class: 'ase-muted' }, field.help) : null;
+  const wrap = el('div', { class: `ps-field ps-field--${field.type}` }, label);
+  const help = field.help ? el('small', { class: 'ps-muted' }, field.help) : null;
   // `cancel` matters: a live update landing after `change` would reorder the edit and split its undo step.
   const debounce = (fn: () => void, ms = 250) => { let t: ReturnType<typeof setTimeout>; const run = () => { clearTimeout(t); t = setTimeout(fn, ms); }; run.cancel = () => clearTimeout(t); return run; };
 
   switch (field.type) {
     case 'text':
     case 'link': {
-      const input = el('input', { id, type: 'text', value: (value as string) ?? '', list: field.type === 'link' && cb.pageUrls?.length ? 'ase-page-urls' : undefined, placeholder: field.type === 'link' ? 'https://… or /page/' : '' }) as HTMLInputElement;
+      const input = el('input', { id, type: 'text', value: (value as string) ?? '', list: field.type === 'link' && cb.pageUrls?.length ? 'ps-page-urls' : undefined, placeholder: field.type === 'link' ? 'https://… or /page/' : '' }) as HTMLInputElement;
       const live = debounce(() => cb.onChange(name, input.value, { live: true }));
       input.addEventListener('input', live);
       input.addEventListener('change', () => { live.cancel(); cb.onChange(name, input.value); });
       wrap.append(input);
-      if (field.type === 'link' && cb.pageUrls?.length && !document.getElementById('ase-page-urls')) {
-        document.body.append(el('datalist', { id: 'ase-page-urls' }, ...cb.pageUrls.map((p) => el('option', { value: p.url }, p.title))));
+      if (field.type === 'link' && cb.pageUrls?.length && !document.getElementById('ps-page-urls')) {
+        document.body.append(el('datalist', { id: 'ps-page-urls' }, ...cb.pageUrls.map((p) => el('option', { value: p.url }, p.title))));
       }
       break;
     }
@@ -74,7 +74,7 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       break;
     case 'textarea':
     case 'code': {
-      const ta = el('textarea', { id, rows: field.type === 'code' ? 10 : 5, class: field.type === 'code' ? 'ase-mono' : '', spellcheck: 'false' }) as HTMLTextAreaElement;
+      const ta = el('textarea', { id, rows: field.type === 'code' ? 10 : 5, class: field.type === 'code' ? 'ps-mono' : '', spellcheck: 'false' }) as HTMLTextAreaElement;
       ta.value = (value as string) ?? '';
       ta.addEventListener('change', () => cb.onChange(name, ta.value));
       wrap.append(ta);
@@ -90,7 +90,7 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       const input = el('input', { id, type: 'checkbox' }) as HTMLInputElement;
       input.checked = !!value;
       input.addEventListener('change', () => cb.onChange(name, input.checked));
-      wrap.className += ' ase-field--inline';
+      wrap.className += ' ps-field--inline';
       wrap.innerHTML = ''; wrap.append(input, label);
       break;
     }
@@ -112,14 +112,14 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       const live = debounce(() => { sync(); cb.onChange(name, text.value, { live: true }); });
       text.addEventListener('input', live);
       text.addEventListener('change', () => { live.cancel(); sync(); cb.onChange(name, text.value); });
-      const clear = el('button', { type: 'button', class: 'ase-btn ase-btn--small ase-btn--ghost', title: 'Clear (use theme CSS)', onclick: () => { text.value = ''; sync(); cb.onChange(name, ''); } }, '×');
-      wrap.append(el('div', { class: 'ase-row' }, swatch, text, clear));
+      const clear = el('button', { type: 'button', class: 'ps-btn ps-btn--small ps-btn--ghost', title: 'Clear (use theme CSS)', onclick: () => { text.value = ''; sync(); cb.onChange(name, ''); } }, '×');
+      wrap.append(el('div', { class: 'ps-row' }, swatch, text, clear));
       break;
     }
     case 'image': {
       // `asUrl` fields hold a bare URL (social images, menu pictures); the widget is the same.
       // It redraws itself: not every caller re-renders the form after a change.
-      const box = el('div', { class: 'ase-field__image' });
+      const box = el('div', { class: 'ps-field__image' });
       const sibling = () => { if (!field.asUrl || !field.altField) return null; let top: HTMLElement = box; while (top.parentElement) top = top.parentElement; return top.querySelector<HTMLInputElement>(`#${CSS.escape(idPrefix + field.altField)}`); };
       const draw = (img: ImageValue) => {
         const put = (v: ImageValue) => {
@@ -132,7 +132,7 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
           }
           draw(v);
         };
-        const thumb = el('div', { class: 'ase-thumb' }, img.src ? el('img', { src: img.src, alt: '' }) : el('span', { class: 'ase-muted' }, 'No image'));
+        const thumb = el('div', { class: 'ps-thumb' }, img.src ? el('img', { src: img.src, alt: '' }) : el('span', { class: 'ps-muted' }, 'No image'));
         const alt = el('input', { type: 'text', value: img.alt ?? '', placeholder: 'Alt text (describe the image)', 'aria-label': 'Alt text' }) as HTMLInputElement;
         alt.addEventListener('change', () => { img = { ...img, alt: alt.value }; cb.onChange(name, img); });
         const current = (): ImageValue | undefined => {
@@ -140,10 +140,10 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
           const sib = sibling();
           return sib ? { ...img, alt: sib.value } : img;
         };
-        const choose = el('button', { type: 'button', class: 'ase-btn ase-btn--small', onclick: () => cb.pickImage(current(), put) }, img.src ? 'Replace…' : 'Choose…');
-        const clear = el('button', { type: 'button', class: 'ase-btn ase-btn--small ase-btn--ghost', onclick: () => put({ src: '', alt: '' }) }, 'Remove');
-        box.replaceChildren(thumb, el('div', { class: 'ase-row' }, choose, img.src ? clear : null));
-        if (img.src) box.append(...(field.asUrl ? [] : [alt]), el('small', { class: 'ase-muted ase-ellipsis', title: img.src }, img.src));
+        const choose = el('button', { type: 'button', class: 'ps-btn ps-btn--small', onclick: () => cb.pickImage(current(), put) }, img.src ? 'Replace…' : 'Choose…');
+        const clear = el('button', { type: 'button', class: 'ps-btn ps-btn--small ps-btn--ghost', onclick: () => put({ src: '', alt: '' }) }, 'Remove');
+        box.replaceChildren(thumb, el('div', { class: 'ps-row' }, choose, img.src ? clear : null));
+        if (img.src) box.append(...(field.asUrl ? [] : [alt]), el('small', { class: 'ps-muted ps-ellipsis', title: img.src }, img.src));
       };
       draw(field.asUrl ? { src: (value as string) ?? '', alt: '' } : ((value as ImageValue) ?? { src: '', alt: '' }));
       wrap.append(box);
@@ -156,7 +156,7 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       sel.append(el('option', { value: '' }, 'None'));
       for (const n of names) sel.append(el('option', { value: n, selected: value === n }, n));
       sel.append(el('option', { value: '__custom', selected: !!value && !isNamed }, 'Custom SVG…'));
-      const ta = el('textarea', { rows: 4, class: 'ase-mono', hidden: isNamed || !value, placeholder: '<svg …>…</svg>' }) as HTMLTextAreaElement;
+      const ta = el('textarea', { rows: 4, class: 'ps-mono', hidden: isNamed || !value, placeholder: '<svg …>…</svg>' }) as HTMLTextAreaElement;
       ta.value = !isNamed && typeof value === 'string' ? value : '';
       sel.addEventListener('change', () => { if (sel.value === '__custom') { ta.hidden = false; ta.focus(); } else { ta.hidden = true; cb.onChange(name, sel.value); } });
       ta.addEventListener('change', () => cb.onChange(name, ta.value));
@@ -176,7 +176,7 @@ function listWidget(name: string, field: Field, value: unknown, cb: FormCallback
   const fields = field.fields ?? {};
   let rows: Record<string, any>[] = Array.isArray(value) ? structuredClone(value) : [];
   const open = new Set<number>();
-  const root = el('div', { class: 'ase-list', id });
+  const root = el('div', { class: 'ps-list', id });
   const rowName = (row: Record<string, any>, i: number) => (field.itemLabel && row[field.itemLabel]) || `Item ${i + 1}`;
   const save = (live = false) => cb.onChange(name, structuredClone(rows), { live });
   const move = (from: number, to: number) => {
@@ -189,8 +189,8 @@ function listWidget(name: string, field: Field, value: unknown, cb: FormCallback
   const draw = () => {
     root.innerHTML = '';
     rows.forEach((row, i) => {
-      const title = el('span', { class: 'ase-ellipsis' }, rowName(row, i));
-      const body = el('div', { class: 'ase-fields' });
+      const title = el('span', { class: 'ps-ellipsis' }, rowName(row, i));
+      const body = el('div', { class: 'ps-fields' });
       for (const [k, sub] of Object.entries(fields)) {
         const rowCb: FormCallbacks = { ...cb, onChange: (key, v, o) => {
           if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) delete row[key]; else row[key] = v;
@@ -200,15 +200,15 @@ function listWidget(name: string, field: Field, value: unknown, cb: FormCallback
         body.append(fieldWidget(k, sub, row[k] ?? sub.default, rowCb, `${id}-${i}-`));
       }
       const remove = el('button', { type: 'button', title: 'Remove', 'aria-label': `Remove ${rowName(row, i)}`, onclick: (e: Event) => { e.preventDefault(); rows.splice(i, 1); open.clear(); save(); draw(); } }, '×');
-      const details = el('details', { class: 'ase-list__row', open: open.has(i), ontoggle: () => { if (details.open) open.add(i); else open.delete(i); } }, el('summary', {},
+      const details = el('details', { class: 'ps-list__row', open: open.has(i), ontoggle: () => { if (details.open) open.add(i); else open.delete(i); } }, el('summary', {},
         title,
-        el('span', { class: 'ase-list__tools' },
+        el('span', { class: 'ps-list__tools' },
           el('button', { type: 'button', title: 'Move up', 'aria-label': 'Move up', disabled: i === 0, onclick: (e: Event) => { e.preventDefault(); move(i, i - 1); } }, '↑'),
           el('button', { type: 'button', title: 'Move down', 'aria-label': 'Move down', disabled: i === rows.length - 1, onclick: (e: Event) => { e.preventDefault(); move(i, i + 1); } }, '↓'),
           remove)), body) as HTMLDetailsElement;
       root.append(details);
     });
-    root.append(el('button', { type: 'button', class: 'ase-btn ase-btn--small', onclick: () => {
+    root.append(el('button', { type: 'button', class: 'ps-btn ps-btn--small', onclick: () => {
       rows.push({});
       open.add(rows.length - 1);
       save(); draw();

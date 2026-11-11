@@ -7,7 +7,7 @@ import { LocalStorage } from '../src/core/storage-local';
 import { safeRelPath, sha256 } from '../src/core/storage';
 
 let root: string;
-beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'ase-local-')); });
+beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'ps-local-')); });
 afterEach(() => fs.rm(root, { recursive: true, force: true }));
 
 describe('LocalStorage', () => {

@@ -23,48 +23,50 @@ const boot = {
     <meta name="robots" content="noindex" />
     <title>Edit: {r.page.title}</title>
   </head>
-  <body class="ase">
-    <header class="ase-top">
-      <a class="ase-top__back" href="/edit" title="All pages" aria-label="All pages" data-icon="back"></a>
-      <button type="button" id="ase-toggle-add" class="ase-add-toggle" title="Add block (/)" aria-label="Add block" data-icon="plus"></button>
-      <button type="button" id="ase-toggle-list" class="ase-iconbtn is-active" title="List View (⌃⌥O)" aria-label="List View" data-icon="list"></button>
-      <button type="button" id="ase-undo" class="ase-iconbtn" title="Undo (⌘Z)" aria-label="Undo" data-icon="undo" disabled></button>
-      <button type="button" id="ase-redo" class="ase-iconbtn" title="Redo (⇧⌘Z)" aria-label="Redo" data-icon="redo" disabled></button>
-      <div class="ase-top__title"><strong id="ase-title">{r.page.title}</strong><span class="ase-muted">{publicPath(slug)} <span id="ase-draft-pill" class="ase-pill" hidden>Draft</span></span></div>
-      <div class="ase-top__actions">
-        <span id="ase-zoom" class="ase-muted" title="The preview is scaled to fit"></span>
-        <div class="ase-top__devices" role="group" aria-label="Preview width">
+  <body class="ps">
+    <header class="ps-top">
+      <a class="ps-top__back" href="/edit" title="All pages" aria-label="All pages" data-icon="back"></a>
+      <button type="button" id="ps-toggle-add" class="ps-add-toggle" title="Add block (/)" aria-label="Add block" data-icon="plus"></button>
+      <button type="button" id="ps-toggle-list" class="ps-iconbtn is-active" title="List View (⌃⌥O)" aria-label="List View" data-icon="list"></button>
+      <button type="button" id="ps-undo" class="ps-iconbtn" title="Undo (⌘Z)" aria-label="Undo" data-icon="undo" disabled></button>
+      <button type="button" id="ps-redo" class="ps-iconbtn" title="Redo (⇧⌘Z)" aria-label="Redo" data-icon="redo" disabled></button>
+      <div class="ps-top__title"><strong id="ps-title">{r.page.title}</strong><span class="ps-muted">{publicPath(slug)} <span id="ps-draft-pill" class="ps-pill" hidden>Draft</span></span></div>
+      <div class="ps-top__actions">
+        <span id="ps-zoom" class="ps-muted" title="The preview is scaled to fit"></span>
+        <div class="ps-top__devices" role="group" aria-label="Preview width">
           <button type="button" data-device="desktop" class="is-active" title="Desktop" aria-label="Desktop" data-icon="desktop"></button>
           <button type="button" data-device="tablet" title="Tablet (1024)" aria-label="Tablet" data-icon="tablet"></button>
           <button type="button" data-device="mobile" title="Mobile (390)" aria-label="Mobile" data-icon="mobile"></button>
         </div>
-        <span id="ase-status" class="ase-muted" role="status"></span>
-        <button type="button" id="ase-discard" class="ase-btn ase-btn--ghost" hidden>Discard</button>
-        <button type="button" id="ase-preview-tab" class="ase-btn ase-btn--ghost" title="See this draft as visitors will, in a new tab">Preview</button>
-        <a id="ase-view" class="ase-btn ase-btn--ghost" href={publicPath(slug)} target="_blank" rel="noopener">View ↗</a>
-        <button type="button" id="ase-save" class="ase-btn ase-btn--primary" disabled>Save</button>
-        <button type="button" id="ase-publish" class="ase-btn ase-btn--primary" hidden>Publish</button>
-        <button type="button" id="ase-toggle-settings" class="ase-iconbtn is-active" title="Settings (⇧⌘,)" aria-label="Settings" data-icon="sidebar"></button>
-        <button type="button" id="ase-more" class="ase-iconbtn" title="Options" aria-label="Options" data-icon="more"></button>
+        <span id="ps-status" class="ps-muted" role="status"></span>
+        <button type="button" id="ps-discard" class="ps-btn ps-btn--ghost" hidden>Discard</button>
+        <button type="button" id="ps-preview-tab" class="ps-btn ps-btn--ghost" title="See this draft as visitors will, in a new tab">Preview</button>
+        <a id="ps-view" class="ps-btn ps-btn--ghost" href={publicPath(slug)} target="_blank" rel="noopener">View ↗</a>
+        <button type="button" id="ps-save" class="ps-btn ps-btn--primary" disabled>Save</button>
+        <button type="button" id="ps-publish" class="ps-btn ps-btn--primary" hidden>Publish</button>
+        {opts.github?.live && <button type="button" id="ps-live" class="ps-btn ps-live" hidden>Go live</button>}
+        <button type="button" id="ps-toggle-settings" class="ps-iconbtn is-active" title="Settings (⇧⌘,)" aria-label="Settings" data-icon="sidebar"></button>
+        <button type="button" id="ps-more" class="ps-iconbtn" title="Options" aria-label="Options" data-icon="more"></button>
       </div>
     </header>
-    <aside class="ase-left" aria-label="Blocks">
-      <div class="ase-listview">
-        <div class="ase-panel__head"><span>List View</span></div>
-        <div id="ase-tree" class="ase-tree"></div>
+    <aside class="ps-left" aria-label="Blocks">
+      <div class="ps-listview">
+        <div class="ps-panel__head"><span>List View</span></div>
+        <div id="ps-tree" class="ps-tree"></div>
       </div>
-      <div id="ase-inserter" class="ase-inserter"></div>
+      <div id="ps-inserter" class="ps-inserter"></div>
     </aside>
-    <main class="ase-stage" data-device="desktop">
-      <iframe id="ase-preview" title="Page preview" src={`/edit/preview/${slug}`}></iframe>
+    <main class="ps-stage" data-device="desktop">
+      <iframe id="ps-preview" title="Page preview" src={`/edit/preview/${slug}`}></iframe>
     </main>
-    <aside class="ase-right" aria-label="Settings">
-      <div id="ase-inspector" class="ase-inspector"></div>
+    <aside class="ps-right" aria-label="Settings">
+      <div id="ps-inspector" class="ps-inspector"></div>
     </aside>
-    <div id="ase-modal-root"></div>
-    <script is:inline set:html={`window.__ASE__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
+    <div id="ps-modal-root"></div>
+    <script is:inline set:html={`window.__PS__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
     <script>
       import '../client/editor.ts';
+      import '../client/live.ts';
     </script>
   </body>
 </html>

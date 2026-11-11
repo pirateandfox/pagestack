@@ -4,8 +4,8 @@
 //   integrations: [sectionEditor({ renderer: './src/components/SectionPage.astro', sections: './src/sections/index.ts' })]
 //
 // The public site stays fully static. The editor (/edit/*, /api/editor/*) is on-demand rendered
-// and only exists when the integration is enabled: always in `astro dev`, and in `astro build`
-// when EDITOR=1 (which produces a Node server build with @astrojs/node).
+// and only exists when the integration is enabled: `EDITOR=dev astro dev` (or EDITOR=1) locally, and
+// `EDITOR=1 astro build` for a server build. Plain `astro dev` / `astro build` leave it out.
 import node from '@astrojs/node';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
@@ -32,8 +32,12 @@ const route = (file) => new URL(`./src/routes/${file}`, import.meta.url);
  * @property {string} [usersFile='editor-users.json'] Passkey users (public keys only).
  * @property {'none'|'passkey'|'none-behind-proxy'} [auth='passkey']
  * @property {'local'|'github'} [storage]  Defaults: local in dev, github in a build.
- * @property {{repo: string, branch?: string, pullRequest?: boolean}} [github]
- * @property {boolean} [enabled]  Default: dev, or EDITOR=1.
+ * @property {{repo: string, branch?: string, pullRequest?: boolean, live?: string, stagingUrl?: string}} [github]
+ *   `branch` is where saves go. With `live` (the branch the public site builds from), saves stay on
+ *   `branch` as staging and a Go live button puts them on `live` in one step; `stagingUrl` links to
+ *   a preview of the staging branch. `pullRequest` opens a PR per save instead.
+ * @property {'site'|'all'} [previewScripts='site']  Scripts in the block editor's preview: 'site' runs the site's own and blocks other origins (analytics, captchas, widgets); 'all' allows everything.
+ * @property {boolean} [enabled]  Default: EDITOR=dev or EDITOR=1 (exact values: $EDITOR is also the shell's text editor). Off otherwise, in dev too.
  * @property {string} [siteName]  Shown in the editor chrome.
  * @property {string} [interactiveSelector='summary']  Elements in the preview that keep their own click
  *                        behaviour (accordion summaries, tab titles, load-map buttons…). Everything else is
@@ -85,8 +89,9 @@ export default function sectionEditor(userOptions) {
       ...forwarded,
       'astro:config:setup': async (params) => {
         const { config, command, injectRoute, updateConfig, addMiddleware, logger } = params;
-        const enabled = userOptions.enabled ?? (command === 'dev' || process.env.EDITOR === '1');
-        if (!enabled) { logger.info('disabled (static build). Set EDITOR=1 to build the editor.'); return; }
+        const flag = process.env.EDITOR;
+        const enabled = userOptions.enabled ?? (flag === '1' || (command === 'dev' && flag === 'dev'));
+        if (!enabled) { logger.info(command === 'dev' ? 'off. Run with EDITOR=dev to edit at /edit.' : 'off (static build). Set EDITOR=1 to build the editor.'); return; }
         const isBuild = command === 'build';
         const options = {
           pagesDir: 'src/content/pages',
@@ -109,6 +114,12 @@ export default function sectionEditor(userOptions) {
         }
         if (options.storage === 'github' && !options.github?.repo) {
           throw new Error('pagestack: storage "github" needs github.repo ("owner/name")');
+        }
+        if (options.github?.live && options.github.live === (options.github.branch ?? 'main')) {
+          throw new Error('pagestack: github.live must differ from github.branch (saves go to branch, Go live moves them to live)');
+        }
+        if (options.github?.live && options.github.pullRequest) {
+          throw new Error('pagestack: use github.live or github.pullRequest, not both');
         }
         const root = fileURLToPath(config.root);
         const abs = (p) => path.isAbsolute(p) ? p : path.resolve(root, p);
@@ -170,6 +181,7 @@ export default function sectionEditor(userOptions) {
         injectRoute({ pattern: '/api/editor/images', entrypoint: route('api/images.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/collection/[id]/[...slug]', entrypoint: route('api/collection.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/users', entrypoint: route('api/users.ts'), prerender: false });
+        injectRoute({ pattern: '/api/editor/live', entrypoint: route('api/live.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/asset/[...path]', entrypoint: route('api/asset.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/auth/[action]', entrypoint: route('api/auth.ts'), prerender: false });
         // Uploads saved after this editor was built aren't static files in it; serve them from the repo.

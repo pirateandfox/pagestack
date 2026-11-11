@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { blockAt, renderMarkdown, replaceBlock, slugger } from '../src/core/markdown';
+import { blockAt, insertBlock, renderMarkdown, replaceBlock, slugger } from '../src/core/markdown';
 import { blockToMarkdown } from '../src/client/tomarkdown';
 
 const md = `Intro with **bold** and a [link](/a/).
@@ -18,12 +18,12 @@ Last paragraph.
 describe('renderMarkdown', () => {
   it('numbers top-level blocks only when editing, and gives headings ids', () => {
     const plain = renderMarkdown(md);
-    expect(plain.html).not.toContain('data-ase-md');
+    expect(plain.html).not.toContain('data-ps-md');
     expect(plain.html).toContain('<h2 id="a-heading">A heading</h2>');
     expect(plain.headings).toEqual([{ depth: 2, slug: 'a-heading', text: 'A heading' }]);
     const doc = new DOMParser().parseFromString(renderMarkdown(md, { editing: true }).html, 'text/html');
-    const blocks = [...doc.querySelectorAll<HTMLElement>('[data-ase-md]')].map((e) => [e.tagName, e.dataset.aseMd, e.dataset.aseMdKind]);
-    expect(blocks).toEqual([['P', '0', 'text'], ['H2', '2', 'text'], ['UL', '4', 'block'], ['P', '6', 'image'], ['P', '8', 'text']]);
+    const blocks = [...doc.querySelectorAll<HTMLElement>('[data-ps-md]')].map((e) => [e.tagName, e.dataset.psMd, e.dataset.psMdKind]);
+    expect(blocks).toEqual([['P', '0', 'text'], ['H2', '2', 'text'], ['UL', '4', 'text'], ['P', '6', 'image'], ['P', '8', 'text']]);
   });
   it('sanitises the body', () => {
     expect(renderMarkdown('Hi <script>alert(1)</script> <a href="javascript:x">x</a>').html).not.toMatch(/script|javascript/);
@@ -67,5 +67,45 @@ describe('blockToMarkdown', () => {
     const src = 'Text with **bold**, *em*, [link](/a/ "T") and `x`.';
     const doc = new DOMParser().parseFromString(renderMarkdown(src).html, 'text/html');
     expect(blockToMarkdown(doc.querySelector('p')!)).toBe(src);
+  });
+});
+
+describe('lists and quotes on the page', () => {
+  const kinds = (src: string) => [...new DOMParser().parseFromString(renderMarkdown(src, { editing: true }).html, 'text/html').querySelectorAll<HTMLElement>('[data-ps-md]')].map((e) => `${e.tagName}:${e.dataset.psMdKind}`);
+  it('edits flat lists and one-paragraph quotes in place, and leaves the rest to the Markdown', () => {
+    expect(kinds('- a\n- b')).toEqual(['UL:text']);
+    expect(kinds('1. a\n2. b')).toEqual(['OL:text']);
+    expect(kinds('3. a\n4. b')).toEqual(['OL:block']);
+    expect(kinds('- a\n  - nested')).toEqual(['UL:block']);
+    expect(kinds('- [ ] task')).toEqual(['UL:block']);
+    expect(kinds('> one')).toEqual(['BLOCKQUOTE:text']);
+    expect(kinds('> one\n>\n> two')).toEqual(['BLOCKQUOTE:block']);
+    expect(kinds('| a |\n| - |\n| b |')).toEqual(['TABLE:block']);
+  });
+  it('turns an edited list or quote back into the same Markdown', () => {
+    for (const src of ['- one\n- **two**', '1. first\n2. second', '> A *quoted* line']) {
+      const doc = new DOMParser().parseFromString(renderMarkdown(src).html, 'text/html');
+      expect(blockToMarkdown(doc.body.firstElementChild as HTMLElement)).toBe(src);
+    }
+  });
+  it('keeps an item added with Enter', () => {
+    const ul = new DOMParser().parseFromString('<ul><li>one</li><li>two</li><li>new</li></ul>', 'text/html').querySelector('ul')!;
+    expect(blockToMarkdown(ul)).toBe('- one\n- two\n- new');
+  });
+});
+
+describe('insertBlock', () => {
+  it('adds a block after another with one blank line each side, and says where it went', () => {
+    const src = 'First.\n\n## Head\n\nLast.\n';
+    const { md: out, index } = insertBlock(src, 0, '- item');
+    expect(out).toBe('First.\n\n- item\n\n## Head\n\nLast.\n');
+    expect(blockAt(out, index)?.raw.trim()).toBe('- item');
+  });
+  it('adds at the top, at the end, and into an empty body', () => {
+    expect(insertBlock('Only.\n', null, 'New').md).toBe('New\n\nOnly.\n');
+    const end = insertBlock('A\n\nB\n', 2, '> q');
+    expect(end.md).toBe('A\n\nB\n\n> q\n');
+    expect(blockAt(end.md, end.index)?.raw.trim()).toBe('> q');
+    expect(insertBlock('', null, 'Hi')).toEqual({ md: 'Hi\n', index: 0 });
   });
 });

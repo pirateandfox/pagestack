@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.0-beta.8 — 2026-11-11
+
+**Breaking, for host sites:** everything the editor puts on a page now uses the `ps` prefix instead of `ase`, from the editor's old name: `data-ps-node`, `data-ps-field`, `data-ps-field-type`, `data-ps-id`, `.ps-*` classes, `window.__PS_*__`. Hosts that only use `nodeAttrs` / `fieldAttrs` / `itemField` need nothing. Hosts that write the attributes by hand, or tests that select `.ase-*`, replace `ase` with `ps` (`data-ase-` → `data-ps-`, `.ase-` → `.ps-`). Editors are signed out once (the session cookie is now `ps_session`).
+
+**Also changed:** the editor is off unless asked for. `astro dev` alone no longer includes it; use `EDITOR=dev astro dev` (or `EDITOR=1`). A host passing `enabled` is unaffected.
+
+- **Go live**: with `github.live`, saves wait on the staging branch and a Go live button on every screen puts them on the live branch in one step, with the list of changes and a link to the staging site (`github.stagingUrl`). Fast-forward when possible, a merge commit when someone committed to live directly, and a clear refusal on a conflict. Saving then says "Use Go live to put it on the site."
+- **Collection items**: Change URL (with a redirect), Revisions with Restore, and Delete, from a ⋮ menu.
+- **Adding blocks on the page**: a + beside each block, and `/` in an empty one, add a paragraph, heading, list, quote, image or table. A block added and left untouched goes away again.
+- **Lists and quotes are edited in place**, like paragraphs: flat bulleted and numbered lists, and one-paragraph quotes. Nested lists, task lists and tables still open the Markdown.
+- **Third-party scripts stay out of the block editor's preview**: the site's own scripts run, scripts from other origins are refused (`previewScripts: 'all'` to allow them). The item frame no longer loads the site's scripts at all, which also ends a console error per script.
+
 ## 0.1.0-beta.7 — 2026-11-09
 
 - **Collection items on their own page**: with `previews: { <collection>: './Layout.astro' }`, an item opens in the site's layout and is edited in place: title and fields, paragraphs and headings (back to Markdown, only that block's lines change), images, with Page / Markdown views and Preview in a tab. New runtime export `itemField` and type `ItemPreviewProps`. The frame is sandboxed, so the site's own scripts (analytics, spam checks) don't run in the editor.

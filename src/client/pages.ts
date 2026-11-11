@@ -3,7 +3,7 @@ import { publicPath, slugify, slugProblem, uniqueSlug } from '../core/pages';
 import { confirmDialog, dialog, toast } from './ui';
 
 interface Boot { pages: { slug: string; title: string }[]; reserved: string[]; templates: { id: number; label: string; description?: string }[] }
-const boot = (window as any).__ASE_PAGES__ as Boot;
+const boot = (window as any).__PS_PAGES__ as Boot;
 const existing = boot.pages.map((p) => p.slug);
 const titleOnly = (t: string) => t.split(/\s[-–|]\s/)[0];
 
@@ -21,18 +21,18 @@ function opened(data: any) {
 function addPage(copyOf?: string) {
   const source = boot.pages.find((p) => p.slug === copyOf);
   const form = document.createElement('div');
-  form.className = 'ase-newpage';
+  form.className = 'ps-newpage';
   form.innerHTML = `
-    <div class="ase-field"><label>Title <input type="text" name="title" autocomplete="off" /></label></div>
-    <div class="ase-field"><label>URL
-      <span class="ase-prefixed"><span class="ase-muted">/</span><input type="text" name="slug" autocomplete="off" spellcheck="false" /><span class="ase-muted">/</span></span></label>
-      <p class="ase-error" hidden></p></div>
-    <div class="ase-field"><label>Start from <select name="from"></select></label></div>
-    <small class="ase-muted">New pages start as drafts. Nothing is public until you press Publish.</small>`;
+    <div class="ps-field"><label>Title <input type="text" name="title" autocomplete="off" /></label></div>
+    <div class="ps-field"><label>URL
+      <span class="ps-prefixed"><span class="ps-muted">/</span><input type="text" name="slug" autocomplete="off" spellcheck="false" /><span class="ps-muted">/</span></span></label>
+      <p class="ps-error" hidden></p></div>
+    <div class="ps-field"><label>Start from <select name="from"></select></label></div>
+    <small class="ps-muted">New pages start as drafts. Nothing is public until you press Publish.</small>`;
   const title = form.querySelector<HTMLInputElement>('[name=title]')!;
   const slug = form.querySelector<HTMLInputElement>('[name=slug]')!;
   const from = form.querySelector<HTMLSelectElement>('[name=from]')!;
-  const error = form.querySelector<HTMLElement>('.ase-error')!;
+  const error = form.querySelector<HTMLElement>('.ps-error')!;
   const option = (value: string, label: string, parent: HTMLElement = from) => { const o = document.createElement('option'); o.value = value; o.textContent = label; parent.append(o); };
   option('blank', 'Blank page');
   boot.templates.forEach((t) => option(`template:${t.id}`, t.label));
@@ -73,17 +73,17 @@ async function deletePage(slug: string, row: HTMLElement) {
   toast(`Deleted ${titleOnly(page.title)}.`, 'ok');
 }
 
-document.getElementById('ase-add-page')!.addEventListener('click', () => addPage());
-document.getElementById('ase-pagelist')!.addEventListener('click', (e) => {
+document.getElementById('ps-add-page')!.addEventListener('click', () => addPage());
+document.getElementById('ps-pagelist')!.addEventListener('click', (e) => {
   const b = (e.target as HTMLElement).closest<HTMLElement>('[data-duplicate], [data-delete]');
   if (!b) return;
   if (b.dataset.duplicate) addPage(b.dataset.duplicate);
   else deletePage(b.dataset.delete!, b.closest('li')!);
 });
-const search = document.getElementById('ase-page-search') as HTMLInputElement;
+const search = document.getElementById('ps-page-search') as HTMLInputElement;
 search.addEventListener('input', () => {
   const q = search.value.trim().toLowerCase();
   let shown = 0;
-  document.querySelectorAll<HTMLElement>('#ase-pagelist > li').forEach((li) => { const on = li.dataset.search!.includes(q); li.hidden = !on; if (on) shown++; });
-  document.getElementById('ase-no-match')!.hidden = shown > 0;
+  document.querySelectorAll<HTMLElement>('#ps-pagelist > li').forEach((li) => { const on = li.dataset.search!.includes(q); li.hidden = !on; if (on) shown++; });
+  document.getElementById('ps-no-match')!.hidden = shown > 0;
 });

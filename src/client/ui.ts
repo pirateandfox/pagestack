@@ -5,13 +5,13 @@ export interface ToastAction { label: string; run: () => void }
 
 export function toast(text: string, kind: 'ok' | 'info' | 'warn' | 'error', opts: { href?: string; action?: ToastAction } = {}) {
   const t = document.createElement('div');
-  t.className = `ase-toast ase-toast--${kind}`;
+  t.className = `ps-toast ps-toast--${kind}`;
   t.setAttribute('role', 'status');
   t.textContent = text;
   if (opts.href) { const a = document.createElement('a'); a.href = opts.href; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open ↗'; t.append(' ', a); }
-  if (opts.action) { const b = document.createElement('button'); b.type = 'button'; b.className = 'ase-toast__action'; b.textContent = opts.action.label; b.addEventListener('click', () => { t.remove(); opts.action!.run(); }); t.append(b); }
+  if (opts.action) { const b = document.createElement('button'); b.type = 'button'; b.className = 'ps-toast__action'; b.textContent = opts.action.label; b.addEventListener('click', () => { t.remove(); opts.action!.run(); }); t.append(b); }
   const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Dismiss'); x.addEventListener('click', () => t.remove()); t.append(x);
-  document.querySelectorAll('.ase-toast').forEach((o) => o.remove());
+  document.querySelectorAll('.ps-toast').forEach((o) => o.remove());
   document.body.append(t);
   setTimeout(() => t.remove(), kind === 'error' ? 15000 : 8000);
 }
@@ -21,14 +21,14 @@ export interface DialogAction { label: string; kind?: 'primary' | 'danger'; run?
 /** A modal. An action closes it unless `run` returns false. */
 export function dialog(title: string, body: HTMLElement | string, actions: DialogAction[], opts: { wide?: boolean; onClose?: () => void } = {}) {
   const wrap = document.createElement('div');
-  wrap.className = 'ase-modal';
+  wrap.className = 'ps-modal';
   wrap.setAttribute('role', 'dialog');
   wrap.setAttribute('aria-modal', 'true');
   wrap.setAttribute('aria-label', title);
   const box = document.createElement('form');
-  box.className = `ase-dialog${opts.wide ? ' ase-dialog--wide' : ''}`;
+  box.className = `ps-dialog${opts.wide ? ' ps-dialog--wide' : ''}`;
   const h = document.createElement('h2'); h.textContent = title;
-  const content = document.createElement('div'); content.className = 'ase-dialog__body';
+  const content = document.createElement('div'); content.className = 'ps-dialog__body';
   if (typeof body === 'string') { const p = document.createElement('p'); p.textContent = body; content.append(p); } else content.append(body);
   const foot = document.createElement('footer');
   const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); opts.onClose?.(); };
@@ -38,7 +38,7 @@ export function dialog(title: string, body: HTMLElement | string, actions: Dialo
   for (const a of actions) {
     const b = document.createElement('button');
     b.type = a.kind ? 'submit' : 'button';
-    b.className = `ase-btn ${a.kind === 'primary' ? 'ase-btn--primary' : a.kind === 'danger' ? 'ase-btn--destructive' : 'ase-btn--ghost'}`;
+    b.className = `ps-btn ${a.kind === 'primary' ? 'ps-btn--primary' : a.kind === 'danger' ? 'ps-btn--destructive' : 'ps-btn--ghost'}`;
     b.textContent = a.label;
     if (a.kind) primary = b;
     b.addEventListener('click', async (e) => { e.preventDefault(); b.disabled = true; const keep = (await a.run?.()) === false; b.disabled = false; if (!keep) close(); });
@@ -63,18 +63,18 @@ export const confirmDialog = (title: string, text: string, label: string, kind: 
 export function promptDialog(o: { title: string; label: string; value?: string; help?: string; submit: string; check?: (v: string) => string | null; toggle?: { label: string; on: boolean } }) {
   return new Promise<string | null>((resolve) => {
     const wrap = document.createElement('div');
-    wrap.className = 'ase-field';
+    wrap.className = 'ps-field';
     const label = document.createElement('label'); label.textContent = o.label;
     const input = document.createElement('input'); input.type = 'text'; input.value = o.value ?? ''; label.append(input);
-    const error = document.createElement('p'); error.className = 'ase-error'; error.hidden = true;
+    const error = document.createElement('p'); error.className = 'ps-error'; error.hidden = true;
     wrap.append(label, error);
     if (o.toggle) {
-      const row = document.createElement('label'); row.className = 'ase-check';
+      const row = document.createElement('label'); row.className = 'ps-check';
       const box = document.createElement('input'); box.type = 'checkbox'; box.checked = o.toggle.on;
       box.addEventListener('change', () => { o.toggle!.on = box.checked; });
       row.append(box, ` ${o.toggle.label}`); wrap.append(row);
     }
-    if (o.help) { const s = document.createElement('small'); s.className = 'ase-muted'; s.textContent = o.help; wrap.append(s); }
+    if (o.help) { const s = document.createElement('small'); s.className = 'ps-muted'; s.textContent = o.help; wrap.append(s); }
     let result: string | null = null;
     dialog(o.title, wrap, [{ label: 'Cancel' }, {
       label: o.submit, kind: 'primary', run: () => {
@@ -93,9 +93,9 @@ export interface MenuItem { label: string; hint?: string; run: () => void; dange
 export function openMenu(anchor: HTMLElement, items: MenuItem[]) {
   const doc = anchor.ownerDocument;
   const win = doc.defaultView!;
-  doc.querySelector('.ase-popmenu')?.remove();
+  doc.querySelector('.ps-popmenu')?.remove();
   const menu = doc.createElement('div');
-  menu.className = 'ase-popmenu';
+  menu.className = 'ps-popmenu';
   menu.setAttribute('role', 'menu');
   for (const it of items) {
     if (it.separator) menu.append(doc.createElement('hr'));

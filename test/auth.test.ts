@@ -40,7 +40,7 @@ describe('signing', () => {
 
 describe('cookies & sessions', () => {
   it('parses cookie headers', () => {
-    expect(parseCookies('a=1; ase_session=x%3Dy; b=2=3')).toEqual({ a: '1', ase_session: 'x=y', b: '2=3' });
+    expect(parseCookies('a=1; ps_session=x%3Dy; b=2=3')).toEqual({ a: '1', ps_session: 'x=y', b: '2=3' });
     expect(parseCookies(null)).toEqual({});
   });
   it('writes HttpOnly, SameSite cookies, Secure only on https', () => {

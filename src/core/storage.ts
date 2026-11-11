@@ -28,6 +28,16 @@ export interface Revision {
   date: string;
 }
 
+/** Saved changes on the staging branch that the live branch doesn't have yet. */
+export interface PendingChanges {
+  /** The branch saves go to, and the one Go live updates. */
+  branch: string;
+  live: string;
+  /** Commits waiting, newest first (at most 50 listed; `count` is the real number). */
+  count: number;
+  changes: Revision[];
+}
+
 export interface Storage {
   readonly kind: 'local' | 'github';
   /** Text file content at a repo-relative path, or null when missing. */
@@ -49,6 +59,10 @@ export interface Storage {
    * built (the editor deployment doesn't rebuild on every save). undefined when neither.
    */
   asset(path: string): Promise<Uint8Array | undefined>;
+  /** With a live branch configured (`github.live`): what saving has staged. Absent otherwise. */
+  pending?(): Promise<PendingChanges>;
+  /** Puts everything staged on the live branch (fast-forward, else a merge commit). */
+  goLive?(message: string): Promise<{ commit: string; url: string; merged: boolean } | null>;
 }
 
 export async function sha256(text: string): Promise<string> {

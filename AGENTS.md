@@ -55,11 +55,11 @@ using `staticPages()`, which also leaves out drafts. See README.
 
 The host's components mark up what is editable with the runtime helpers:
 `{...nodeAttrs(edit, node)}` on each node's root element, `{...fieldAttrs(edit, 'name', 'text'|'richtext'|'image')}`
-on the element showing a field, `child(edit, i)` for children. These emit `data-ase-node`,
-`data-ase-id`, `data-ase-field`, `data-ase-field-type` in edit mode and nothing in a static build.
+on the element showing a field, `child(edit, i)` for children. These emit `data-ps-node`,
+`data-ps-id`, `data-ps-field`, `data-ps-field-type` in edit mode and nothing in a static build.
 The client (`editor.ts`, `inline.ts`, `preview.css`) and the host e2e tests depend on those attribute
-names. (`ase` is the prefix inherited from the original name; renaming it is a roadmap decision, not
-something to do piecemeal.)
+names. Everything the editor adds to a page, its CSS classes and its globals use the `ps` prefix
+(`data-ps-*`, `.ps-*`, `__PS_*__`); it replaced `ase`, from the original name, in 0.1.0-beta.8.
 
 Options (`index.mjs` JSDoc is the source of truth): `renderer`, `sections` (required); `pagesDir`,
 `imagesDir`, `uploadsDir`, `publicDir`, `usersFile`, `auth` (`passkey` | `none-behind-proxy` | `none`,
@@ -179,10 +179,9 @@ Notes:
 - **Security before convenience.** `auth: 'none'` is refused in builds. New routes go behind the
   middleware. Validate every page on save (`validateDoc`). Treat uploaded files and rich text as untrusted.
 - **Keep the host contract stable.** `src/runtime.ts` exports, option names, route paths, the
-  `data-ase-*` attributes, the page JSON shape and `editor-users.json` are public API. Changing them
+  `data-ps-*` attributes, the page JSON shape and `editor-users.json` are public API. Changing them
   is a major (or, pre-1.0, a clearly flagged minor) with a migration note.
 
 ## 7. Roadmap pointers
 
-See `ROADMAP.md`. The near-term items: a real Cloudflare deployment, a staging branch behind Publish,
-and the `ase` prefix decision before 1.0.
+See `ROADMAP.md`.

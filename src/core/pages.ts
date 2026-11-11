@@ -47,6 +47,10 @@ export function copyPage(source: PageDoc, title: string): PageDoc {
 
 /** Add `from -> to` to a redirects file (Netlify/Cloudflare `_redirects` format). */
 export function addRedirect(file: string, fromSlug: string, toSlug: string): string {
-  const line = `${publicPath(fromSlug)} ${publicPath(toSlug)} 301`;
-  return `${file.replace(/\n*$/, '')}\n${line}\n`;
+  return addRedirectLine(file, publicPath(fromSlug), publicPath(toSlug));
+}
+
+/** `_redirects` with one more permanent redirect, between two site paths. */
+export function addRedirectLine(file: string, from: string, to: string): string {
+  return `${file.replace(/\n*$/, '')}\n${from} ${to} 301\n`;
 }

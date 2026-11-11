@@ -25,19 +25,19 @@ else {
     <meta name="robots" content="noindex" />
     <title>Set up your passkey — {opts.siteName}</title>
   </head>
-  <body class="ase-index">
-    <main class="ase-login" data-ase-auth="enroll" data-invite={invite ? token : undefined}>
+  <body class="ps-index">
+    <main class="ps-login" data-ps-auth="enroll" data-invite={invite ? token : undefined}>
       <h1>{opts.siteName}</h1>
       {invite ? (
         <>
           <p>Hi <strong>{invite.name}</strong>. Create a passkey for <strong>{invite.email}</strong> on this device to edit the site. Your device will ask for Touch ID, Face ID, a PIN or a security key.</p>
-          <label class="ase-login__label">Name this device (optional) <input type="text" id="ase-auth-label" placeholder="e.g. MacBook, iPhone" maxlength="60" /></label>
-          <button type="button" class="ase-btn ase-btn--primary" id="ase-auth-go">Create passkey</button>
+          <label class="ps-login__label">Name this device (optional) <input type="text" id="ps-auth-label" placeholder="e.g. MacBook, iPhone" maxlength="60" /></label>
+          <button type="button" class="ps-btn ps-btn--primary" id="ps-auth-go">Create passkey</button>
         </>
       ) : (
-        <p class="ase-login__error">{error}</p>
+        <p class="ps-login__error">{error}</p>
       )}
-      <p class="ase-login__error" id="ase-auth-error" hidden></p>
+      <p class="ps-login__error" id="ps-auth-error" hidden></p>
     </main>
     <script>
       import '../client/auth.ts';

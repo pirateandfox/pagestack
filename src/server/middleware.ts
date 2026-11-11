@@ -28,7 +28,13 @@ function crossSite(request: Request, url: URL): boolean {
   try { return new URL(origin).host !== request.headers.get('host'); } catch { return true; }
 }
 
-function harden(res: Response, url: URL, sandbox: boolean): Response {
+/**
+ * The block editor's preview frame runs the site's own scripts (tabs, accordions) but nothing from
+ * other origins: no analytics counting editors, no captchas or chat widgets inside the editor.
+ */
+const SITE_SCRIPTS_ONLY = "; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:";
+
+function harden(res: Response, url: URL, sandbox: boolean, frame = false): Response {
   const h = res.headers;
   try {
     h.set('x-robots-tag', 'noindex');
@@ -37,7 +43,7 @@ function harden(res: Response, url: URL, sandbox: boolean): Response {
     h.set('x-frame-options', 'SAMEORIGIN');
     h.set('referrer-policy', 'same-origin');
     h.set('cross-origin-opener-policy', 'same-origin');
-    h.set('content-security-policy', `frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'${sandbox ? '; sandbox allow-scripts allow-forms allow-popups' : ''}`);
+    h.set('content-security-policy', `frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'${sandbox ? '; sandbox allow-scripts allow-forms allow-popups' : ''}${frame ? SITE_SCRIPTS_ONLY : ''}`);
     if ((process.env.EDITOR_ORIGIN || url.origin).startsWith('https:')) h.set('strict-transport-security', 'max-age=31536000');
   } catch { /* an immutable Response, e.g. a redirect from a host's own middleware */ }
   return res;
@@ -55,7 +61,8 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
 
   // A form POST here is the Preview button: an unsaved draft shown in its own tab, walled off from the session.
   const sandbox = pathname.startsWith('/edit/preview') && request.method === 'POST' && !(request.headers.get('content-type') ?? '').includes('json');
-  const done = (res: Response) => harden(res, ctx.url, sandbox);
+  const frame = request.method === 'GET' && /^\/edit\/preview(-item)?\//.test(pathname) && opts.previewScripts !== 'all';
+  const done = (res: Response) => harden(res, ctx.url, sandbox, frame);
 
   if (opts.command === 'build' && !warned) {
     warned = true;
@@ -88,7 +95,15 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     if (!who && opts.command === 'build') return done(json({ error: 'no identity from the proxy' }, 401));
     if (who) ctx.locals.editorUser = { id: who, name: who, role: 'admin' };
   }
-  return done(await next());
+  const res = await next();
+  // The item frame is sandboxed with no scripts, so the site's scripts there would only fail
+  // (one console error each); leave them out.
+  if (!sandbox && pathname.startsWith('/edit/preview-item/') && (res.headers.get('content-type') ?? '').includes('text/html')) {
+    const html = (await res.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    const headers = new Headers(res.headers); headers.delete('content-length');
+    return done(new Response(html, { status: res.status, headers }));
+  }
+  return done(res);
 });
 
 export { publicUrl };

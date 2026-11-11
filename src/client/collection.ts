@@ -2,10 +2,10 @@
 import { slugify, uniqueSlug } from '../core/pages';
 import { confirmDialog, promptDialog, toast } from './ui';
 
-const boot = (window as any).__ASE_COLLECTION__ as { id: string; singular: string; slugs: string[]; reserved: string[] };
+const boot = (window as any).__PS_COLLECTION__ as { id: string; singular: string; slugs: string[]; reserved: string[] };
 const api = `/api/editor/collection/${boot.id}`;
 
-document.getElementById('ase-add-item')?.addEventListener('click', async () => {
+document.getElementById('ps-add-item')?.addEventListener('click', async () => {
   const title = await promptDialog({ title: `Add ${boot.singular}`, label: 'Title', submit: `Add ${boot.singular}` });
   if (!title) return;
   const slug = uniqueSlug(slugify(title) || boot.singular, [...boot.slugs, ...boot.reserved]);
@@ -15,7 +15,7 @@ document.getElementById('ase-add-item')?.addEventListener('click', async () => {
   location.href = `/edit/collection/${boot.id}/${data.slug}`;
 });
 
-document.getElementById('ase-pagelist')!.addEventListener('click', async (e) => {
+document.getElementById('ps-pagelist')!.addEventListener('click', async (e) => {
   const b = (e.target as HTMLElement).closest<HTMLElement>('[data-delete]');
   if (!b) return;
   const row = b.closest('li')!;
@@ -28,10 +28,10 @@ document.getElementById('ase-pagelist')!.addEventListener('click', async (e) => 
   toast(`Deleted ${name}.`, 'ok');
 });
 
-const search = document.getElementById('ase-page-search') as HTMLInputElement;
+const search = document.getElementById('ps-page-search') as HTMLInputElement;
 search.addEventListener('input', () => {
   const q = search.value.trim().toLowerCase();
   let shown = 0;
-  document.querySelectorAll<HTMLElement>('#ase-pagelist > li').forEach((li) => { const on = li.dataset.search!.includes(q); li.hidden = !on; if (on) shown++; });
-  document.getElementById('ase-no-match')!.hidden = shown > 0;
+  document.querySelectorAll<HTMLElement>('#ps-pagelist > li').forEach((li) => { const on = li.dataset.search!.includes(q); li.hidden = !on; if (on) shown++; });
+  document.getElementById('ps-no-match')!.hidden = shown > 0;
 });

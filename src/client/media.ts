@@ -3,10 +3,10 @@ import { dialog, toast } from './ui';
 import { uploadImage } from './upload';
 
 interface Image { src: string; name: string; size?: number }
-const grid = document.getElementById('ase-media-grid')!;
-const search = document.getElementById('ase-media-search') as HTMLInputElement;
-const count = document.getElementById('ase-media-count')!;
-const drop = document.querySelector<HTMLElement>('.ase-media__drop')!;
+const grid = document.getElementById('ps-media-grid')!;
+const search = document.getElementById('ps-media-search') as HTMLInputElement;
+const count = document.getElementById('ps-media-count')!;
+const drop = document.querySelector<HTMLElement>('.ps-media__drop')!;
 
 const kb = (n?: number) => (n == null ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`);
 
@@ -15,14 +15,14 @@ async function load() {
   const { images, total } = await res.json() as { images: Image[]; total: number };
   count.textContent = String(total);
   grid.replaceChildren(...images.map(tile));
-  if (!images.length) { const p = document.createElement('p'); p.className = 'ase-muted'; p.textContent = search.value ? 'No images match.' : 'No images yet.'; grid.append(p); }
+  if (!images.length) { const p = document.createElement('p'); p.className = 'ps-muted'; p.textContent = search.value ? 'No images match.' : 'No images yet.'; grid.append(p); }
 }
 
 function tile(img: Image) {
   const b = document.createElement('button');
-  b.type = 'button'; b.className = 'ase-media__tile'; b.title = img.name; b.setAttribute('role', 'listitem');
+  b.type = 'button'; b.className = 'ps-media__tile'; b.title = img.name; b.setAttribute('role', 'listitem');
   const pic = document.createElement('img'); pic.loading = 'lazy'; pic.alt = ''; pic.src = img.src;
-  const name = document.createElement('span'); name.className = 'ase-ellipsis'; name.textContent = img.name;
+  const name = document.createElement('span'); name.className = 'ps-ellipsis'; name.textContent = img.name;
   b.append(pic, name);
   b.addEventListener('click', () => details(img));
   return b;
@@ -38,13 +38,13 @@ async function remove(img: Image, force = false): Promise<boolean> {
 }
 
 async function details(img: Image) {
-  const box = document.createElement('div'); box.className = 'ase-media__detail';
+  const box = document.createElement('div'); box.className = 'ps-media__detail';
   const pic = document.createElement('img'); pic.src = img.src; pic.alt = '';
   const info = document.createElement('div');
-  const url = Object.assign(document.createElement('input'), { type: 'text', readOnly: true, value: img.src, className: 'ase-invite__url' });
+  const url = Object.assign(document.createElement('input'), { type: 'text', readOnly: true, value: img.src, className: 'ps-invite__url' });
   url.setAttribute('aria-label', 'Image URL');
-  const size = document.createElement('p'); size.className = 'ase-muted'; size.textContent = kb(img.size);
-  const usedBox = document.createElement('div'); usedBox.textContent = 'Checking where this is used…'; usedBox.className = 'ase-muted';
+  const size = document.createElement('p'); size.className = 'ps-muted'; size.textContent = kb(img.size);
+  const usedBox = document.createElement('div'); usedBox.textContent = 'Checking where this is used…'; usedBox.className = 'ps-muted';
   info.append(url, size, usedBox); box.append(pic, info);
   const used = fetch(`/api/editor/images?used=${encodeURIComponent(img.src)}`).then((r) => r.json()).then((d) => d.used as { title: string; href: string }[]);
   dialog(img.name, box, [
@@ -74,7 +74,7 @@ async function upload(files: File[]) {
 
 let t: ReturnType<typeof setTimeout>;
 search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(load, 200); });
-(document.getElementById('ase-media-file') as HTMLInputElement).addEventListener('change', (e) => { const i = e.target as HTMLInputElement; upload([...i.files ?? []]); i.value = ''; });
+(document.getElementById('ps-media-file') as HTMLInputElement).addEventListener('change', (e) => { const i = e.target as HTMLInputElement; upload([...i.files ?? []]); i.value = ''; });
 addEventListener('dragover', (e) => { e.preventDefault(); drop.hidden = false; });
 addEventListener('dragleave', (e) => { if (!e.relatedTarget) drop.hidden = true; });
 addEventListener('drop', (e) => { e.preventDefault(); drop.hidden = true; upload([...e.dataTransfer?.files ?? []].filter((f) => f.type.startsWith('image/'))); });

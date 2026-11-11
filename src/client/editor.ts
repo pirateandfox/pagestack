@@ -28,10 +28,10 @@ interface Boot {
   reserved: string[];
   options: { storage: string; auth: string; siteName: string; user: string | null; pullRequest: boolean; viewUrl: string; interactiveSelector: string; redirects: boolean };
 }
-const boot = (window as any).__ASE__ as Boot;
+const boot = (window as any).__PS__ as Boot;
 const { registry } = boot;
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
-const iframe = $<HTMLIFrameElement>('#ase-preview');
+const iframe = $<HTMLIFrameElement>('#ps-preview');
 const state = new EditorState(boot.slug, boot.page, boot.hash);
 const isHome = boot.slug === 'index';
 let selected: string | null = null;
@@ -57,8 +57,8 @@ const pageLinks = boot.pages.map((p) => ({ url: p.url, title: p.title.split(/\s[
 const idoc = () => iframe.contentDocument!;
 const iwin = () => iframe.contentWindow!;
 const isTop = (path: string) => /^sections\.\d+$/.test(path);
-const topSections = (doc: Document) => Array.from(doc.querySelectorAll<HTMLElement>('[data-ase-node]')).filter((el) => isTop(el.dataset.aseNode!));
-const nodeEl = (path: string) => idoc().querySelector<HTMLElement>(`[data-ase-node="${path}"]`);
+const topSections = (doc: Document) => Array.from(doc.querySelectorAll<HTMLElement>('[data-ps-node]')).filter((el) => isTop(el.dataset.psNode!));
+const nodeEl = (path: string) => idoc().querySelector<HTMLElement>(`[data-ps-node="${path}"]`);
 
 /** Where sections live in the page, remembered so an emptied page can still be filled. */
 let sectionHost: HTMLElement | null = null;
@@ -77,7 +77,7 @@ function onPreviewLoad() {
   iwin().addEventListener('scroll', placeOverlays, { passive: true });
   iwin().addEventListener('resize', placeOverlays, { passive: true });
   sectionHost = topSections(d)[0]?.parentElement ?? d.querySelector('main') ?? d.body;
-  d.documentElement.style.setProperty('--ase-ui', String(uiScale));
+  d.documentElement.style.setProperty('--ps-ui', String(uiScale));
   previewReady = true;
   if (state.dirty) render(); else { decorate(); seedHtml(); }
 }
@@ -89,40 +89,40 @@ async function seedHtml() {
 
 function onPreviewHover(e: MouseEvent) {
   const t = e.target as HTMLElement;
-  if (t.closest('[data-ase-ui]')) return;
-  hover(t.closest<HTMLElement>('[data-ase-node]'));
+  if (t.closest('[data-ps-ui]')) return;
+  hover(t.closest<HTMLElement>('[data-ps-node]'));
 }
 function hover(el: HTMLElement | null) {
-  idoc().querySelectorAll('[data-ase-hover]').forEach((x) => x.removeAttribute('data-ase-hover'));
-  if (el) el.setAttribute('data-ase-hover', '');
+  idoc().querySelectorAll('[data-ps-hover]').forEach((x) => x.removeAttribute('data-ps-hover'));
+  if (el) el.setAttribute('data-ps-hover', '');
 }
 function onPreviewClick(e: MouseEvent) {
   const t = e.target as HTMLElement;
-  if (t.closest('[data-ase-ui], [data-ase-toolbar], .ase-popmenu')) return; // handled by their own listeners
-  const field = t.closest<HTMLElement>('[data-ase-field]');
-  const node = t.closest<HTMLElement>('[data-ase-node]');
+  if (t.closest('[data-ps-ui], [data-ps-toolbar], .ps-popmenu')) return; // handled by their own listeners
+  const field = t.closest<HTMLElement>('[data-ps-field]');
+  const node = t.closest<HTMLElement>('[data-ps-node]');
   // Let the page's own interactive bits work (accordion summaries, tab titles…); block navigation.
   const interactive = t.closest(boot.options.interactiveSelector || 'summary');
   if (!interactive) e.preventDefault();
   if (field) {
     e.stopPropagation();
-    select(nodePathOf(field.dataset.aseField!), { fromPreview: true });
-    const type = field.dataset.aseFieldType;
-    if (type === 'image') pickImage(getAt(state.doc, field.dataset.aseField!), (img) => setField(field.dataset.aseField!, img));
-    else if (inline.activePath !== field.dataset.aseField) inline.start(field);
+    select(nodePathOf(field.dataset.psField!), { fromPreview: true });
+    const type = field.dataset.psFieldType;
+    if (type === 'image') pickImage(getAt(state.doc, field.dataset.psField!), (img) => setField(field.dataset.psField!, img));
+    else if (inline.activePath !== field.dataset.psField) inline.start(field);
     return;
   }
   if (inline.isActive) inline.stop(true);
-  if (node) select(node.dataset.aseNode!, { fromPreview: true }); else select(null);
+  if (node) select(node.dataset.psNode!, { fromPreview: true }); else select(null);
 }
 
 const inline = new InlineEditor({
   onSlash: (fieldPath) => slash(fieldPath),
   pages: pageLinks,
-  onStart: () => { state.snapshot(); idoc().body.setAttribute('data-ase-typing', ''); },
+  onStart: () => { state.snapshot(); idoc().body.setAttribute('data-ps-typing', ''); },
   onInput: (path, value) => { state.apply(setAt(state.doc, path, value), 'inline', false); refreshButtons(); },
   onCommit: (path, value, changed) => {
-    idoc().body.removeAttribute('data-ase-typing');
+    idoc().body.removeAttribute('data-ps-typing');
     if (changed) state.apply(setAt(state.doc, path, value), 'inline', false); else state.dropSnapshot();
     refreshChrome();
     if (changed || renderQueued) scheduleRender(0);
@@ -179,10 +179,10 @@ function swap(html: string) {
 /** Re-apply selection highlight + overlays after the DOM changed. */
 function decorate() {
   const d = idoc();
-  d.querySelectorAll('[data-ase-selected]').forEach((x) => x.removeAttribute('data-ase-selected'));
-  d.querySelector('.ase-toolbar')?.remove();
+  d.querySelectorAll('[data-ps-selected]').forEach((x) => x.removeAttribute('data-ps-selected'));
+  d.querySelector('.ps-toolbar')?.remove();
   const el = selected ? nodeEl(selected) : null;
-  if (el) { el.setAttribute('data-ase-selected', ''); mountToolbar(el); }
+  if (el) { el.setAttribute('data-ps-selected', ''); mountToolbar(el); }
   decorateEmpty();
   placeOverlays();
 }
@@ -191,28 +191,28 @@ function decorate() {
 function decorateEmpty() {
   const d = idoc();
   const empty = !state.doc.sections.length;
-  const box = d.querySelector('.ase-empty');
+  const box = d.querySelector('.ps-empty');
   if (!empty) { box?.remove(); return; }
   if (box) return;
   const div = d.createElement('div');
-  div.className = 'ase-empty'; div.setAttribute('data-ase-ui', '');
-  div.innerHTML = `<p class="ase-empty__title">This page is empty</p><p>Add your first block to get started.</p><button type="button">${icons.plus} Add block</button>`;
+  div.className = 'ps-empty'; div.setAttribute('data-ps-ui', '');
+  div.innerHTML = `<p class="ps-empty__title">This page is empty</p><p>Add your first block to get started.</p><button type="button">${icons.plus} Add block</button>`;
   div.querySelector('button')!.addEventListener('click', () => openInserter({ listPath: 'sections', index: 0 }));
   sectionHost?.append(div);
 }
 
 function mountToolbar(el: HTMLElement) {
   const d = idoc();
-  const path = el.dataset.aseNode!;
+  const path = el.dataset.psNode!;
   const node = nodeAt(state.doc, path)!;
   const canAdd = !!allowedChildTypes(node.type, registry)?.length;
   const tb = d.createElement('div');
-  tb.className = 'ase-toolbar';
-  tb.setAttribute('data-ase-ui', '');
+  tb.className = 'ps-toolbar';
+  tb.setAttribute('data-ps-ui', '');
   tb.setAttribute('role', 'toolbar');
   tb.setAttribute('aria-label', 'Block tools');
-  tb.innerHTML = `${isTop(path) ? '' : `<button type="button" data-act="parent" title="Select parent block" aria-label="Select parent block">${icons.parent}</button>`}<span class="ase-grip" title="Drag to move">${icons.grip}</span><span class="ase-toolbar__label"></span><button type="button" data-act="up" title="Move up" aria-label="Move up">${icons.up}</button><button type="button" data-act="down" title="Move down" aria-label="Move down">${icons.down}</button>${canAdd ? `<button type="button" data-act="add" title="Add a block inside" aria-label="Add a block inside">${icons.plus}</button>` : ''}<button type="button" data-act="more" title="Options" aria-label="Options">${icons.more}</button>`;
-  tb.querySelector('.ase-toolbar__label')!.textContent = registry[node.type]?.label ?? node.type;
+  tb.innerHTML = `${isTop(path) ? '' : `<button type="button" data-act="parent" title="Select parent block" aria-label="Select parent block">${icons.parent}</button>`}<span class="ps-grip" title="Drag to move">${icons.grip}</span><span class="ps-toolbar__label"></span><button type="button" data-act="up" title="Move up" aria-label="Move up">${icons.up}</button><button type="button" data-act="down" title="Move down" aria-label="Move down">${icons.down}</button>${canAdd ? `<button type="button" data-act="add" title="Add a block inside" aria-label="Add a block inside">${icons.plus}</button>` : ''}<button type="button" data-act="more" title="Options" aria-label="Options">${icons.more}</button>`;
+  tb.querySelector('.ps-toolbar__label')!.textContent = registry[node.type]?.label ?? node.type;
   tb.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest('button');
     if (!b) return;
@@ -221,14 +221,14 @@ function mountToolbar(el: HTMLElement) {
   });
   tb.addEventListener('mousedown', (e) => e.stopPropagation());
   d.body.append(tb);
-  tb.querySelector('.ase-grip')!.addEventListener('pointerdown', (e) => startDrag(e as PointerEvent, el));
+  tb.querySelector('.ps-grip')!.addEventListener('pointerdown', (e) => startDrag(e as PointerEvent, el));
 }
 
 /** Keep the floating pieces next to what they belong to; the page can scroll under them. */
 function placeOverlays() {
   if (!previewReady) return;
   const d = idoc();
-  const tb = d.querySelector<HTMLElement>('.ase-toolbar');
+  const tb = d.querySelector<HTMLElement>('.ps-toolbar');
   const el = selected ? nodeEl(selected) : null;
   if (tb && el) {
     const r = el.getBoundingClientRect();
@@ -239,7 +239,7 @@ function placeOverlays() {
     tb.style.top = `${Math.max(4, r.top - size.height - 6)}px`;
     tb.style.left = `${Math.max(4, Math.min(r.left, vw - size.width - 4))}px`;
   }
-  const line = d.querySelector<HTMLElement>('.ase-insertline');
+  const line = d.querySelector<HTMLElement>('.ps-insertline');
   if (line) {
     const y = target ? insertionY(target) : null;
     line.style.display = y === null ? 'none' : '';
@@ -259,21 +259,21 @@ function insertionY(t: Target): number | null {
 
 function siblings(listPath: string): HTMLElement[] {
   const re = new RegExp(`^${listPath.replace(/\./g, '\\.')}\\.(\\d+)$`);
-  return Array.from(idoc().querySelectorAll<HTMLElement>('[data-ase-node]')).filter((e) => re.test(e.dataset.aseNode!)).sort((a, b) => Number(a.dataset.aseNode!.match(re)![1]) - Number(b.dataset.aseNode!.match(re)![1]));
+  return Array.from(idoc().querySelectorAll<HTMLElement>('[data-ps-node]')).filter((e) => re.test(e.dataset.psNode!)).sort((a, b) => Number(a.dataset.psNode!.match(re)![1]) - Number(b.dataset.psNode!.match(re)![1]));
 }
 
 /** Drag a block to reorder it among its siblings, in whichever direction they are laid out. */
 function startDrag(e: PointerEvent, el: HTMLElement) {
   e.preventDefault();
   const d = idoc();
-  const path = el.dataset.aseNode!;
+  const path = el.dataset.psNode!;
   const { listPath, index: from } = splitNodePath(path);
   const kids = siblings(listPath);
   if (kids.length < 2) return;
   const [a, b] = [kids[0].getBoundingClientRect(), kids[1].getBoundingClientRect()];
   const horizontal = Math.abs(a.top - b.top) < a.height / 2;
-  const line = d.createElement('div'); line.className = `ase-dropline${horizontal ? ' ase-dropline--v' : ''}`; line.setAttribute('data-ase-ui', ''); d.body.append(line);
-  el.classList.add('ase-dragging');
+  const line = d.createElement('div'); line.className = `ps-dropline${horizontal ? ' ps-dropline--v' : ''}`; line.setAttribute('data-ps-ui', ''); d.body.append(line);
+  el.classList.add('ps-dragging');
   let to = from;
   const move = (ev: PointerEvent) => {
     let best = 0, dist = Infinity;
@@ -288,7 +288,7 @@ function startDrag(e: PointerEvent, el: HTMLElement) {
   };
   const up = () => {
     d.removeEventListener('pointermove', move); d.removeEventListener('pointerup', up);
-    line.remove(); el.classList.remove('ase-dragging');
+    line.remove(); el.classList.remove('ps-dragging');
     const dest = to > from ? to - 1 : to;
     if (dest !== from) { selected = `${listPath}.${dest}`; state.apply(moveNode(state.doc, path, listPath, dest)); scheduleRender(0); } else refreshChrome();
   };
@@ -302,7 +302,7 @@ function onPreviewMove(e: MouseEvent) {
   const { clientY, target: t } = e;
   plusRaf = requestAnimationFrame(() => {
     plusRaf = 0;
-    if (inline.isActive || (t as HTMLElement).closest?.('.ase-toolbar, [data-ase-toolbar]')) { showPlus(null); return; }
+    if (inline.isActive || (t as HTMLElement).closest?.('.ps-toolbar, [data-ps-toolbar]')) { showPlus(null); return; }
     const secs = topSections(idoc());
     let index: number | null = null, y = 0;
     secs.forEach((s, i) => {
@@ -316,11 +316,11 @@ function onPreviewMove(e: MouseEvent) {
 function showPlus(at: { index: number; y: number } | null) {
   if (!previewReady) return;
   const d = idoc();
-  let plus = d.querySelector<HTMLElement>('.ase-plus');
+  let plus = d.querySelector<HTMLElement>('.ps-plus');
   if (!at) { if (plus) plus.hidden = true; return; }
   if (!plus) {
     plus = d.createElement('button');
-    plus.type = 'button'; plus.className = 'ase-plus'; plus.setAttribute('data-ase-ui', ''); plus.title = 'Add block'; plus.setAttribute('aria-label', 'Add block'); plus.innerHTML = icons.plus;
+    plus.type = 'button'; plus.className = 'ps-plus'; plus.setAttribute('data-ps-ui', ''); plus.title = 'Add block'; plus.setAttribute('aria-label', 'Add block'); plus.innerHTML = icons.plus;
     plus.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); openInserter({ listPath: 'sections', index: Number(plus!.dataset.index) }); plus!.hidden = true; });
     d.body.append(plus);
   }
@@ -339,26 +339,26 @@ function select(path: string | null, opts: { fromPreview?: boolean; scroll?: boo
 function refreshButtons() {
   const dirty = state.dirty;
   const draft = state.doc.status === 'draft';
-  $<HTMLButtonElement>('#ase-undo').disabled = !state.canUndo;
-  $<HTMLButtonElement>('#ase-redo').disabled = !state.canRedo;
-  const save = $<HTMLButtonElement>('#ase-save');
+  $<HTMLButtonElement>('#ps-undo').disabled = !state.canUndo;
+  $<HTMLButtonElement>('#ps-redo').disabled = !state.canRedo;
+  const save = $<HTMLButtonElement>('#ps-save');
   save.disabled = !dirty || saving;
   save.textContent = draft ? 'Save draft' : 'Save';
-  save.classList.toggle('ase-btn--primary', !draft);
-  save.classList.toggle('ase-btn--ghost', draft);
-  const publish = $<HTMLButtonElement>('#ase-publish');
+  save.classList.toggle('ps-btn--primary', !draft);
+  save.classList.toggle('ps-btn--ghost', draft);
+  const publish = $<HTMLButtonElement>('#ps-publish');
   publish.hidden = !draft;
   publish.disabled = saving;
-  $('#ase-discard').hidden = !dirty;
-  $('#ase-view').hidden = draft || boot.page.status === 'draft';
-  $('#ase-draft-pill').hidden = !draft;
-  $('#ase-title').textContent = state.doc.title;
+  $('#ps-discard').hidden = !dirty;
+  $('#ps-view').hidden = draft || boot.page.status === 'draft';
+  $('#ps-draft-pill').hidden = !draft;
+  $('#ps-title').textContent = state.doc.title;
   document.title = `${dirty ? '• ' : ''}Edit: ${state.doc.title}`;
 }
 
 function refreshChrome(opts: { inspector?: boolean } = {}) {
   if (previewReady) decorate();
-  renderTree($('#ase-tree'), state.doc, registry, selected, {
+  renderTree($('#ps-tree'), state.doc, registry, selected, {
     onSelect: (p) => select(p),
     onMove: (fromPath, toList, toIndex) => {
       const id = nodeAt(state.doc, fromPath)!.id;
@@ -382,10 +382,10 @@ const parentTypeOf = (listPath: string): string | null => (listPath === 'section
 
 // ---------- sidebar ----------
 function renderInspector() {
-  const root = $('#ase-inspector');
+  const root = $('#ps-inspector');
   root.innerHTML = '';
   const tabs = document.createElement('div');
-  tabs.className = 'ase-tabs'; tabs.setAttribute('role', 'tablist');
+  tabs.className = 'ps-tabs'; tabs.setAttribute('role', 'tablist');
   tabs.innerHTML = `<button type="button" role="tab" data-tab="page" aria-selected="${tab === 'page'}">Page</button><button type="button" role="tab" data-tab="block" aria-selected="${tab === 'block'}">Block</button>`;
   tabs.addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]'); if (b) { tab = b.dataset.tab as typeof tab; renderInspector(); } });
   root.append(tabs);
@@ -414,15 +414,15 @@ function applyField(path: string, value: unknown, live: boolean | undefined, fie
 function renderBlockTab(root: HTMLElement, node: Node, path: string) {
   const schema = registry[node.type];
   const head = document.createElement('div');
-  head.className = 'ase-blockhead';
+  head.className = 'ps-blockhead';
   const name = document.createElement('strong'); name.textContent = schema?.label ?? node.type;
   head.append(name);
-  if (schema?.description) { const d = document.createElement('p'); d.className = 'ase-muted'; d.textContent = schema.description; head.append(d); }
+  if (schema?.description) { const d = document.createElement('p'); d.className = 'ps-muted'; d.textContent = schema.description; head.append(d); }
   root.append(breadcrumbs(path), head);
   const actions = document.createElement('div');
-  actions.className = 'ase-actions';
+  actions.className = 'ps-actions';
   const allowed = allowedChildTypes(node.type, registry);
-  actions.innerHTML = `${allowed?.length ? `<button type="button" data-act="add" class="ase-btn ase-btn--small">${icons.plus} Add block</button>` : ''}<button type="button" data-act="dup" class="ase-btn ase-btn--small">Duplicate</button><button type="button" data-act="del" class="ase-btn ase-btn--small ase-btn--danger">Delete</button>`;
+  actions.innerHTML = `${allowed?.length ? `<button type="button" data-act="add" class="ps-btn ps-btn--small">${icons.plus} Add block</button>` : ''}<button type="button" data-act="dup" class="ps-btn ps-btn--small">Duplicate</button><button type="button" data-act="del" class="ps-btn ps-btn--small ps-btn--danger">Delete</button>`;
   actions.addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest('button'); if (b) act(b.dataset.act!); });
   root.append(actions);
   const form = document.createElement('div');
@@ -436,7 +436,7 @@ function renderBlockTab(root: HTMLElement, node: Node, path: string) {
 /** Page › Hero › Button; each step selects that block. */
 function breadcrumbs(path: string): HTMLElement {
   const nav = document.createElement('nav');
-  nav.className = 'ase-crumbs'; nav.setAttribute('aria-label', 'Block position');
+  nav.className = 'ps-crumbs'; nav.setAttribute('aria-label', 'Block position');
   const add = (label: string, to: string | null, current = false) => {
     if (nav.childElementCount) nav.append(' › ');
     const b = document.createElement('button');
@@ -458,17 +458,17 @@ function renderPageTab(root: HTMLElement) {
   const doc = state.doc;
   const draft = doc.status === 'draft';
   const summary = document.createElement('div');
-  summary.className = 'ase-summary';
+  summary.className = 'ps-summary';
   const row = (label: string, value: string, button?: { text: string; id: string; run: () => void; disabled?: boolean }) => {
-    const r = document.createElement('div'); r.className = 'ase-summary__row';
-    const l = document.createElement('span'); l.className = 'ase-muted'; l.textContent = label;
-    const v = document.createElement('span'); v.textContent = value; v.className = 'ase-ellipsis';
+    const r = document.createElement('div'); r.className = 'ps-summary__row';
+    const l = document.createElement('span'); l.className = 'ps-muted'; l.textContent = label;
+    const v = document.createElement('span'); v.textContent = value; v.className = 'ps-ellipsis';
     r.append(l, v);
-    if (button) { const b = document.createElement('button'); b.type = 'button'; b.id = button.id; b.className = 'ase-linkbtn'; b.textContent = button.text; b.disabled = !!button.disabled; b.addEventListener('click', button.run); r.append(b); }
+    if (button) { const b = document.createElement('button'); b.type = 'button'; b.id = button.id; b.className = 'ps-linkbtn'; b.textContent = button.text; b.disabled = !!button.disabled; b.addEventListener('click', button.run); r.append(b); }
     summary.append(r);
   };
-  row('Status', draft ? 'Draft' : 'Published', draft ? undefined : { text: 'Switch to draft', id: 'ase-unpublish', run: () => publish(false), disabled: isHome });
-  row('URL', boot.options.viewUrl, isHome ? undefined : { text: 'Change', id: 'ase-change-url', run: changeUrl });
+  row('Status', draft ? 'Draft' : 'Published', draft ? undefined : { text: 'Switch to draft', id: 'ps-unpublish', run: () => publish(false), disabled: isHome });
+  row('URL', boot.options.viewUrl, isHome ? undefined : { text: 'Change', id: 'ps-change-url', run: changeUrl });
   root.append(summary);
 
   const form = document.createElement('div');
@@ -493,13 +493,13 @@ function renderPageTab(root: HTMLElement) {
   }
 
   const tools = document.createElement('div');
-  tools.className = 'ase-actions';
-  tools.innerHTML = `<button type="button" id="ase-revisions" class="ase-btn ase-btn--small">Revisions</button>${isHome ? '' : '<button type="button" id="ase-delete-page" class="ase-btn ase-btn--small ase-btn--danger">Delete page</button>'}`;
-  tools.querySelector('#ase-revisions')!.addEventListener('click', showRevisions);
-  tools.querySelector('#ase-delete-page')?.addEventListener('click', deletePage);
+  tools.className = 'ps-actions';
+  tools.innerHTML = `<button type="button" id="ps-revisions" class="ps-btn ps-btn--small">Revisions</button>${isHome ? '' : '<button type="button" id="ps-delete-page" class="ps-btn ps-btn--small ps-btn--danger">Delete page</button>'}`;
+  tools.querySelector('#ps-revisions')!.addEventListener('click', showRevisions);
+  tools.querySelector('#ps-delete-page')?.addEventListener('click', deletePage);
   root.append(tools, hint('Click anything in the page to edit it. Press ? for keyboard shortcuts.'));
 }
-const hint = (text: string) => { const p = document.createElement('p'); p.className = 'ase-muted ase-hint'; p.textContent = text; return p; };
+const hint = (text: string) => { const p = document.createElement('p'); p.className = 'ps-muted ps-hint'; p.textContent = text; return p; };
 
 // ---------- block actions ----------
 function blockMenu(path: string): MenuItem[] {
@@ -600,7 +600,7 @@ function setField(fieldPath: string, value: unknown) {
 }
 
 // ---------- clipboard: works across pages of the site ----------
-const CLIP = 'ase:clipboard';
+const CLIP = 'ps:clipboard';
 function writeClipboard(n: Node) { try { localStorage.setItem(CLIP, JSON.stringify(n)); } catch { /* private mode */ } }
 function readClipboard(): Node | null { try { return JSON.parse(localStorage.getItem(CLIP) ?? 'null'); } catch { return null; } }
 
@@ -659,9 +659,9 @@ let leftView: 'list' | 'add' | 'off' = 'list';
 function setLeft(view: typeof leftView) {
   leftView = view;
   document.body.dataset.left = view;
-  $('#ase-toggle-add').classList.toggle('is-active', view === 'add');
-  $('#ase-toggle-list').classList.toggle('is-active', view === 'list');
-  if (view !== 'add') { target = null; slashBlock = null; placeOverlays(); idoc()?.querySelector('.ase-insertline')?.remove(); }
+  $('#ps-toggle-add').classList.toggle('is-active', view === 'add');
+  $('#ps-toggle-list').classList.toggle('is-active', view === 'list');
+  if (view !== 'add') { target = null; slashBlock = null; placeOverlays(); idoc()?.querySelector('.ps-insertline')?.remove(); }
   fitPreview();
 }
 
@@ -679,14 +679,14 @@ function openInserter(at: Target = defaultTarget()) {
   setLeft('add');
   renderInserterPanel();
   const d = idoc();
-  if (!d.querySelector('.ase-insertline')) { const line = d.createElement('div'); line.className = 'ase-insertline'; line.setAttribute('data-ase-ui', ''); d.body.append(line); }
+  if (!d.querySelector('.ps-insertline')) { const line = d.createElement('div'); line.className = 'ps-insertline'; line.setAttribute('data-ps-ui', ''); d.body.append(line); }
   placeOverlays();
 }
 
 function renderInserterPanel() {
   if (!target) return;
   const parent = parentTypeOf(target.listPath);
-  renderInserter($('#ase-inserter'), {
+  renderInserter($('#ps-inserter'), {
     items: () => insertItems(parent, registry, boot.presets, patterns),
     where: () => (parent ? `Adding to ${registry[parent]?.label ?? parent}` : 'Adding to the page'),
     onPick: (item) => pick(item),
@@ -738,13 +738,13 @@ let uiScale = 1;
 /** Tools drawn inside the preview scale up by the inverse, so they stay a usable size. */
 function applyUiScale(scale: number) {
   uiScale = 1 / scale;
-  idoc()?.documentElement?.style.setProperty('--ase-ui', String(uiScale));
+  idoc()?.documentElement?.style.setProperty('--ps-ui', String(uiScale));
   placeOverlays();
 }
 
 /** The site should show its real layout at every width, so a device wider than the stage scales down. */
 function fitPreview() {
-  const stage = $('.ase-stage');
+  const stage = $('.ps-stage');
   const width = WIDTHS[stage.dataset.device!];
   const room = stage.clientWidth;
   const big = stage.dataset.device === 'desktop' && room >= width;
@@ -754,33 +754,33 @@ function fitPreview() {
   iframe.style.transform = scale < 1 ? `scale(${scale})` : '';
   stage.classList.toggle('is-scaled', scale < 1);
   applyUiScale(scale);
-  $('#ase-zoom').textContent = scale < 1 ? `${Math.round(scale * 100)}%` : '';
+  $('#ps-zoom').textContent = scale < 1 ? `${Math.round(scale * 100)}%` : '';
 }
-new ResizeObserver(fitPreview).observe($('.ase-stage'));
+new ResizeObserver(fitPreview).observe($('.ps-stage'));
 
 // ---------- top bar ----------
-$('#ase-undo').addEventListener('click', () => { inline.stop(true); state.undo(); });
-$('#ase-redo').addEventListener('click', () => { inline.stop(true); state.redo(); });
-$('#ase-toggle-add').addEventListener('click', () => { if (leftView === 'add') setLeft('list'); else openInserter(); });
-$('#ase-toggle-list').addEventListener('click', () => setLeft(leftView === 'list' ? 'off' : 'list'));
-const toggleSettings = () => { const off = document.body.dataset.right !== 'off'; document.body.dataset.right = off ? 'off' : 'on'; $('#ase-toggle-settings').classList.toggle('is-active', !off); fitPreview(); };
-$('#ase-toggle-settings').addEventListener('click', toggleSettings);
-$('#ase-discard').addEventListener('click', async () => {
+$('#ps-undo').addEventListener('click', () => { inline.stop(true); state.undo(); });
+$('#ps-redo').addEventListener('click', () => { inline.stop(true); state.redo(); });
+$('#ps-toggle-add').addEventListener('click', () => { if (leftView === 'add') setLeft('list'); else openInserter(); });
+$('#ps-toggle-list').addEventListener('click', () => setLeft(leftView === 'list' ? 'off' : 'list'));
+const toggleSettings = () => { const off = document.body.dataset.right !== 'off'; document.body.dataset.right = off ? 'off' : 'on'; $('#ps-toggle-settings').classList.toggle('is-active', !off); fitPreview(); };
+$('#ps-toggle-settings').addEventListener('click', toggleSettings);
+$('#ps-discard').addEventListener('click', async () => {
   if (!await confirmDialog('Discard changes', 'Discard all unsaved changes to this page?', 'Discard', 'danger')) return;
   const r = await (await fetch(`/api/editor/page/${boot.slug}`)).json();
   renderFull = true;
   state.reset(r.page, r.hash);
 });
-$('#ase-save').addEventListener('click', () => save());
-$('#ase-publish').addEventListener('click', () => publish(true));
-$('#ase-preview-tab').addEventListener('click', previewInTab);
-document.querySelectorAll<HTMLButtonElement>('.ase-top__devices button').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('.ase-top__devices button').forEach((x) => x.classList.remove('is-active'));
+$('#ps-save').addEventListener('click', () => save());
+$('#ps-publish').addEventListener('click', () => publish(true));
+$('#ps-preview-tab').addEventListener('click', previewInTab);
+document.querySelectorAll<HTMLButtonElement>('.ps-top__devices button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.ps-top__devices button').forEach((x) => x.classList.remove('is-active'));
   b.classList.add('is-active');
-  $('.ase-stage').dataset.device = b.dataset.device;
+  $('.ps-stage').dataset.device = b.dataset.device;
   fitPreview();
 }));
-$('#ase-more').addEventListener('click', (e) => {
+$('#ps-more').addEventListener('click', (e) => {
   const items: MenuItem[] = [
     { label: 'Keyboard shortcuts', hint: '?', run: showShortcuts },
     { label: 'Revisions', run: showRevisions },
@@ -813,7 +813,7 @@ async function save(opts: { slug?: string } = {}): Promise<{ slug?: string; resu
     state.markSaved(data.hash);
     boot.page = state.doc;
     const r = data.result;
-    if (r.kind === 'github') toast(r.pullRequest ? `Committed and opened a pull request: ${r.pullRequest}` : `Committed ${String(r.commit).slice(0, 7)} to ${r.branch}. The host will rebuild the site.`, 'ok', { href: r.pullRequest || r.url });
+    if (r.kind === 'github') toast(r.pullRequest ? `Committed and opened a pull request: ${r.pullRequest}` : document.getElementById('ps-live') ? 'Saved. Use Go live to put it on the site.' : `Committed ${String(r.commit).slice(0, 7)} to ${r.branch}. The host will rebuild the site.`, 'ok', { href: r.pullRequest || r.url });
     else toast(`Saved to the working tree (${r.files.join(', ')}). Commit it with git when you're happy.`, 'ok');
     setSaveStatus('Saved');
     return data;
@@ -858,20 +858,20 @@ async function deletePage() {
 
 async function showRevisions() {
   const box = document.createElement('div');
-  box.innerHTML = '<p class="ase-muted">Loading…</p>';
+  box.innerHTML = '<p class="ps-muted">Loading…</p>';
   const d = dialog('Revisions', box, [{ label: 'Close' }], { wide: true });
   const data = await (await fetch(`/api/editor/page/${boot.slug}?revisions=1`)).json();
   const revs = (data.revisions ?? []) as Revision[];
   box.innerHTML = '';
-  if (!revs.length) { box.innerHTML = '<p class="ase-muted">No revisions yet. Each committed save appears here.</p>'; return; }
-  const ul = document.createElement('ul'); ul.className = 'ase-revisions';
+  if (!revs.length) { box.innerHTML = '<p class="ps-muted">No revisions yet. Each committed save appears here.</p>'; return; }
+  const ul = document.createElement('ul'); ul.className = 'ps-revisions';
   for (const r of revs) {
     const li = document.createElement('li');
     const info = document.createElement('div');
     const when = document.createElement('strong'); when.textContent = new Date(r.date).toLocaleString();
-    const what = document.createElement('span'); what.className = 'ase-muted ase-ellipsis'; what.textContent = `${r.author} · ${r.message}`;
+    const what = document.createElement('span'); what.className = 'ps-muted ps-ellipsis'; what.textContent = `${r.author} · ${r.message}`;
     info.append(when, what);
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'ase-btn ase-btn--small'; b.textContent = 'Restore';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ps-btn ps-btn--small'; b.textContent = 'Restore';
     b.addEventListener('click', async () => {
       const res = await (await fetch(`/api/editor/page/${boot.slug}?rev=${r.sha}`)).json();
       if (!res.page) { toast('That revision could not be loaded.', 'error'); return; }
@@ -896,7 +896,7 @@ function showShortcuts() {
     ['Text', [['⌘B', 'Bold'], ['⌘I', 'Italic'], ['⌘U', 'Underline'], ['⌘K', 'Link'], ['Esc', 'Cancel the edit']]],
   ];
   const box = document.createElement('div');
-  box.className = 'ase-keys';
+  box.className = 'ps-keys';
   for (const [title, rows] of groups) {
     const h = document.createElement('h3'); h.textContent = title;
     const dl = document.createElement('dl');
@@ -908,7 +908,7 @@ function showShortcuts() {
 
 /** The block before or after the selected one, in page order. */
 function neighbour(step: 1 | -1): string | null {
-  const all = Array.from(idoc().querySelectorAll<HTMLElement>('[data-ase-node]')).map((e) => e.dataset.aseNode!);
+  const all = Array.from(idoc().querySelectorAll<HTMLElement>('[data-ps-node]')).map((e) => e.dataset.psNode!);
   if (!selected) return all[0] ?? null;
   return all[all.indexOf(selected) + step] ?? null;
 }
@@ -922,7 +922,7 @@ function onKeydown(e: KeyboardEvent) {
   if (mod && e.shiftKey && (key === ',' || key === '<')) return run(toggleSettings);
   if (e.ctrlKey && e.altKey && (key === 'o' || e.code === 'KeyO')) return run(() => setLeft(leftView === 'list' ? 'off' : 'list'));
   if (typing) return;
-  if (document.querySelector('.ase-modal')) return;
+  if (document.querySelector('.ps-modal')) return;
   if (mod && key === 'z') return run(() => (e.shiftKey ? state.redo() : state.undo()));
   if (mod && key === 'c' && selected && !idoc().getSelection()?.toString() && !getSelection()?.toString()) return run(() => act('copy'));
   if (mod && key === 'x' && selected) return run(() => act('cut'));
@@ -954,7 +954,7 @@ state.addEventListener('change', (e) => {
   refreshChrome();
 });
 
-function setSaveStatus(t: string) { $('#ase-status').textContent = t; }
+function setSaveStatus(t: string) { $('#ps-status').textContent = t; }
 
 // Top-bar buttons get their icons here, so the Astro shell stays plain markup.
 document.querySelectorAll<HTMLElement>('[data-icon]').forEach((el) => { el.insertAdjacentHTML('afterbegin', icons[el.dataset.icon as keyof typeof icons]); });

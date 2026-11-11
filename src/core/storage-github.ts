@@ -7,7 +7,7 @@
 // Uploads wait on a side branch until the next save brings them along in its one commit, then the
 // branch goes away. Keeping them in the repo rather than in memory means an upload and the save
 // after it can land on different server instances (Workers), and a restart loses nothing.
-import type { CommitResult, FileChange, Revision, Storage } from './storage';
+import type { CommitResult, FileChange, PendingChanges, Revision, Storage } from './storage';
 import { fromBase64, isSha, safeRelPath, toBase64 } from './storage';
 
 export interface GitHubOptions {
@@ -17,6 +17,11 @@ export interface GitHubOptions {
   branch?: string;
   /** Commit to a new branch and open a PR against `branch` instead of committing directly. */
   pullRequest?: boolean;
+  /**
+   * The branch the public site builds from. Saves go to `branch` (staging) and only Go live
+   * moves them here. Leave out to have saves go straight to `branch`.
+   */
+  live?: string;
   token: string;
   apiBase?: string;
   /** Injected for tests. */
@@ -41,14 +46,17 @@ export class GitHubStorage implements Storage {
   }
 
   private async req<T = any>(method: string, url: string, body?: unknown, allow404 = false): Promise<T | null> {
-    const res = await this.fetchImpl(`${this.api}${url}`, {
+    const res = await this.raw(method, url, body);
+    if (res.status === 404 && allow404) return null;
+    if (!res.ok) throw new Error(`GitHub ${method} ${url} -> ${res.status} ${(await res.text()).slice(0, 300)}`);
+    return (res.status === 204 ? null : await res.json()) as T;
+  }
+  private raw(method: string, url: string, body?: unknown): Promise<Response> {
+    return this.fetchImpl(`${this.api}${url}`, {
       method,
       headers: { authorization: `Bearer ${this.opts.token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', 'user-agent': 'pagestack', ...(body ? { 'content-type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (res.status === 404 && allow404) return null;
-    if (!res.ok) throw new Error(`GitHub ${method} ${url} -> ${res.status} ${(await res.text()).slice(0, 300)}`);
-    return (res.status === 204 ? null : await res.json()) as T;
   }
   private get repoUrl() { return `/repos/${this.opts.repo}`; }
 
@@ -147,6 +155,44 @@ export class GitHubStorage implements Storage {
     if (uploads.length) await this.req('DELETE', `${this.repoUrl}/git/refs/heads/${UPLOADS}`, undefined, true).catch(() => { /* an empty next commit is harmless */ });
     return { kind: 'github', files: [...all.map((f) => f.path), ...uploads.map((u) => u.path), ...removed], commit: commit.sha, url: commit.html_url ?? `https://github.com/${this.opts.repo}/commit/${commit.sha}`, branch, pullRequest };
   }
+
+  /** Saved but not yet live: commits on `branch` that `live` doesn't have. */
+  async pending(): Promise<PendingChanges> {
+    const live = this.opts.live;
+    if (!live) throw new Error('no live branch configured');
+    const cmp = await this.req<any>('GET', `${this.repoUrl}/compare/${encodeURIComponent(live)}...${encodeURIComponent(this.branch)}?per_page=50`);
+    const commits: any[] = cmp.commits ?? [];
+    const changes = commits.slice(-50).reverse().map((c) => ({ sha: c.sha, message: String(c.commit.message).split('\n')[0], author: editorOf(c.commit.message) ?? c.commit.author?.name ?? '', date: c.commit.author?.date ?? '' }));
+    return { branch: this.branch, live, count: cmp.ahead_by ?? commits.length, changes };
+  }
+
+  /**
+   * Moves `live` to the staging head. A fast-forward when `live` has nothing of its own; when it
+   * does (someone committed to it directly), a merge commit, and staging follows so the next Go
+   * live is a fast-forward again. A conflict is refused and left to a person in GitHub.
+   */
+  async goLive(message: string): Promise<{ commit: string; url: string; merged: boolean } | null> {
+    const live = this.opts.live;
+    if (!live) throw new Error('no live branch configured');
+    const head = await this.req<any>('GET', `${this.repoUrl}/git/ref/heads/${encodeURIComponent(this.branch)}`);
+    const sha: string = head.object.sha;
+    const url = (c: string) => `https://github.com/${this.opts.repo}/commit/${c}`;
+    const ff = await this.raw('PATCH', `${this.repoUrl}/git/refs/heads/${encodeURIComponent(live)}`, { sha, force: false });
+    if (ff.ok) return { commit: sha, url: url(sha), merged: false };
+    if (ff.status !== 422) throw new Error(`GitHub PATCH ${live} -> ${ff.status} ${(await ff.text()).slice(0, 300)}`);
+    const merge = await this.raw('POST', `${this.repoUrl}/merges`, { base: live, head: sha, commit_message: message });
+    if (merge.status === 204) return null; // nothing to put live
+    if (merge.status === 409) throw new Error(`The live branch (${live}) has changes that conflict with these. Someone needs to merge ${this.branch} into ${live} in GitHub.`);
+    if (!merge.ok) throw new Error(`GitHub merge -> ${merge.status} ${(await merge.text()).slice(0, 300)}`);
+    const merged = await merge.json() as any;
+    await this.raw('PATCH', `${this.repoUrl}/git/refs/heads/${encodeURIComponent(this.branch)}`, { sha: merged.sha, force: false }).catch(() => { /* a save landed meanwhile; the next Go live merges again */ });
+    return { commit: merged.sha, url: merged.html_url ?? url(merged.sha), merged: true };
+  }
 }
 
 function encodePath(p: string) { return p.split('/').map(encodeURIComponent).join('/'); }
+
+/** The person named by `commitMessage` ("Edited by …"), since every commit's author is the token's. */
+function editorOf(message: string): string | undefined {
+  return /\n\nEdited by (.+)$/m.exec(String(message))?.[1]?.trim();
+}

@@ -48,7 +48,7 @@ export function randomChallenge(bytes = 32): string {
 }
 
 // ---- cookies ----
-export const SESSION_COOKIE = 'ase_session';
+export const SESSION_COOKIE = 'ps_session';
 export const SESSION_TTL = 60 * 60 * 12; // 12h
 
 export function parseCookies(header: string | null): Record<string, string> {

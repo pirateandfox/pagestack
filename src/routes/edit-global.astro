@@ -20,20 +20,20 @@ const boot = {
     <meta name="robots" content="noindex" />
     <title>{def.label} — {opts.siteName}</title>
   </head>
-  <body class="ase-index">
+  <body class="ps-index">
     <Nav current="settings" />
-    <main class="ase-index__main ase-global">
-      <header class="ase-index__head">
+    <main class="ps-index__main ps-global">
+      <header class="ps-index__head">
         <div>
           <h1>{def.label}</h1>
-          {def.description && <p class="ase-muted">{def.description}</p>}
+          {def.description && <p class="ps-muted">{def.description}</p>}
         </div>
-        <button type="button" id="ase-global-save" class="ase-btn ase-btn--primary" disabled>Save</button>
+        <button type="button" id="ps-global-save" class="ps-btn ps-btn--primary" disabled>Save</button>
       </header>
-      <div id="ase-global-form" class="ase-global__form"><p class="ase-muted">Loading…</p></div>
+      <div id="ps-global-form" class="ps-global__form"><p class="ps-muted">Loading…</p></div>
     </main>
-    <div id="ase-modal-root"></div>
-    <script is:inline set:html={`window.__ASE_GLOBAL__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
+    <div id="ps-modal-root"></div>
+    <script is:inline set:html={`window.__PS_GLOBAL__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};`} />
     <script>import '../client/global.ts';</script>
   </body>
 </html>

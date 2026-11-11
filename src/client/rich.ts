@@ -39,17 +39,17 @@ export function exec(target: HTMLElement, cmd: string, arg?: string) {
 export function richToolbar(target: HTMLElement, o: RichOptions): HTMLElement {
   const doc = target.ownerDocument;
   const bar = doc.createElement('div');
-  bar.setAttribute('data-ase-toolbar', '');
-  bar.className = 'ase-rt';
+  bar.setAttribute('data-ps-toolbar', '');
+  bar.className = 'ps-rt';
   for (const b of BUTTONS) {
-    if (b.sep) { const s = doc.createElement('span'); s.className = 'ase-rt__sep'; bar.append(s); }
+    if (b.sep) { const s = doc.createElement('span'); s.className = 'ps-rt__sep'; bar.append(s); }
     const el = doc.createElement('button');
     el.type = 'button'; el.title = b.title; el.setAttribute('aria-label', b.title); el.dataset.cmd = b.cmd; if (b.arg) el.dataset.arg = b.arg;
     el.innerHTML = b.html;
     bar.append(el);
   }
-  if (o.hint) { const h = doc.createElement('span'); h.className = 'ase-rt__hint'; h.textContent = o.hint; bar.append(h); }
-  bar.addEventListener('mousedown', (e) => { if (!(e.target as HTMLElement).closest('.ase-link')) e.preventDefault(); });
+  if (o.hint) { const h = doc.createElement('span'); h.className = 'ps-rt__hint'; h.textContent = o.hint; bar.append(h); }
+  bar.addEventListener('mousedown', (e) => { if (!(e.target as HTMLElement).closest('.ps-link')) e.preventDefault(); });
   bar.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-cmd]');
     if (!b) return;
@@ -110,17 +110,17 @@ export function normalizeUrl(input: string): string {
 /** Link editor: type a URL or search the site's pages, like WordPress's link control. */
 export function linkPopover(target: HTMLElement, bar: HTMLElement, o: RichOptions) {
   const doc = target.ownerDocument;
-  bar.querySelector('.ase-link')?.remove();
+  bar.querySelector('.ps-link')?.remove();
   const sel = doc.getSelection();
   const range = sel?.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
   const existing = anchorAt(target);
   const pop = doc.createElement('div');
-  pop.className = 'ase-link';
-  pop.innerHTML = `<input type="text" placeholder="Search pages or paste a URL" aria-label="Link" /><div class="ase-link__results" role="listbox"></div><label class="ase-link__tab"><input type="checkbox" /> Open in new tab</label><p class="ase-link__error" hidden>That link type is not allowed.</p><div class="ase-link__actions"><button type="button" data-do="remove">Remove link</button><button type="button" data-do="apply" class="is-primary">Apply</button></div>`;
+  pop.className = 'ps-link';
+  pop.innerHTML = `<input type="text" placeholder="Search pages or paste a URL" aria-label="Link" /><div class="ps-link__results" role="listbox"></div><label class="ps-link__tab"><input type="checkbox" /> Open in new tab</label><p class="ps-link__error" hidden>That link type is not allowed.</p><div class="ps-link__actions"><button type="button" data-do="remove">Remove link</button><button type="button" data-do="apply" class="is-primary">Apply</button></div>`;
   const input = pop.querySelector<HTMLInputElement>('input[type=text]')!;
   const tab = pop.querySelector<HTMLInputElement>('input[type=checkbox]')!;
-  const results = pop.querySelector<HTMLElement>('.ase-link__results')!;
-  const error = pop.querySelector<HTMLElement>('.ase-link__error')!;
+  const results = pop.querySelector<HTMLElement>('.ps-link__results')!;
+  const error = pop.querySelector<HTMLElement>('.ps-link__error')!;
   const remove = pop.querySelector<HTMLElement>('[data-do=remove]')!;
   input.value = existing?.getAttribute('href') ?? '';
   tab.checked = existing?.target === '_blank';
@@ -203,18 +203,18 @@ export function cleanPaste(e: ClipboardEvent, target: HTMLElement, onChange: () 
 /** The sidebar's rich text field: the same formatting as in the page, with an HTML escape hatch. */
 export function richField(id: string, value: string, onChange: (html: string, live: boolean) => void, pages?: PageLink[]): HTMLElement {
   const box = document.createElement('div');
-  box.className = 'ase-rich';
+  box.className = 'ps-rich';
   const body = document.createElement('div');
-  body.id = id; body.className = 'ase-rich__body'; body.contentEditable = 'true'; body.setAttribute('role', 'textbox'); body.setAttribute('aria-multiline', 'true');
+  body.id = id; body.className = 'ps-rich__body'; body.contentEditable = 'true'; body.setAttribute('role', 'textbox'); body.setAttribute('aria-multiline', 'true');
   body.innerHTML = sanitizeHtml(value);
   let last = value, timer: ReturnType<typeof setTimeout> | undefined;
   const emit = (live: boolean) => { clearTimeout(timer); const html = body.innerHTML; if (html !== last) { last = html; onChange(html, live); } };
   const changed = () => { clearTimeout(timer); timer = setTimeout(() => emit(true), 250); };
   const bar = richToolbar(body, { pages, onChange: () => emit(true) });
   const source = document.createElement('textarea');
-  source.rows = 6; source.className = 'ase-mono'; source.hidden = true; source.setAttribute('aria-label', 'HTML source'); source.spellcheck = false;
+  source.rows = 6; source.className = 'ps-mono'; source.hidden = true; source.setAttribute('aria-label', 'HTML source'); source.spellcheck = false;
   const toggle = document.createElement('button');
-  toggle.type = 'button'; toggle.className = 'ase-rich__source'; toggle.textContent = 'HTML';
+  toggle.type = 'button'; toggle.className = 'ps-rich__source'; toggle.textContent = 'HTML';
   toggle.addEventListener('click', () => {
     const toSource = source.hidden;
     if (toSource) source.value = body.innerHTML; else { body.innerHTML = sanitizeHtml(source.value); emit(false); }
