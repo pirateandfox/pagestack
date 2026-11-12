@@ -10,10 +10,12 @@
   "exports": {
     ".": "./index.mjs",
     "./runtime": "./src/runtime.ts",
-    "./core/*": "./src/core/*.ts"
+    "./core/*": "./src/core/*.ts",
+    "./live": "./live.mjs"
   },
   "files": [
     "index.mjs",
+    "live.mjs",
     "bin",
     "src"
   ],

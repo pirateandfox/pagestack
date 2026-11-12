@@ -1,5 +1,5 @@
 ---
-// Live preview. GET renders the stored page; POST renders the draft in the request body.
+// Live preview. GET renders the stored page (?view=1: without edit mode, for Browse); POST renders the draft in the request body.
 // Both render in edit mode (data-ps-* attributes) through the site's own renderer component,
 // so what the editor shows is exactly what the static build will produce. A form POST (the
 // Preview button) renders the draft without edit mode, for a look at the finished page in a tab.
@@ -26,6 +26,8 @@ if (Astro.request.method === 'POST') {
     else page = clean(page, locals, (await readPage(slug).catch(() => null))?.page);
   } catch (e: any) { error = e.message; }
 } else {
+  // ?view=1 is Browse: the saved page as visitors will see it, without edit markers.
+  editing = !Astro.url.searchParams.has('view');
   const r = await readPage(slug);
   if (!r) return new Response('No such page', { status: 404 });
   page = r.page;

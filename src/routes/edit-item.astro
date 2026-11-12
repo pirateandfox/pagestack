@@ -41,7 +41,7 @@ const boot = {
       )}
       <span id="ps-item-status" class="ps-muted"></span>
       <span class="ps-item__actions">
-        {boot.viewUrl && <a id="ps-item-view" class="ps-btn ps-btn--ghost" href={boot.viewUrl} target="_blank" rel="noopener">View ↗</a>}
+        {boot.viewUrl && <a id="ps-item-view" class="ps-btn ps-btn--ghost" href={`/edit/site?path=${encodeURIComponent(boot.viewUrl)}`} title="See the saved version on the site, and click around from there">View on site</a>}
         {boot.preview && <button type="button" id="ps-item-tab" class="ps-btn ps-btn--ghost">Preview ↗</button>}
         <button type="button" id="ps-item-draft" class="ps-btn ps-btn--ghost" hidden>Switch to draft</button>
         <button type="button" id="ps-item-save" class="ps-btn" disabled>Save</button>

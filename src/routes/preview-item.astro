@@ -23,6 +23,7 @@ try {
     data = item?.data && typeof item.data === 'object' && !Array.isArray(item.data) ? item.data : {};
     body = typeof item?.body === 'string' ? item.body : '';
   } else {
+    editing = !Astro.url.searchParams.has('view'); // ?view=1 is Browse: no edit markers, scripts kept
     const raw = await storage().readFile(`${collections[id].dir}/${slug}.md`);
     if (raw === null) return new Response('Not found', { status: 404 });
     ({ data, body } = parseMarkdown(raw));

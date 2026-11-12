@@ -21,6 +21,10 @@ export interface EditorOptions {
   auth: 'none' | 'passkey' | 'none-behind-proxy'; storage: 'local' | 'github'; github: { repo: string; branch?: string; pullRequest?: boolean; live?: string; stagingUrl?: string } | null;
   siteName: string; secretEnv: string; command: string; interactiveSelector: string;
   reservedSlugs: string[]; redirectsFile: string; patternsFile: string;
+  /** When this editor was built (ms). Browse compares it with the last save. */
+  builtAt?: number;
+  /** Site pages rendered on request on the editor's server, so lists show saved content. URL paths. */
+  liveRoutes?: string[];
   /** Header carrying the client's IP behind a proxy, e.g. cf-connecting-ip. */
   clientIpHeader?: string;
 }

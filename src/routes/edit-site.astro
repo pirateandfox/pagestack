@@ -1,0 +1,41 @@
+---
+// /edit/site?path=/x/ — Browse: the site as it is now, in a frame, with the editor's bar on top.
+// Click around as a visitor would; "Edit this page" opens the editor for whatever is showing.
+// Pages and items show their latest saved version (through their previews), list pages in
+// `liveRoutes` render from storage, and anything else is the copy this editor was built with.
+import { opts } from '../server/context';
+import { resolve } from '../server/browse';
+import '../client/shell.css';
+export const prerender = false;
+const first = await resolve(Astro.url.searchParams.get('path'));
+const user = (Astro.locals as any).editorUser as { name: string } | undefined;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{opts.siteName}</title>
+  </head>
+  <body class="ps-browse">
+    <header class="ps-browse__bar">
+      <a class="ps-browse__site" href="/edit" title="Editor dashboard">← {opts.siteName}</a>
+      <span class="ps-browse__where">
+        <span id="ps-browse-path" class="ps-browse__path">{first.path}</span>
+        <span id="ps-browse-note" class="ps-browse__note" role="status"></span>
+      </span>
+      <span class="ps-browse__actions">
+        <a id="ps-browse-edit" class="ps-btn ps-btn--primary" href={first.edit ?? '#'} hidden={!first.edit}>✎ Edit this page</a>
+        {opts.github?.live && <button type="button" id="ps-live" class="ps-btn ps-live" hidden>Go live</button>}
+        {user && opts.auth === 'passkey' && <a class="ps-browse__out" href="/api/editor/auth/logout">Sign out</a>}
+      </span>
+    </header>
+    <iframe id="ps-browse-frame" class="ps-browse__frame" title="Site" src={first.frame}></iframe>
+    <script is:inline set:html={`window.__PS_BROWSE__ = ${JSON.stringify(first).replace(/</g, '\\u003c')};`} />
+    <script>
+      import '../client/browse.ts';
+      import '../client/live.ts';
+    </script>
+  </body>
+</html>

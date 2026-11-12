@@ -31,6 +31,15 @@ export class LocalStorage implements Storage {
       return out;
     } catch (e: any) { if (e.code === 'ENOENT') return []; throw e; }
   }
+  async readDir(p: string) {
+    const out: { name: string; content: string }[] = [];
+    for (const e of await this.listDir(p)) {
+      if (e.type !== 'file') continue;
+      const content = await this.readFile(`${p}/${e.name}`);
+      if (content !== null) out.push({ name: e.name, content });
+    }
+    return out;
+  }
   async putAsset(p: string, bytes: Uint8Array): Promise<void> {
     const f = this.abs(p);
     await fs.mkdir(path.dirname(f), { recursive: true });

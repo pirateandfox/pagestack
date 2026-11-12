@@ -44,6 +44,16 @@ export interface Storage {
   readFile(path: string): Promise<string | null>;
   /** Names of entries in a repo-relative directory (files and dirs), [] when missing. */
   listDir(path: string): Promise<{ name: string; type: 'file' | 'dir'; size?: number }[]>;
+  /**
+   * Every file directly in a folder, with its contents, as stored now. Optional; callers fall back
+   * to listDir + readFile. The GitHub adapter caches contents by blob hash, so repeated reads cost
+   * one request.
+   */
+  readDir?(path: string): Promise<{ name: string; content: string }[]>;
+  /** The commit the branch is at now, when the store has one. Lets readers skip work when nothing changed. */
+  head?(): Promise<string>;
+  /** When the branch last changed (its head commit's date, ISO). */
+  lastChange?(): Promise<string | null>;
   /** Stage a binary (upload). It must be reachable at its URL before the next commit. */
   putAsset(path: string, bytes: Uint8Array): Promise<void>;
   /** Make a set of text changes durable, together with any staged assets. `deletes` are repo-relative paths. */

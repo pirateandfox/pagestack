@@ -28,6 +28,9 @@ Host sites pin an npm version and bump when they want a new one.
 - [x] Change URL and revisions for collection items.
 - [x] Adding blocks from the page (+ and `/`), lists and quotes edited in place.
 - [x] Third-party scripts kept out of the block-page preview (`previewScripts`).
+- [x] **Browse site**: the site with an editor bar, Edit this page / View on site, a notice on pages older than the last save.
+- [x] **Live list pages** (`liveRoutes`) on the editor's server, so new items show before a rebuild.
+- [ ] Rebuild the editor after Go live, so its remaining built copies catch up on their own.
 - [ ] A group field for nested frontmatter; reading collection fields from the host's Astro schema.
 - [x] **Synced patterns**, written to every copy in one commit.
 - [x] **Block transforms** and `/` in an empty block.

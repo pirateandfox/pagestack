@@ -41,7 +41,7 @@ const boot = {
         <span id="ps-status" class="ps-muted" role="status"></span>
         <button type="button" id="ps-discard" class="ps-btn ps-btn--ghost" hidden>Discard</button>
         <button type="button" id="ps-preview-tab" class="ps-btn ps-btn--ghost" title="See this draft as visitors will, in a new tab">Preview</button>
-        <a id="ps-view" class="ps-btn ps-btn--ghost" href={publicPath(slug)} target="_blank" rel="noopener">View ↗</a>
+        <a id="ps-view" class="ps-btn ps-btn--ghost" href={`/edit/site?path=${encodeURIComponent(publicPath(slug))}`} title="See the saved page on the site, and click around from there">View on site</a>
         <button type="button" id="ps-save" class="ps-btn ps-btn--primary" disabled>Save</button>
         <button type="button" id="ps-publish" class="ps-btn ps-btn--primary" hidden>Publish</button>
         {opts.github?.live && <button type="button" id="ps-live" class="ps-btn ps-live" hidden>Go live</button>}

@@ -319,3 +319,26 @@ body.ps[data-left="add"] .ps-listview, body:not([data-left="add"]) .ps-inserter 
 .ps-live__list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border-top: 1px solid var(--ps-border); }
 .ps-live__list li:first-child { border-top: 0; }
 .ps-live__list .ps-muted { flex: none; font-size: 12px; }
+
+/* ---- Browse (/edit/site): the site in a frame under a slim bar ---- */
+body.ps-browse { margin: 0; height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: #1e1e1e; }
+.ps-browse__bar { display: flex; align-items: center; gap: 16px; min-height: 44px; padding: 6px 16px; background: #1e1e1e; color: #ddd; }
+.ps-browse__site { color: #fff; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.ps-browse__site:hover { text-decoration: underline; }
+.ps-browse__where { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+.ps-browse__path { color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-browse__note { color: #9ca3af; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-browse__note.is-stale { color: #fbbf24; }
+.ps-browse__actions { display: flex; align-items: center; gap: 10px; }
+.ps-browse__actions .ps-btn { padding: 5px 12px; }
+.ps-browse__actions .ps-live:not(.ps-btn--primary) { background: transparent; color: #fff; border-color: #4b5563; }
+.ps-browse__out { color: #9ca3af; text-decoration: none; }
+.ps-browse__out:hover { color: #fff; }
+.ps-browse__frame { width: 100%; height: 100%; border: 0; background: #fff; }
+@media (max-width: 640px) {
+  .ps-browse__bar { flex-wrap: wrap; gap: 4px 10px; padding: 6px 10px; }
+  .ps-browse__site { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ps-browse__where { order: 3; flex-basis: 100%; }
+  .ps-browse__where:not(:has(.is-stale)) { display: none; } /* only the warning earns a second line */
+  .ps-browse__path, .ps-browse__out { display: none; }
+}

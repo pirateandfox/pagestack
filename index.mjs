@@ -81,12 +81,19 @@ export default function sectionEditor(userOptions) {
   // integration hook to it (an integration added via updateConfig() doesn't get to call
   // setAdapter() in time, so we proxy its hooks instead).
   let adapter = null;
+  // Set in astro:config:setup when the editor is on: page files to render on request (liveRoutes).
+  let liveComponents = null;
   const forward = (hook) => async (params) => { if (adapter?.hooks?.[hook]) await adapter.hooks[hook](params); };
   const forwarded = Object.fromEntries(['astro:config:done', 'astro:server:setup', 'astro:server:start', 'astro:server:done', 'astro:build:start', 'astro:build:setup', 'astro:build:ssr', 'astro:build:generated', 'astro:build:done'].map((h) => [h, forward(h)]));
   return {
     name: 'pagestack',
     hooks: {
       ...forwarded,
+      // List pages named in `liveRoutes` render on request on the editor's server, reading what
+      // has been saved. Only in the editor build: the public build never gets here.
+      'astro:route:setup': ({ route }) => {
+        if (liveComponents?.has(route.component.replace(/\\/g, '/'))) route.prerender = false;
+      },
       'astro:config:setup': async (params) => {
         const { config, command, injectRoute, updateConfig, addMiddleware, logger } = params;
         const flag = process.env.EDITOR;
@@ -122,9 +129,14 @@ export default function sectionEditor(userOptions) {
           throw new Error('pagestack: use github.live or github.pullRequest, not both');
         }
         const root = fileURLToPath(config.root);
+        const pagesRel = path.relative(root, path.join(fileURLToPath(config.srcDir), 'pages')).replace(/\\/g, '/');
+        liveComponents = new Set((options.liveRoutes ?? []).flatMap((r) => {
+          const base = r.replace(/^\/|\/$/g, '');
+          return base ? [`${pagesRel}/${base}.astro`, `${pagesRel}/${base}/index.astro`] : [`${pagesRel}/index.astro`];
+        }));
         const abs = (p) => path.isAbsolute(p) ? p : path.resolve(root, p);
         const reservedSlugs = [...new Set([...(options.reservedSlugs ?? []), ...staticRoutes(fileURLToPath(config.srcDir))])];
-        const serial = { ...options, reservedSlugs, root, renderer: options.renderer ? abs(options.renderer) : null, previews: Object.fromEntries(Object.entries(options.previews ?? {}).map(([k, v]) => [k, abs(v)])), sections: abs(options.sections), command };
+        const serial = { ...options, builtAt: Date.now(), reservedSlugs, root, renderer: options.renderer ? abs(options.renderer) : null, previews: Object.fromEntries(Object.entries(options.previews ?? {}).map(([k, v]) => [k, abs(v)])), sections: abs(options.sections), command };
 
         updateConfig({
           vite: {
@@ -171,6 +183,7 @@ export default function sectionEditor(userOptions) {
         injectRoute({ pattern: '/edit/global/[id]', entrypoint: route('edit-global.astro'), prerender: false });
         injectRoute({ pattern: '/edit/collection/[id]', entrypoint: route('edit-collection.astro'), prerender: false });
         injectRoute({ pattern: '/edit/collection/[id]/[...slug]', entrypoint: route('edit-item.astro'), prerender: false });
+        injectRoute({ pattern: '/edit/site', entrypoint: route('edit-site.astro'), prerender: false });
         injectRoute({ pattern: '/edit/media', entrypoint: route('edit-media.astro'), prerender: false });
         injectRoute({ pattern: '/edit/users', entrypoint: route('edit-users.astro'), prerender: false });
         injectRoute({ pattern: '/edit/[...slug]', entrypoint: route('edit-page.astro'), prerender: false });
@@ -181,6 +194,7 @@ export default function sectionEditor(userOptions) {
         injectRoute({ pattern: '/api/editor/images', entrypoint: route('api/images.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/collection/[id]/[...slug]', entrypoint: route('api/collection.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/users', entrypoint: route('api/users.ts'), prerender: false });
+        injectRoute({ pattern: '/api/editor/browse', entrypoint: route('api/browse.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/live', entrypoint: route('api/live.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/asset/[...path]', entrypoint: route('api/asset.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/auth/[action]', entrypoint: route('api/auth.ts'), prerender: false });

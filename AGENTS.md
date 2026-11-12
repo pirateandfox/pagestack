@@ -13,6 +13,8 @@ Read this before changing anything. The non-negotiables are in section 6.
 ```
 index.mjs              the Astro integration: options, virtual modules, injected routes, middleware, adapter handling
 bin/invite.mjs         CLI `pagestack-invite`: mints a one-time passkey invite link (plain JS, no deps)
+live.mjs               `@pirateandfox/pagestack/live`: liveEntries() for host list pages (plain JS, no imports, so a
+                       public build that never loads the editor can import it)
 src/runtime.ts         the ONLY module hosts import at render time: types, nodeAttrs/fieldAttrs/child, newId, withDefaults, staticPages
 src/core/              pure logic, unit-tested, no DOM/Node: schema (validate, form groups), patch (undo/redo ops),
                        pages (slugs, new/copy page, redirects), insert (inserter items), sanitize (everything saved),
@@ -20,21 +22,23 @@ src/core/              pure logic, unit-tested, no DOM/Node: schema (validate, f
                        storage (interface) + storage-local (fs) + storage-github (REST, one commit per save), auth (HMAC
                        tokens, sessions), users (editor-users.json model)
 src/server/            context.ts (resolved options, storage instance, page IO), middleware.ts (auth guard),
-                       webauthn.ts (passkey ceremonies)
+                       webauthn.ts (passkey ceremonies), browse.ts (site path -> what Browse shows and edits),
+                       live.ts (collections read from storage for liveRoutes pages)
 src/routes/            edit-index.astro (/edit), edit-page.astro (/edit/<slug>, the shell), edit-global.astro
-                       (/edit/global/<id>), edit-media, edit-users, edit-collection, edit-item, Nav.astro, preview.astro
+                       (/edit/global/<id>), edit-media, edit-users, edit-collection, edit-item, edit-site (/edit/site, Browse), Nav.astro, preview.astro
                        (/edit/preview/<slug>, renders the host's page in edit mode), login.astro, enroll.astro,
-                       api/{page,pages,global,patterns,images,users,collection,asset,auth}.ts
+                       api/{page,pages,global,patterns,images,users,collection,asset,auth,live,browse}.ts
 src/client/            browser code for the shell: editor.ts (orchestration), state.ts (doc + history), tree.ts,
                        form.ts (schema -> sidebar form), inline.ts (click-to-edit text), rich.ts (rich-text toolbar,
                        links, paste), inserter.ts, picker.ts (images), pages.ts (/edit), global.ts (/edit/global), media.ts, users.ts, collection.ts, item.ts, upload.ts,
+                       browse.ts (Browse bar + frame), live.ts (Go live button),
                        ui.ts (toast, dialog, menu), icons.ts, auth.ts, invite.ts, shell.css, preview.css (injected
                        into the iframe)
 test/                  vitest unit tests for src/core (+ form.ts via happy-dom)
 ROADMAP.md             what is planned; CHANGELOG.md: what shipped, per version
 ```
 
-There is **no build step**. The package ships source (`index.mjs`, `bin/`, `src/*.ts|.astro|.css`);
+There is **no build step**. The package ships source (`index.mjs`, `live.mjs`, `bin/`, `src/*.ts|.astro|.css`);
 the host's Vite compiles it (`ssr.noExternal` is set for the package name in `index.mjs`). Keep it
 that way unless there is a strong reason: it keeps releases trivial and lets hosts read the code.
 

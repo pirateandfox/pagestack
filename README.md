@@ -255,8 +255,9 @@ must run there: no `node:fs` reads of the project, no native modules (sharp, res
 `content.config.ts` (its loaders only run in a build). `getCollection` works. The page's own scripts
 are left out of the editor's frame.
 
-In the block editor's preview the site's own scripts do run (tabs, accordions), but scripts from
-other origins are refused, so analytics, captchas and chat widgets stay out of the editor.
+In the block editor's preview, Browse and live list pages, the site's own scripts do run (tabs,
+accordions), but scripts from other origins are refused, so analytics, captchas and chat widgets
+stay out of the editor.
 `previewScripts: 'all'` lifts that for a site whose preview needs an outside script.
 
 An image field stored as a bare URL can name its alt-text field, `{ type: 'image', asUrl: true,
@@ -264,6 +265,50 @@ altField: 'imageAlt' }`, and the picker fills it in.
 
 Blocks can set `category` and `keywords` for the inserter. A `list` field is a repeatable group of
 `fields`, with `itemLabel` naming the field that titles each row.
+
+## Browsing the site
+
+**Browse site** in the editor's top bar (`/edit/site`) shows the site as visitors see it, with a
+slim bar on top. Click around as you would on the real site; **Edit this page** opens the editor
+for whatever is showing, and **View on site** in the editor comes back to it. On a deployed editor,
+opening a live page directly (below) lands in Browse too.
+
+What each page shows:
+
+- **Pages** and **collection items with a `previews` layout**: the latest saved version, through
+  their previews. A new item shows before the editor has been rebuilt.
+- **List pages named in `liveRoutes`**: rendered on request from what has been saved (see below).
+- **Anything else**: the copy built into this editor deployment. When something has been saved
+  since that build, the bar says so ("As of Nov 12, 4:28 PM. May not show changes saved since.").
+
+### Live list pages (`liveRoutes`)
+
+On a deployed editor, list pages (the home page, `/blog/`) are frozen when the editor is built, so a
+new post wouldn't appear in them until the next deploy. Name them in `liveRoutes` and, in the
+editor's build only, they render on request from storage instead:
+
+```js
+pagestack({ liveRoutes: ['/', '/blog'], /* … */ })
+```
+
+The page reads its collections through `liveEntries`, which gives the saved entries on the editor's
+server and `null` everywhere else, so the public build is unchanged and stays fully static:
+
+```ts
+// src/lib/content.ts
+import { getCollection } from 'astro:content';
+import { liveEntries } from '@pirateandfox/pagestack/live';
+import { postSchema } from './schemas'; // the same zod schema content.config.ts uses
+
+export const posts = async () => (await liveEntries('posts', postSchema)) ?? (await getCollection('posts'));
+```
+
+The collection name is the editor's collection id. Pass the schema so dates and defaults come out as
+they do at build time; an entry the schema rejects is left out of the list. These pages need to be
+able to render where the editor runs (on Workers: no `node:fs`, and nothing from
+`content.config.ts`, whose loaders only run at build time). On GitHub storage, entries are cached
+until the branch moves, so a list costs one request to GitHub once the first one has warmed up.
+These pages show unpublished work, so they need a signed-in editor.
 
 ## Security
 
@@ -367,6 +412,7 @@ editor response is `noindex` and `no-store`.
 | `auth` | `passkey` | `passkey` \| `none-behind-proxy` \| `none` |
 | `storage` | `local` in dev, `github` in build | |
 | `github` | — | `{ repo, branch, live?, stagingUrl?, pullRequest? }`: see Staging and Go live |
+| `liveRoutes` | `[]` | site paths rendered on request in the editor's build, from saved content (see Live list pages) |
 | `previewScripts` | `'site'` | block-editor preview runs the site's own scripts only; `'all'` allows other origins too |
 | `enabled` | `EDITOR=dev` (dev) or `EDITOR=1` | Off otherwise, so plain `astro dev` never writes content |
 | `siteName`, `secretEnv` | `Site editor`, `EDITOR_SECRET` | |

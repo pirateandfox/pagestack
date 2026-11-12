@@ -48,7 +48,7 @@ const globalLinks = Object.entries(globals).map(([id, g]) => ({ id, label: g.lab
           <li data-slug={p.slug} data-search={`${p.title} ${p.slug}`.toLowerCase()}>
             <a class="ps-pagelist__edit" href={`/edit/${p.slug}`}><strong>{p.title}{p.status === 'draft' && <span class="ps-pill">Draft</span>}</strong><span class="ps-muted">{publicPath(p.slug)} · {p.sections} {p.sections === 1 ? 'section' : 'sections'}</span></a>
             <div class="ps-pagelist__actions">
-              {p.status !== 'draft' && <a class="ps-btn ps-btn--small ps-btn--ghost" href={publicPath(p.slug)} target="_blank" rel="noopener">View ↗</a>}
+              {p.status !== 'draft' && <a class="ps-btn ps-btn--small ps-btn--ghost" href={`/edit/site?path=${encodeURIComponent(publicPath(p.slug))}`}>View</a>}
               <button type="button" class="ps-btn ps-btn--small ps-btn--ghost" data-duplicate={p.slug}>Duplicate</button>
               {p.slug !== 'index' && <button type="button" class="ps-btn ps-btn--small ps-btn--ghost ps-btn--danger" data-delete={p.slug}>Delete</button>}
             </div>

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-beta.9 — 2026-11-12
+
+- **Browse site** (`/edit/site`): the site as visitors see it, with a bar on top. Click around; **Edit this page** opens the editor for what's showing, and the editor's **View on site** comes back. Pages and items with a `previews` layout show their latest saved version; other pages show the editor's built copy, and the bar warns when something has been saved since that build. Back and Forward work. The View buttons across the editor now open Browse, and the nav's "View site ↗" is now "Browse site".
+- **Live list pages** (`liveRoutes`): in the editor's build only, the named pages render on request, reading collections from storage through the new `@pirateandfox/pagestack/live` export (`liveEntries`). A new or edited item shows in them straight away. The public build is unchanged. Opened directly on a deployed editor, they land in Browse.
+- Storage adapters gain optional `readDir`, `head` and `lastChange`. On GitHub, `readDir` caches file contents by blob hash.
+- `site` is now a reserved page slug (`/edit/site` is Browse).
+
 ## 0.1.0-beta.8 — 2026-11-11
 
 **Breaking, for host sites:** everything the editor puts on a page now uses the `ps` prefix instead of `ase`, from the editor's old name: `data-ps-node`, `data-ps-field`, `data-ps-field-type`, `data-ps-id`, `.ps-*` classes, `window.__PS_*__`. Hosts that only use `nodeAttrs` / `fieldAttrs` / `itemField` need nothing. Hosts that write the attributes by hand, or tests that select `.ase-*`, replace `ase` with `ps` (`data-ase-` → `data-ps-`, `.ase-` → `.ps-`). Editors are signed out once (the session cookie is now `ps_session`).

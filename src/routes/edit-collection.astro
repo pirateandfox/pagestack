@@ -32,7 +32,7 @@ const boot = { id, singular, slugs: items.map((i) => i.slug), reserved: reserved
           <li data-slug={i.slug} data-search={`${i.title} ${i.slug}`.toLowerCase()}>
             <a class="ps-pagelist__edit" href={`/edit/collection/${id}/${i.slug}`}><strong>{i.title}{i.draft && <span class="ps-pill">Draft</span>}</strong><span class="ps-muted">{i.date.slice(0, 10)}</span></a>
             <div class="ps-pagelist__actions">
-              {!i.draft && c.url && <a class="ps-btn ps-btn--small ps-btn--ghost" href={c.url(i.slug)} target="_blank" rel="noopener">View ↗</a>}
+              {!i.draft && c.url && <a class="ps-btn ps-btn--small ps-btn--ghost" href={`/edit/site?path=${encodeURIComponent(c.url(i.slug))}`}>View</a>}
               <button type="button" class="ps-btn ps-btn--small ps-btn--ghost ps-btn--danger" data-delete={i.slug}>Delete</button>
             </div>
           </li>

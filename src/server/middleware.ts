@@ -5,6 +5,8 @@ import { activeUser, opts, secret, storage, publicUrl } from './context';
 import { SESSION_COOKIE, clearCookieHeader, readSession } from '../core/auth';
 import { roleOf } from '../core/users';
 import { rateLimiter } from '../core/ratelimit';
+import { liveCollection } from './live';
+import { isLiveRoute } from './browse';
 
 const PUBLIC = [/^\/edit\/login\/?$/, /^\/edit\/enroll\/?$/, /^\/api\/editor\/auth\//];
 const authAttempts = rateLimiter({ limit: 30, windowMs: 5 * 60_000 });
@@ -28,10 +30,7 @@ function crossSite(request: Request, url: URL): boolean {
   try { return new URL(origin).host !== request.headers.get('host'); } catch { return true; }
 }
 
-/**
- * The block editor's preview frame runs the site's own scripts (tabs, accordions) but nothing from
- * other origins: no analytics counting editors, no captchas or chat widgets inside the editor.
- */
+/** See `frame` below. */
 const SITE_SCRIPTS_ONLY = "; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:";
 
 function harden(res: Response, url: URL, sandbox: boolean, frame = false): Response {
@@ -51,17 +50,25 @@ function harden(res: Response, url: URL, sandbox: boolean, frame = false): Respo
 
 let warned = false;
 
+
 export const onRequest = defineMiddleware(async (ctx, next) => {
   if (ctx.isPrerendered) return next(); // public pages, which never carry a session
+  // Host list pages rendered here (liveRoutes) read collections from storage. Set on the first
+  // on-demand request, never while prerendering, so built pages keep the build's own content.
+  (globalThis as any).__PS_LIVE__ ??= liveCollection;
   const { pathname } = ctx.url;
   const { request } = ctx;
   const isEditor = pathname === '/edit' || pathname.startsWith('/edit/') || pathname.startsWith('/api/editor/');
+  // A site page rendered live shows saved, unpublished work: editors only.
+  const isLive = !isEditor && isLiveRoute(pathname);
 
-  if (!isEditor) return next();
+  if (!isEditor && !isLive) return next();
 
   // A form POST here is the Preview button: an unsaved draft shown in its own tab, walled off from the session.
   const sandbox = pathname.startsWith('/edit/preview') && request.method === 'POST' && !(request.headers.get('content-type') ?? '').includes('json');
-  const frame = request.method === 'GET' && /^\/edit\/preview(-item)?\//.test(pathname) && opts.previewScripts !== 'all';
+  // Site pages shown inside the editor (previews, Browse, live list pages) run the site's own
+  // scripts but nothing from other origins: no analytics counting editors, no captchas or chat.
+  const frame = request.method === 'GET' && (isLive || /^\/edit\/preview(-item)?\//.test(pathname)) && opts.previewScripts !== 'all';
   const done = (res: Response) => harden(res, ctx.url, sandbox, frame);
 
   if (opts.command === 'build' && !warned) {
@@ -95,10 +102,15 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     if (!who && opts.command === 'build') return done(json({ error: 'no identity from the proxy' }, 401));
     if (who) ctx.locals.editorUser = { id: who, name: who, role: 'admin' };
   }
+  // A live site page opened directly rather than inside Browse: show it with the editor's bar.
+  // Deployed editors only; in `astro dev` the site's pages stay plain pages.
+  if (isLive && opts.command === 'build' && request.method === 'GET' && request.headers.get('sec-fetch-dest') === 'document') {
+    return done(new Response(null, { status: 302, headers: { location: `/edit/site?path=${encodeURIComponent(pathname)}` } }));
+  }
   const res = await next();
   // The item frame is sandboxed with no scripts, so the site's scripts there would only fail
   // (one console error each); leave them out.
-  if (!sandbox && pathname.startsWith('/edit/preview-item/') && (res.headers.get('content-type') ?? '').includes('text/html')) {
+  if (!sandbox && pathname.startsWith('/edit/preview-item/') && !ctx.url.searchParams.has('view') && (res.headers.get('content-type') ?? '').includes('text/html')) {
     const html = (await res.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
     const headers = new Headers(res.headers); headers.delete('content-length');
     return done(new Response(html, { status: res.status, headers }));

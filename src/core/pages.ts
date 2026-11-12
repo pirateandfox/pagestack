@@ -7,7 +7,7 @@ import { cloneWithNewIds } from '../runtime';
  * Paths the integration itself owns; hosts add theirs with `reservedSlugs`. The last four would be
  * valid public URLs, but /edit/<slug> is how a page gets edited and those are editor screens.
  */
-export const RESERVED_SLUGS = ['edit', 'api', '_astro', 'login', 'enroll', 'preview', 'global', 'media', 'users', 'collection'];
+export const RESERVED_SLUGS = ['edit', 'api', '_astro', 'login', 'enroll', 'preview', 'global', 'media', 'users', 'collection', 'site'];
 
 export function slugify(title: string): string {
   return title

@@ -32,6 +32,10 @@ export interface GitHubOptions {
 
 const UPLOADS = 'pagestack-uploads';
 
+/** Blob contents by git hash. A hash names exactly one content, so entries never go stale. */
+const blobs = new Map<string, string>();
+const BLOB_CACHE_MAX = 2000;
+
 export class GitHubStorage implements Storage {
   readonly kind = 'github' as const;
   private fetchImpl: typeof fetch;
@@ -76,6 +80,39 @@ export class GitHubStorage implements Storage {
     const waiting = await this.req<any[]>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${UPLOADS}`, undefined, true);
     const seen = new Set(out.map((e) => e.name));
     if (Array.isArray(waiting)) for (const e of waiting) if (e.type === 'file' && !seen.has(e.name)) out.push({ name: e.name, type: 'file', size: e.size });
+    return out;
+  }
+
+  async head(): Promise<string> {
+    const ref = await this.req<any>('GET', `${this.repoUrl}/git/ref/heads/${encodeURIComponent(this.branch)}`);
+    return ref.object.sha as string;
+  }
+
+  async lastChange(): Promise<string | null> {
+    const c = await this.req<any>('GET', `${this.repoUrl}/commits/${encodeURIComponent(this.branch)}`, undefined, true);
+    return c?.commit?.committer?.date ?? c?.commit?.author?.date ?? null;
+  }
+
+  async readDir(p: string): Promise<{ name: string; content: string }[]> {
+    const data = await this.req<any[]>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${encodeURIComponent(this.branch)}`, undefined, true);
+    if (!Array.isArray(data)) return [];
+    const files = data.filter((e) => e.type === 'file');
+    const out: { name: string; content: string }[] = new Array(files.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < files.length) {
+        const i = next++; const f = files[i];
+        let content = blobs.get(f.sha);
+        if (content === undefined) {
+          const blob = await this.req<any>('GET', `${this.repoUrl}/git/blobs/${f.sha}`);
+          content = new TextDecoder().decode(fromBase64(String(blob.content).replace(/\n/g, '')));
+          if (blobs.size >= BLOB_CACHE_MAX) blobs.delete(blobs.keys().next().value!);
+          blobs.set(f.sha, content);
+        }
+        out[i] = { name: f.name, content };
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(8, files.length) }, worker));
     return out;
   }
 
