@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.10 — 2026-11-12
+
+- **Faster first load of live pages and previews.** Live collections now load together, pinned to the branch head, in one GitHub GraphQL request instead of a listing plus one request per file (Sentiosonics: 70 requests and about 10 s on a fresh server, now 11 requests and under 5 s locally). Falls back to the REST reads when GraphQL isn't available. New optional storage method `readDirs(paths, ref)`.
+- **Browse shows when a page is loading**: a moving strip under the bar and "Loading page…", instead of a blank frame.
+
 ## 0.1.0-beta.9 — 2026-11-12
 
 - **Browse site** (`/edit/site`): the site as visitors see it, with a bar on top. Click around; **Edit this page** opens the editor for what's showing, and the editor's **View on site** comes back. Pages and items with a `previews` layout show their latest saved version; other pages show the editor's built copy, and the bar warns when something has been saved since that build. Back and Forward work. The View buttons across the editor now open Browse, and the nav's "View site ↗" is now "Browse site".

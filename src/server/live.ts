@@ -19,15 +19,34 @@ async function currentHead(now: number): Promise<string | null> {
   try { return await headCheck.sha; } catch { headCheck = null; return null; }
 }
 
+function toEntries(name: string, dir: string, files: { name: string; content: string }[]): LiveEntry[] {
+  return files.filter((f) => f.name.endsWith('.md')).map((f) => {
+    const { data, body } = parseMarkdown(f.content);
+    return { id: f.name.slice(0, -3), collection: name, data, body, filePath: `${dir}/${f.name}` };
+  });
+}
+
 async function read(name: string, dir: string): Promise<LiveEntry[]> {
   const s = storage();
   const files = s.readDir
     ? await s.readDir(dir)
     : await Promise.all((await s.listDir(dir)).filter((e) => e.type === 'file').map(async (e) => ({ name: e.name, content: (await s.readFile(`${dir}/${e.name}`)) ?? '' })));
-  return files.filter((f) => f.name.endsWith('.md')).map((f) => {
-    const { data, body } = parseMarkdown(f.content);
-    return { id: f.name.slice(0, -3), collection: name, data, body, filePath: `${dir}/${f.name}` };
-  });
+  return toEntries(name, dir, files);
+}
+
+/**
+ * Every collection at one commit, in one request where the store allows it: a page usually lists
+ * more than one (a footer, related items), and on a fresh server each separate read is a round trip.
+ */
+function readAll(sha: string): Map<string, Promise<LiveEntry[]>> {
+  const s = storage();
+  const names = Object.keys(collections);
+  const byName = new Map<string, Promise<LiveEntry[]>>();
+  if (!s.readDirs) return byName; // each collection read when first asked for
+  const all = s.readDirs(names.map((n) => collections[n].dir), sha);
+  for (const n of names) byName.set(n, all.then((r) => toEntries(n, collections[n].dir, r[collections[n].dir] ?? [])));
+  for (const p of byName.values()) p.catch(() => {}); // collections nobody asked for yet: no unhandled rejection
+  return byName;
 }
 
 export async function liveCollection(name: string, now = Date.now()): Promise<LiveEntry[] | null> {
@@ -35,12 +54,14 @@ export async function liveCollection(name: string, now = Date.now()): Promise<Li
   if (!c) return null;
   const sha = await currentHead(now);
   if (!sha) return read(name, c.dir);
-  if (cached?.sha !== sha) cached = { sha, byName: new Map() };
+  if (cached?.sha !== sha) cached = { sha, byName: readAll(sha) };
   let entries = cached.byName.get(name);
   if (!entries) {
     entries = read(name, c.dir);
     cached.byName.set(name, entries);
-    entries.catch(() => { if (cached?.byName.get(name) === entries) cached.byName.delete(name); });
   }
+  const mine = entries;
+  // A failed read is not kept: the next request tries again.
+  mine.catch(() => { if (cached?.byName.get(name) === mine) cached.byName.delete(name); });
   return entries;
 }

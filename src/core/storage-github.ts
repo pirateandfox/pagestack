@@ -116,6 +116,49 @@ export class GitHubStorage implements Storage {
     return out;
   }
 
+  /**
+   * Several folders in one GraphQL request (file names and text), instead of a listing plus one
+   * request per file. `ref` pins the read to a commit. Falls back to readDir per folder when
+   * GraphQL is unavailable (a stand-in API, a token without access).
+   */
+  async readDirs(dirs: string[], ref = this.branch): Promise<Record<string, { name: string; content: string }[]>> {
+    const out: Record<string, { name: string; content: string }[]> = {};
+    if (!dirs.length) return out;
+    try {
+      const [owner, name] = this.opts.repo.split('/');
+      const vars: Record<string, string> = { owner, name };
+      const fields = dirs.map((d, i) => {
+        vars[`e${i}`] = `${ref}:${safeRelPath(d)}`;
+        return `d${i}: object(expression: $e${i}) { ... on Tree { entries { name type object { ... on Blob { oid text isBinary isTruncated } } } } }`;
+      });
+      const query = `query(${['$owner: String!', '$name: String!', ...dirs.map((_, i) => `$e${i}: String!`)].join(', ')}) { repository(owner: $owner, name: $name) { ${fields.join(' ')} } }`;
+      const res = await this.fetchImpl(`${this.api}/graphql`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${this.opts.token}`, 'content-type': 'application/json', 'user-agent': 'pagestack' },
+        body: JSON.stringify({ query, variables: vars }),
+      });
+      if (!res.ok) throw new Error(`GitHub GraphQL -> ${res.status}`);
+      const body = await res.json() as any;
+      const repo = body?.data?.repository;
+      if (!repo || body.errors?.length) throw new Error('GitHub GraphQL: ' + JSON.stringify(body.errors ?? body).slice(0, 300));
+      await Promise.all(dirs.map(async (d, i) => {
+        const entries: any[] = repo[`d${i}`]?.entries ?? [];
+        out[d] = await Promise.all(entries.filter((e) => e.type === 'blob' && e.object && !e.object.isBinary).map(async (e) => {
+          let content: string = e.object.text ?? '';
+          if (e.object.isTruncated) {
+            const blob = await this.req<any>('GET', `${this.repoUrl}/git/blobs/${e.object.oid}`);
+            content = new TextDecoder().decode(fromBase64(String(blob.content).replace(/\n/g, '')));
+          }
+          return { name: e.name as string, content };
+        }));
+      }));
+      return out;
+    } catch {
+      for (const d of dirs) out[d] = await this.readDir(d);
+      return out;
+    }
+  }
+
   private async uploadsBranch() {
     if (await this.req('GET', `${this.repoUrl}/git/ref/heads/${UPLOADS}`, undefined, true)) return;
     const head = await this.req<any>('GET', `${this.repoUrl}/git/ref/heads/${encodeURIComponent(this.branch)}`);

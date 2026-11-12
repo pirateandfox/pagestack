@@ -49,3 +49,29 @@ describe('GitHub readDir', () => {
     expect(await storage.lastChange!()).toBe('2026-11-12T10:00:00Z');
   });
 });
+
+describe('GitHub readDirs', () => {
+  it('reads several folders at a commit in one GraphQL request', async () => {
+    const calls: { url: string; body: any }[] = [];
+    const fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(input), body: init?.body ? JSON.parse(String(init.body)) : null });
+      return new Response(JSON.stringify({ data: { repository: {
+        d0: { entries: [{ name: 'a.md', type: 'blob', object: { oid: '1', text: 'one', isBinary: false, isTruncated: false } }, { name: 'sub', type: 'tree', object: {} }] },
+        d1: { entries: [{ name: 'x.png', type: 'blob', object: { oid: '2', text: null, isBinary: true, isTruncated: false } }, { name: 'b.md', type: 'blob', object: { oid: '3', text: 'two', isBinary: false, isTruncated: false } }] },
+      } } }));
+    };
+    const storage = new GitHubStorage({ repo: 'o/r', branch: 'develop', token: 't', fetch: fetch as unknown as typeof globalThis.fetch });
+    expect(await storage.readDirs!(['src/content/posts', 'src/content/news'], 'abc123')).toEqual({
+      'src/content/posts': [{ name: 'a.md', content: 'one' }],
+      'src/content/news': [{ name: 'b.md', content: 'two' }],
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('https://api.github.com/graphql');
+    expect(calls[0].body.variables).toMatchObject({ owner: 'o', name: 'r', e0: 'abc123:src/content/posts', e1: 'abc123:src/content/news' });
+  });
+
+  it('falls back to the REST listing when GraphQL is unavailable', async () => {
+    const { storage } = fake({ 'a.md': { sha: 'sfallback', text: 'one' } });
+    expect(await storage.readDirs!(['src/content/posts'])).toEqual({ 'src/content/posts': [{ name: 'a.md', content: 'one' }] });
+  });
+});

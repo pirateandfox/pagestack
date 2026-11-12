@@ -50,6 +50,8 @@ export interface Storage {
    * one request.
    */
   readDir?(path: string): Promise<{ name: string; content: string }[]>;
+  /** Several folders at once, optionally at a commit (GitHub: one request). */
+  readDirs?(paths: string[], ref?: string): Promise<Record<string, { name: string; content: string }[]>>;
   /** The commit the branch is at now, when the store has one. Lets readers skip work when nothing changed. */
   head?(): Promise<string>;
   /** When the branch last changed (its head commit's date, ISO). */

@@ -4,25 +4,37 @@ import { liveEntries } from '../live.mjs';
 const store = vi.hoisted(() => ({
   head: 'a' as string | null,
   files: { 'one.md': '---\ntitle: One\ndate: 2026-11-01\n---\nBody one', 'two.md': '---\ntitle: Two\ndate: 2026-11-02\n---\n', 'notes.txt': 'x' } as Record<string, string>,
-  calls: { head: 0, readDir: 0 },
+  calls: { head: 0, readDir: 0, readDirs: 0 },
+  dirs: false,
 }));
 vi.mock('../src/server/context', () => ({
-  collections: { articles: { label: 'Articles', dir: 'src/content/articles', fields: {} } },
+  collections: { articles: { label: 'Articles', dir: 'src/content/articles', fields: {} }, news: { label: 'News', dir: 'src/content/news', fields: {} } },
   storage: () => ({
     ...(store.head === null ? {} : { head: async () => { store.calls.head++; return store.head!; } }),
     readDir: async () => { store.calls.readDir++; return Object.entries(store.files).map(([name, content]) => ({ name, content })); },
+    ...(store.dirs ? { readDirs: async (dirs: string[], ref?: string) => {
+      store.calls.readDirs++;
+      return Object.fromEntries(dirs.map((d) => [d, d.endsWith('news') ? [{ name: `at-${ref}.md`, content: '---\ntitle: N\n---\n' }] : []]));
+    } } : {}),
   }),
 }));
 const { liveCollection } = await import('../src/server/live');
 
 let clock = 1_000_000;
-beforeEach(() => { store.calls = { head: 0, readDir: 0 }; clock += 60_000; });
+beforeEach(() => { store.calls = { head: 0, readDir: 0, readDirs: 0 }; store.dirs = false; clock += 60_000; });
 
 describe('live collections on the editor server', () => {
   it('reads Markdown entries in the shape getCollection gives', async () => {
     const e = await liveCollection('articles', clock);
     expect(e!.map((x) => x.id).sort()).toEqual(['one', 'two']);
     expect(e!.find((x) => x.id === 'one')).toMatchObject({ collection: 'articles', data: { title: 'One' }, body: 'Body one', filePath: 'src/content/articles/one.md' });
+  });
+
+  it('loads every collection at the head commit in one read', async () => {
+    store.dirs = true; store.head = 'h-all';
+    expect((await liveCollection('news', clock))!.map((x) => x.id)).toEqual(['at-h-all']);
+    expect(await liveCollection('articles', clock)).toEqual([]);
+    expect(store.calls).toMatchObject({ readDirs: 1, readDir: 0 });
   });
 
   it('is null for a collection the editor does not know, so the caller uses the build', async () => {
@@ -34,12 +46,12 @@ describe('live collections on the editor server', () => {
     await liveCollection('articles', clock);
     await liveCollection('articles', clock + 200);
     await liveCollection('articles', clock + 900);
-    expect(store.calls).toEqual({ head: 1, readDir: 1 });
+    expect(store.calls).toMatchObject({ head: 1, readDir: 1 });
     await liveCollection('articles', clock + 1500); // head asked again, unchanged: no re-read
-    expect(store.calls).toEqual({ head: 2, readDir: 1 });
+    expect(store.calls).toMatchObject({ head: 2, readDir: 1 });
     store.head = 'h2'; // a save
     await liveCollection('articles', clock + 3000);
-    expect(store.calls).toEqual({ head: 3, readDir: 2 });
+    expect(store.calls).toMatchObject({ head: 3, readDir: 2 });
   });
 
   it('without a head to compare, reads every time (local storage is the working tree)', async () => {

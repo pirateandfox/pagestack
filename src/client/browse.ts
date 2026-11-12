@@ -53,11 +53,13 @@ async function lookup(path: string): Promise<Resolved | null> {
  * (one per site page, in the address bar), so Back goes back a page, not back inside the frame.
  */
 function show(url: string) {
+  document.body.classList.add('is-loading');
   try { frame.contentWindow!.location.replace(url); } catch { frame.src = url; }
 }
 
 /** Show a site path: resolve it, point the frame at it, and (unless from history) record it. */
 async function go(path: string, hash = '', push = true) {
+  document.body.classList.add('is-loading'); // the lookup itself can take a moment on a cold server
   const r = await lookup(path);
   if (!r) { show(path + hash); return; }
   current = r;
@@ -98,6 +100,7 @@ function wire() {
 }
 
 frame.addEventListener('load', () => {
+  document.body.classList.remove('is-loading');
   wire();
   // Got here some other way (a form, a script, a redirect): bring the bar and address up to date.
   const p = framePath();
@@ -116,6 +119,9 @@ window.addEventListener('popstate', (e) => {
   const path = (e.state as { path?: string } | null)?.path ?? new URLSearchParams(location.search).get('path') ?? '/';
   void go(path, '', false);
 });
+
+// The frame may have finished before this script ran.
+try { const d = frame.contentDocument; if (d && d.readyState === 'complete' && d.location.href !== 'about:blank') { document.body.classList.remove('is-loading'); wire(); } } catch { document.body.classList.remove('is-loading'); }
 
 history.replaceState({ path: current.path }, '', `/edit/site?path=${encodeURIComponent(current.path)}`);
 drawBar(current);
