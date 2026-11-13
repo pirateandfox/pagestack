@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <style>.i{fill:#1e1e1e}.b{fill:#2563eb}@media (prefers-color-scheme:dark){.i{fill:#ececea}.b{fill:#4f84f5}}</style>
+  <rect class="i" x="6" y="30" width="40" height="26" rx="6" opacity=".22"/>
+  <rect class="i" x="12" y="20" width="40" height="26" rx="6" opacity=".5"/>
+  <rect class="b" x="18" y="8" width="40" height="28" rx="6"/>
+  <rect x="25" y="16" width="18" height="3.5" rx="1.75" fill="#fff"/>
+  <rect x="25" y="23.5" width="26" height="3.5" rx="1.75" fill="#fff" opacity=".7"/>
+</svg>

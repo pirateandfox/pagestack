@@ -1,41 +1,99 @@
-# PageStack
+<p align="center">
+  <img src="docs/media/logo.svg" width="72" height="72" alt="">
+</p>
+<h1 align="center">PageStack</h1>
 
-A visual editor for Astro sites where pages are a stack of sections. Git-only: saving is a commit,
-the public site stays static, and nothing lives outside the repo.
+<p align="center">
+  <strong>A block editor for Astro sites. Your content stays in your repo.</strong><br>
+  Click a heading on the real page and type. Drag sections around. Press Save, and it's a git commit.
+</p>
 
-- The public site stays **fully static**. `astro build` is unchanged.
-- The editor (`/edit/*`, `/api/editor/*`) is on-demand rendered and only exists when asked for:
-  `EDITOR=dev astro dev`, or a build made with `EDITOR=1` (which adds `@astrojs/node` unless the site has an adapter).
-- Pages are JSON documents in the repo (`src/content/pages/<slug>.json`). Saving writes a file
-  (dev) or makes **one commit** through the GitHub API (production). Nothing is stored anywhere else.
-- Login is **passkeys** (WebAuthn). Users' public keys live in a committed `editor-users.json`;
-  the only server secret is `EDITOR_SECRET`. No database, no session store.
-- Live preview renders the real page with the site's own components, in the browser's iframe.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@pirateandfox/pagestack"><img src="https://img.shields.io/npm/v/@pirateandfox/pagestack/beta?label=npm%20%40beta&color=2563eb" alt="npm beta version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-1e1e1e" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/status-beta-f59e0b" alt="Beta">
+</p>
 
-Status: **early beta** (`0.1.0-beta.x`). The API will move; pin a version. See [ROADMAP.md](ROADMAP.md)
-and [CHANGELOG.md](CHANGELOG.md).
+<p align="center">
+  <img src="docs/media/demo.gif" width="860" alt="Editing a bakery's home page in PageStack: clicking a heading to change it, adding a section, and saving">
+</p>
 
-## Versions
+## Why
 
-Published on npm as **`@pirateandfox/pagestack`** (betas under the `beta` dist-tag):
+Static Astro sites are fast, cheap and hard to break, and the people who write for them usually
+can't touch them. The usual fix is a headless CMS: another service, another login, content in
+someone else's database, and a site that no longer builds from the repo alone.
+
+PageStack takes the other route. It adds an editor **to the site itself**:
+
+- **Edit on the real page.** The preview is your site, rendered by your own components. Click text to
+  change it, click an image to swap it, press **+** or **/** to add a block. If you've used the
+  WordPress block editor, you already know it.
+- **Content is files in your repo.** Pages are JSON, posts are Markdown. Saving writes a file in dev
+  and makes **one commit** in production. No database, nothing stored anywhere else. `git log` is
+  your revision history.
+- **The public site stays fully static.** `astro build` is unchanged and ships no editor code. The
+  editor is a separate small deployment (a Cloudflare Worker or any Node host) that only exists
+  when you build it with `EDITOR=1`.
+- **Passkey sign-in.** Touch ID, Face ID, Windows Hello or a security key. No passwords, no user
+  database: invite someone with a single-use link.
+- **Draft, stage, publish.** Saves can go to a staging branch, and **Publish changes** puts them live
+  in one step, so a dozen edits make one production build.
+
+## How it works
+
+```
+  your repo on GitHub                        the editor  (edit.example.com)
+ ┌──────────────────────────┐   reads      ┌───────────────────────────────────┐
+ │ src/content/pages/*.json │ ───────────▶ │ your Astro site + PageStack,       │
+ │ src/content/posts/*.md   │              │ built with EDITOR=1                │
+ │ public/images/…          │ ◀─────────── │ previews use your own components   │
+ └────────────┬─────────────┘  one commit  │ passkey sign-in                    │
+              │                 per save   └───────────────────────────────────┘
+              │ your normal deploy (Pages, Netlify, Vercel…)
+              ▼
+ ┌──────────────────────────┐
+ │ public site: astro build │  static files, no editor code
+ └──────────────────────────┘
+```
+
+The editor only needs a GitHub token with *Contents: read and write* on the one repo. It never
+leaves the server.
+
+## Try it in two minutes
+
+The repo includes a demo site, an invented bakery called **Crumb & Co.**
 
 ```bash
-npm install @pirateandfox/pagestack@beta
+git clone https://github.com/pirateandfox/pagestack.git
+cd pagestack/examples/bakery
+npm install
+npm run dev:editor          # then open http://localhost:4321/edit
 ```
 
-Or install from a git tag and bump the tag to upgrade:
+In dev there is no sign-in, and saving writes straight to `examples/bakery/src/content`. Run
+`git diff` afterwards to see exactly what the editor wrote.
 
-```json
-"dependencies": { "@pirateandfox/pagestack": "github:pirateandfox/pagestack#v0.1.0-beta.4" }
-```
+## Status
 
-```bash
-npm install            # after changing the tag
-```
+**Beta** (`0.1.0-beta.x`). It runs real sites today, and the API can still change between betas, so
+pin an exact version. What's solid: block pages, Markdown collections edited in place, media,
+global content, synced patterns, revisions, Browse, passkeys, staging and publish. What's next is
+in the [roadmap](ROADMAP.md); every release is in the [changelog](CHANGELOG.md). Found a security
+problem? See [SECURITY.md](SECURITY.md).
 
-Releases are tags `vX.Y.Z[-beta.N]` on `main`; each one has a CHANGELOG entry.
+---
+
+# Guide
 
 ## Install
+
+```bash
+npm install @pirateandfox/pagestack@beta --save-exact
+```
+
+Requires Node 22.23.4+ and Astro 7.2.1+.
+
 
 ```js
 // astro.config.mjs
@@ -390,13 +448,36 @@ Dev only. A build with `auth: "none"` is refused.
 
 ## Deploying the editor
 
-Requires Node 22.23.4+ and Astro 7.2.1+. On Cloudflare, add `@astrojs/cloudflare` as the host's
-adapter and set `EDITOR_SECRET`, `EDITOR_ORIGIN` and `GITHUB_TOKEN` as secrets.
+Requires Node 22.23.4+ and Astro 7.2.1+.
 
-The editor server is a normal `@astrojs/node` standalone build. Run `node dist/server/entry.mjs`
+**On Cloudflare Workers**, add `@astrojs/cloudflare` as the host's adapter in the editor build only,
+and give the Worker three secrets: `EDITOR_SECRET` (32+ random characters), `EDITOR_ORIGIN` (its
+https address) and `GITHUB_TOKEN`. Until `EDITOR_SECRET` and `GITHUB_TOKEN` are set, every editor page says
+which one is missing. PageStack takes care of the rest: in the editor build it wraps the adapter's Worker entry
+and sets `assets.run_worker_first` in the generated `dist/server/wrangler.json`, so the built copies
+of your site pages need a sign-in and, opened directly, land in Browse.
+
+```js
+// astro.config.mjs: the adapter only in the editor's build
+const editorBuild = process.env.EDITOR === '1' && process.argv.includes('build');
+const { default: cloudflare } = editorBuild ? await import('@astrojs/cloudflare') : {};
+export default defineConfig({
+  ...(cloudflare ? { adapter: cloudflare({ configPath: 'wrangler.editor.jsonc' }) } : {}),
+  // …
+});
+```
+
+```bash
+EDITOR=1 astro build && wrangler deploy --config dist/server/wrangler.json
+EDITOR_SECRET=… npx pagestack-invite --name "You" --email you@example.com --origin https://edit.example.com
+```
+
+**On a Node host**, the editor server is a normal `@astrojs/node` standalone build. Run `node dist/server/entry.mjs`
 on any small Node host (Fly, Railway, a VPS…) with `EDITOR_SECRET`, `GITHUB_TOKEN` and
 `EDITOR_ORIGIN` set, behind HTTPS. It serves the editor routes and the static pages it was built
-with; the public site is still deployed separately from the same repo as static files. Every
+with; the public site is still deployed separately from the same repo as static files. (Here the
+built site pages are served as plain files, without a sign-in; put the host behind an access proxy
+if staged work must stay private.) Every
 editor response is `noindex` and `no-store`.
 
 ## Options
@@ -429,4 +510,4 @@ editor response is `noindex` and `no-store`.
 - [@astrojs/node](https://docs.astro.build/en/guides/integrations-guide/node/) (MIT) as the editor's adapter.
 - [Puck](https://puckeditor.com) was used as a design reference for JSON page editing only; no code.
 
-MIT.
+MIT © Pirate & Fox LLC. See [LICENSE](LICENSE).

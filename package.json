@@ -1,7 +1,7 @@
 {
   "name": "@pirateandfox/pagestack",
   "version": "0.1.0-beta.11",
-  "description": "PageStack: visual section editor for Astro sites. Git-only, static public site, passkey login, saves are commits.",
+  "description": "A block editor for Astro sites. Content stays in your repo, saves are git commits, the public site stays static, sign-in is passkeys.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -47,7 +47,14 @@
     "visual-editor",
     "cms",
     "git-based-cms",
-    "sections"
+    "sections",
+    "astro",
+    "block-editor",
+    "page-builder",
+    "static-site",
+    "passkeys",
+    "webauthn",
+    "cloudflare-workers"
   ],
   "repository": {
     "type": "git",
@@ -64,5 +71,9 @@
     "@astrojs/cloudflare": {
       "optional": true
     }
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/pirateandfox/pagestack/issues"
+  },
+  "author": "Pirate & Fox LLC (https://pirateandfox.com)"
 }
