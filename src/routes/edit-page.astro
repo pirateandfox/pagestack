@@ -42,9 +42,9 @@ const boot = {
         <button type="button" id="ps-discard" class="ps-btn ps-btn--ghost" hidden>Discard</button>
         <button type="button" id="ps-preview-tab" class="ps-btn ps-btn--ghost" title="See this draft as visitors will, in a new tab">Preview</button>
         <a id="ps-view" class="ps-btn ps-btn--ghost" href={`/edit/site?path=${encodeURIComponent(publicPath(slug))}`} title="See the saved page on the site, and click around from there">View on site</a>
+        <label class="ps-switch" id="ps-ready-wrap" title={opts.github?.live ? 'On: goes on the public site with the next Publish changes. Off: a draft, kept off the site.' : 'On: on the site after the next build. Off: a draft, kept off the site.'}><input type="checkbox" role="switch" id="ps-ready" /><span class="ps-switch__track" aria-hidden="true"></span><span>{opts.github?.live ? 'Ready to publish' : 'Published'}</span></label>
         <button type="button" id="ps-save" class="ps-btn ps-btn--primary" disabled>Save</button>
-        <button type="button" id="ps-publish" class="ps-btn ps-btn--primary" hidden>Publish</button>
-        {opts.github?.live && <button type="button" id="ps-live" class="ps-btn ps-live" hidden>Go live</button>}
+        {opts.github?.live && <button type="button" id="ps-live" class="ps-btn ps-live" hidden>Publish changes</button>}
         <button type="button" id="ps-toggle-settings" class="ps-iconbtn is-active" title="Settings (⇧⌘,)" aria-label="Settings" data-icon="sidebar"></button>
         <button type="button" id="ps-more" class="ps-iconbtn" title="Options" aria-label="Options" data-icon="more"></button>
       </div>

@@ -343,12 +343,10 @@ function refreshButtons() {
   $<HTMLButtonElement>('#ps-redo').disabled = !state.canRedo;
   const save = $<HTMLButtonElement>('#ps-save');
   save.disabled = !dirty || saving;
-  save.textContent = draft ? 'Save draft' : 'Save';
-  save.classList.toggle('ps-btn--primary', !draft);
-  save.classList.toggle('ps-btn--ghost', draft);
-  const publish = $<HTMLButtonElement>('#ps-publish');
-  publish.hidden = !draft;
-  publish.disabled = saving;
+  const ready = $<HTMLInputElement>('#ps-ready');
+  ready.checked = !draft;
+  ready.disabled = saving || isHome;
+  if (isHome) $('#ps-ready-wrap').title = 'The home page is always published.';
   $('#ps-discard').hidden = !dirty;
   $('#ps-view').hidden = draft || boot.page.status === 'draft';
   $('#ps-draft-pill').hidden = !draft;
@@ -467,7 +465,7 @@ function renderPageTab(root: HTMLElement) {
     if (button) { const b = document.createElement('button'); b.type = 'button'; b.id = button.id; b.className = 'ps-linkbtn'; b.textContent = button.text; b.disabled = !!button.disabled; b.addEventListener('click', button.run); r.append(b); }
     summary.append(r);
   };
-  row('Status', draft ? 'Draft' : 'Published', draft ? undefined : { text: 'Switch to draft', id: 'ps-unpublish', run: () => publish(false), disabled: isHome });
+  row('Status', draft ? 'Draft' : document.getElementById('ps-live') ? 'Ready to publish' : 'Published');
   row('URL', boot.options.viewUrl, isHome ? undefined : { text: 'Change', id: 'ps-change-url', run: changeUrl });
   root.append(summary);
 
@@ -772,7 +770,7 @@ $('#ps-discard').addEventListener('click', async () => {
   state.reset(r.page, r.hash);
 });
 $('#ps-save').addEventListener('click', () => save());
-$('#ps-publish').addEventListener('click', () => publish(true));
+$<HTMLInputElement>('#ps-ready').addEventListener('change', (e) => publish((e.target as HTMLInputElement).checked));
 $('#ps-preview-tab').addEventListener('click', previewInTab);
 document.querySelectorAll<HTMLButtonElement>('.ps-top__devices button').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('.ps-top__devices button').forEach((x) => x.classList.remove('is-active'));
@@ -813,7 +811,7 @@ async function save(opts: { slug?: string } = {}): Promise<{ slug?: string; resu
     state.markSaved(data.hash);
     boot.page = state.doc;
     const r = data.result;
-    if (r.kind === 'github') toast(r.pullRequest ? `Committed and opened a pull request: ${r.pullRequest}` : document.getElementById('ps-live') ? 'Saved. Use Go live to put it on the site.' : `Committed ${String(r.commit).slice(0, 7)} to ${r.branch}. The host will rebuild the site.`, 'ok', { href: r.pullRequest || r.url });
+    if (r.kind === 'github') toast(r.pullRequest ? `Committed and opened a pull request: ${r.pullRequest}` : document.getElementById('ps-live') ? 'Saved. Use Publish changes to put it on the site.' : `Committed ${String(r.commit).slice(0, 7)} to ${r.branch}. The host will rebuild the site.`, 'ok', { href: r.pullRequest || r.url });
     else toast(`Saved to the working tree (${r.files.join(', ')}). Commit it with git when you're happy.`, 'ok');
     setSaveStatus('Saved');
     return data;
@@ -821,14 +819,17 @@ async function save(opts: { slug?: string } = {}): Promise<{ slug?: string; resu
   finally { saving = false; refreshChrome(); }
 }
 
-/** Publish a draft, or take a published page back to draft. Saves straight away, like WordPress. */
+/** The Ready to publish switch: a draft or not. Saves straight away, so the switch means what it shows. */
 async function publish(live: boolean) {
-  if (!live && !await confirmDialog('Switch to draft', 'This page will be left out of the site the next time it is built.', 'Switch to draft')) return;
+  const staged = !!document.getElementById('ps-live');
+  // Without a Publish changes step, a draft leaves the site at the next build: ask first.
+  if (!live && !staged && !await confirmDialog('Make this a draft?', 'This page will be left out of the site the next time it is built.', 'Make it a draft')) { refreshButtons(); return; }
   inline.stop(true);
   const next = structuredClone(state.doc);
   if (live) delete next.status; else next.status = 'draft';
   state.apply(next);
-  if (await save()) toast(live ? `${next.title} is published.` : `${next.title} is now a draft.`, 'ok'); else state.undo();
+  if (await save()) toast(live ? (staged ? `${next.title} is ready to publish. It goes on the site with the next Publish changes.` : `${next.title} is published.`) : `${next.title} is now a draft: kept off the site.`, 'ok');
+  else { state.undo(); refreshButtons(); }
 }
 
 async function changeUrl() {

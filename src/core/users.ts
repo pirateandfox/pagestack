@@ -30,7 +30,12 @@ export interface EditorUser {
   credentials: StoredCredential[];
 }
 
-export interface UsersFile { version: 1; users: EditorUser[] }
+export interface UsersFile {
+  version: 1;
+  users: EditorUser[];
+  /** Ids of invites that have been used. Kept when the person or passkey is removed, so a link never works twice. */
+  usedInvites?: string[];
+}
 
 export const emptyUsers = (): UsersFile => ({ version: 1, users: [] });
 
@@ -41,7 +46,7 @@ export function parseUsers(raw: string | null | undefined): UsersFile {
   for (const u of data.users) {
     if (typeof u.id !== 'string' || typeof u.email !== 'string' || !Array.isArray(u.credentials)) throw new Error(`editor users file: malformed user ${JSON.stringify(u.id ?? u)}`);
   }
-  return { version: 1, users: data.users };
+  return { version: 1, users: data.users, ...(Array.isArray(data.usedInvites) ? { usedInvites: data.usedInvites.filter((x: unknown) => typeof x === 'string') } : {}) };
 }
 
 export const serializeUsers = (file: UsersFile): string => JSON.stringify(file, null, 2) + '\n';
@@ -56,7 +61,7 @@ export function findByCredential(file: UsersFile, credentialId: string): { user:
 
 export const findByEmail = (file: UsersFile, email: string) => file.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase()) ?? null;
 
-export const inviteUsed = (file: UsersFile, inviteId: string) => file.users.some((u) => u.credentials.some((c) => c.inviteId === inviteId));
+export const inviteUsed = (file: UsersFile, inviteId: string) => !!file.usedInvites?.includes(inviteId) || file.users.some((u) => u.credentials.some((c) => c.inviteId === inviteId));
 
 export function newUserId(): string {
   const buf = new Uint8Array(8); crypto.getRandomValues(buf);
@@ -73,11 +78,21 @@ export function addCredential(file: UsersFile, who: { name: string; email: strin
     copy.users.push(user);
   }
   user.credentials.push(credential);
+  // Invites live 3 days; the last few hundred ids cover far more than that.
+  if (credential.inviteId) copy.usedInvites = [...(copy.usedInvites ?? []), credential.inviteId].slice(-500);
   return { file: copy, user };
 }
 
+/** Invite ids on credentials that are about to go: remembered, so those links stay used. */
+const keepInvites = (file: UsersFile, gone: StoredCredential[]): string[] | undefined => {
+  const ids = [...(file.usedInvites ?? []), ...gone.map((c) => c.inviteId).filter((x): x is string => !!x)];
+  return ids.length ? [...new Set(ids)].slice(-500) : undefined;
+};
+
 export function removeCredential(file: UsersFile, credentialId: string): UsersFile {
   const copy: UsersFile = structuredClone(file);
+  const used = keepInvites(file, file.users.flatMap((u) => u.credentials.filter((c) => c.id === credentialId)));
+  if (used) copy.usedInvites = used;
   for (const u of copy.users) u.credentials = u.credentials.filter((c) => c.id !== credentialId);
   copy.users = copy.users.filter((u) => u.credentials.length);
   return copy;
@@ -101,7 +116,8 @@ export function removeUser(file: UsersFile, userId: string): UsersFile {
   const user = file.users.find((u) => u.id === userId);
   if (!user) throw new Error('No such user.');
   if (roleOf(user) === 'admin' && admins(file).length === 1) throw new Error(LAST_ADMIN);
-  return { ...file, users: file.users.filter((u) => u.id !== userId) };
+  const used = keepInvites(file, user.credentials);
+  return { ...file, users: file.users.filter((u) => u.id !== userId), ...(used ? { usedInvites: used } : {}) };
 }
 
 /** What the Users screen sees: no public keys. */

@@ -148,21 +148,34 @@ export async function saveUsers(file: UsersFile, message: string) {
   return result;
 }
 const USERS_TTL = 15_000;
+/** A miss may mean "saved a moment ago by another instance": re-read, but not more than this often. */
+const MISS_REREAD = 5_000;
 /**
- * The user behind a session, so removing someone ends their sessions. Read at most every 15s; a
- * miss re-reads first, because a brand-new user may have been saved by another instance.
+ * The users file, read at most every 15s. `want` says what the caller is looking for; when it isn't
+ * there the file is read again (a brand-new user or passkey may have been saved elsewhere), at
+ * most every 5s, so requests for someone who doesn't exist can't each cost a GitHub read.
  */
-export async function activeUser(id: string, now = Date.now()): Promise<EditorUser | null> {
+export async function cachedUsers(want: (f: UsersFile) => boolean = () => true, now = Date.now()): Promise<UsersFile> {
   if (!usersCache || now - usersCache.at > USERS_TTL) usersCache = { file: await loadUsers(), at: now };
-  let user = usersCache.file.users.find((u) => u.id === id);
-  if (!user && usersCache.at !== now) { usersCache = { file: await loadUsers(), at: now }; user = usersCache.file.users.find((u) => u.id === id); }
-  return user ?? null;
+  if (!want(usersCache.file) && now - usersCache.at > MISS_REREAD) usersCache = { file: await loadUsers(), at: now };
+  return usersCache.file;
+}
+/**
+ * The user behind a session, so removing someone ends their sessions. With `credential`, the
+ * passkey the session was signed in with must still be on file too: removing a lost device's
+ * passkey ends the sessions it opened.
+ */
+export async function activeUser(id: string, credential?: string, now = Date.now()): Promise<EditorUser | null> {
+  const match = (f: UsersFile) => f.users.find((u) => u.id === id && (!credential || u.credentials.some((c) => c.id === credential)));
+  return match(await cachedUsers((f) => !!match(f), now)) ?? null;
 }
 
 /** A commit message with the editor's name on it. */
 export function commitMessage(subject: string, locals: unknown): string {
   const name = (locals as { editorUser?: { name?: string } }).editorUser?.name;
-  return subject + (name ? `\n\nEdited by ${name}` : '');
+  // A subject can come from the client: one line, and never one that claims to name the editor.
+  const line = subject.split(/\r?\n/)[0].replace(/^\s*edited by\b/i, 'Edit').slice(0, 120);
+  return line + (name ? `\n\nEdited by ${name}` : '');
 }
 
 export const pageName = (slug: string) => (slug === 'index' ? 'home page' : slug);

@@ -3,7 +3,7 @@
 // server-side state is the committed users file (public keys) read/written through storage.
 import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from '@simplewebauthn/server';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
-import { loadUsers, opts, secret, saveUsers } from './context';
+import { cachedUsers, loadUsers, opts, secret, saveUsers } from './context';
 import { b64url, createChallengeToken, createSession, readChallengeToken, readInvite, unb64url, type InvitePayload } from '../core/auth';
 import { addCredential, findByCredential, findByEmail, inviteUsed, type StoredCredential } from '../core/users';
 
@@ -31,8 +31,8 @@ export async function loginVerify(url: URL, token: string, response: Authenticat
   const { origin, rpID } = relyingParty(url);
   const ch = await readChallengeToken(token, secret());
   if (!ch || ch.purpose !== 'login') throw new AuthError('The sign-in attempt expired. Try again.');
-  const users = await loadUsers();
-  const found = findByCredential(users, response.id);
+  const id = String(response?.id ?? '');
+  const found = findByCredential(await cachedUsers((f) => !!findByCredential(f, id)), id);
   if (!found) throw new AuthError('This passkey is not registered for this site.');
   const { verified } = await verifyAuthenticationResponse({
     response, expectedChallenge: ch.challenge, expectedOrigin: origin, expectedRPID: rpID,
@@ -41,7 +41,7 @@ export async function loginVerify(url: URL, token: string, response: Authenticat
   if (!verified) throw new AuthError('Passkey verification failed.');
   // The signature counter is deliberately not persisted: it would mean a commit per login, and
   // synced passkeys (iCloud Keychain, Google Password Manager) always report 0 anyway.
-  return { user: found.user, session: await createSession({ id: found.user.id, name: found.user.name }, secret()) };
+  return { user: found.user, session: await createSession({ id: found.user.id, name: found.user.name }, secret(), found.credential.id) };
 }
 
 export async function registerOptions(url: URL, inviteToken: string) {
@@ -83,7 +83,7 @@ export async function registerVerify(url: URL, token: string, response: Registra
   };
   const { file, user } = addCredential(users, invite, credential);
   const commit = await saveUsers(file, `Add passkey for ${user.name} (site editor)`);
-  return { user, commit, session: await createSession({ id: user.id, name: user.name }, secret()) };
+  return { user, commit, session: await createSession({ id: user.id, name: user.name }, secret(), credential.id) };
   } finally { claimed.delete(invite.id); }
 }
 const claimed = new Set<string>();

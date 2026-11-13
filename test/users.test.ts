@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addCredential, emptyUsers, findByCredential, findByEmail, inviteUsed, parseUsers, removeCredential, serializeUsers, type StoredCredential } from '../src/core/users';
+import { addCredential, emptyUsers, findByCredential, findByEmail, inviteUsed, parseUsers, removeCredential, removeUser, serializeUsers, setRole, type StoredCredential } from '../src/core/users';
 
 const cred = (id: string, inviteId?: string): StoredCredential => ({ id, publicKey: 'pk_' + id, counter: 0, createdAt: '2026-01-01T00:00:00.000Z', inviteId });
 
@@ -30,6 +30,21 @@ describe('users file', () => {
     expect(findByEmail(file, 'JANE@example.com')?.id).toBe(file.users[0].id);
     expect(inviteUsed(file, 'inv1')).toBe(true);
     expect(inviteUsed(file, 'inv2')).toBe(false);
+  });
+  it('an invite stays used after its passkey or its person is removed', () => {
+    let { file } = addCredential(emptyUsers(), { name: 'Admin', email: 'a@e.com', role: 'admin' }, cred('ca'));
+    ({ file } = addCredential(file, { name: 'Bob', email: 'b@e.com', role: 'admin' }, cred('cb', 'invB')));
+    expect(inviteUsed(removeCredential(file, 'cb'), 'invB')).toBe(true);
+    const bob = file.users.find((u) => u.email === 'b@e.com')!;
+    const gone = removeUser(file, bob.id);
+    expect(gone.users.map((u) => u.email)).toEqual(['a@e.com']);
+    expect(inviteUsed(gone, 'invB')).toBe(true);
+    expect(inviteUsed(parseUsers(serializeUsers(gone)), 'invB')).toBe(true); // survives the round trip through the file
+    expect(inviteUsed(setRole(gone, gone.users[0].id, 'admin'), 'invB')).toBe(true);
+  });
+  it('remembers invites from files written before usedInvites existed, when their passkeys go', () => {
+    const old = parseUsers(JSON.stringify({ version: 1, users: [{ id: 'u1', name: 'A', email: 'a@e.com', createdAt: '', credentials: [cred('c1'), cred('c2', 'invOld')] }] }));
+    expect(inviteUsed(removeCredential(old, 'c2'), 'invOld')).toBe(true);
   });
   it('removes credentials and drops users left without any', () => {
     const { file } = addCredential(addCredential(emptyUsers(), { name: 'J', email: 'j@e.com' }, cred('c1')).file, { name: 'J', email: 'j@e.com' }, cred('c2'));

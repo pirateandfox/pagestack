@@ -11,6 +11,21 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
 
+/**
+ * The editor's copy of the site serves its built pages as static files, on the editor's origin,
+ * where the editor API and the session cookie live. The platform answers those before any of our
+ * code runs, so the rules the middleware puts on everything else go in the static headers file
+ * (Cloudflare `_headers`): the site's own scripts only, no inline event handlers, framed only here.
+ */
+function writeEditorHeaders(clientDir, previewScripts) {
+  if (!fs.existsSync(clientDir)) return;
+  const file = path.join(clientDir, '_headers');
+  const scripts = previewScripts === 'all' ? "script-src-attr 'none'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; script-src-attr 'none'";
+  const block = `\n# pagestack: built pages served by the editor\n/*\n  Content-Security-Policy: ${scripts}; object-src 'none'; base-uri 'self'; frame-ancestors 'self'\n  X-Frame-Options: SAMEORIGIN\n`;
+  const existing = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  if (!existing.includes('# pagestack: built pages served by the editor')) fs.writeFileSync(file, existing + block);
+}
+
 const VIRTUAL = 'virtual:pagestack/site';
 const VIRTUAL_RENDERER = 'virtual:pagestack/renderer';
 const VIRTUAL_PREVIEWS = 'virtual:pagestack/previews';
@@ -83,12 +98,23 @@ export default function sectionEditor(userOptions) {
   let adapter = null;
   // Set in astro:config:setup when the editor is on: page files to render on request (liveRoutes).
   let liveComponents = null;
+  // Set when building the editor: the site's built pages it serves need the editor's script rules.
+  let editorBuild = null;
   const forward = (hook) => async (params) => { if (adapter?.hooks?.[hook]) await adapter.hooks[hook](params); };
   const forwarded = Object.fromEntries(['astro:config:done', 'astro:server:setup', 'astro:server:start', 'astro:server:done', 'astro:build:start', 'astro:build:setup', 'astro:build:ssr', 'astro:build:generated', 'astro:build:done'].map((h) => [h, forward(h)]));
   return {
     name: 'pagestack',
     hooks: {
       ...forwarded,
+      'astro:config:done': async (params) => {
+        if (editorBuild) editorBuild.dirs = [params.config.build.client, params.config.outDir]; // with an adapter, files go to build.client
+        await forwarded['astro:config:done'](params);
+      },
+      'astro:build:done': async (params) => {
+        await forwarded['astro:build:done'](params);
+        const dir = editorBuild?.dirs?.map((u) => fileURLToPath(u)).find((d) => fs.existsSync(d));
+        if (dir) writeEditorHeaders(dir, editorBuild.previewScripts);
+      },
       // List pages named in `liveRoutes` render on request on the editor's server, reading what
       // has been saved. Only in the editor build: the public build never gets here.
       'astro:route:setup': ({ route }) => {
@@ -100,6 +126,7 @@ export default function sectionEditor(userOptions) {
         const enabled = userOptions.enabled ?? (flag === '1' || (command === 'dev' && flag === 'dev'));
         if (!enabled) { logger.info(command === 'dev' ? 'off. Run with EDITOR=dev to edit at /edit.' : 'off (static build). Set EDITOR=1 to build the editor.'); return; }
         const isBuild = command === 'build';
+        if (isBuild) editorBuild = { previewScripts: userOptions.previewScripts };
         const options = {
           pagesDir: 'src/content/pages',
           imagesDir: 'public/images',
@@ -196,7 +223,6 @@ export default function sectionEditor(userOptions) {
         injectRoute({ pattern: '/api/editor/users', entrypoint: route('api/users.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/browse', entrypoint: route('api/browse.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/live', entrypoint: route('api/live.ts'), prerender: false });
-        injectRoute({ pattern: '/api/editor/asset/[...path]', entrypoint: route('api/asset.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/auth/[action]', entrypoint: route('api/auth.ts'), prerender: false });
         // Uploads saved after this editor was built aren't static files in it; serve them from the repo.
         const uploadsUrl = options.storage === 'github' && uploadsUrlPrefix(options.uploadsDir, options.publicDir);

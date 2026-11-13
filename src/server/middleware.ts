@@ -42,13 +42,23 @@ function harden(res: Response, url: URL, sandbox: boolean, frame = false): Respo
     h.set('x-frame-options', 'SAMEORIGIN');
     h.set('referrer-policy', 'same-origin');
     h.set('cross-origin-opener-policy', 'same-origin');
-    h.set('content-security-policy', `frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'${sandbox ? '; sandbox allow-scripts allow-forms allow-popups' : ''}${frame ? SITE_SCRIPTS_ONLY : ''}`);
+    // No inline event handler attributes anywhere in the editor or the site pages it shows: the
+    // editor never writes them, and they are how injected markup would run.
+    h.set('content-security-policy', `frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src-attr 'none'${sandbox ? '; sandbox allow-scripts allow-forms allow-popups' : ''}${frame ? SITE_SCRIPTS_ONLY : ''}`);
     if ((process.env.EDITOR_ORIGIN || url.origin).startsWith('https:')) h.set('strict-transport-security', 'max-age=31536000');
   } catch { /* an immutable Response, e.g. a redirect from a host's own middleware */ }
   return res;
 }
 
 let warned = false;
+
+/** Compare secrets without an early exit, so response time says nothing about how much matched. */
+function sameText(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return diff === 0;
+}
 
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
@@ -84,7 +94,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
 
   if (opts.auth === 'passkey' && !PUBLIC.some((re) => re.test(pathname))) {
     const session = await readSession(request.headers.get('cookie'), secret());
-    const user = session && await activeUser(session.sub);
+    const user = session && await activeUser(session.sub, session.cred);
     if (!user) {
       // A valid session for someone who was removed ends here, without waiting for it to expire.
       const headers: Record<string, string> = session ? { 'set-cookie': clearCookieHeader(SESSION_COOKIE, ctx.url.protocol === 'https:') } : {};
@@ -97,7 +107,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     // oauth2-proxy, …). No identity means the request didn't come through it.
     const h = request.headers;
     const shared = process.env.EDITOR_PROXY_SECRET;
-    if (shared && h.get('x-editor-proxy-secret') !== shared) return done(json({ error: 'not from the proxy' }, 403));
+    if (shared && !sameText(h.get('x-editor-proxy-secret') ?? '', shared)) return done(json({ error: 'not from the proxy' }, 403));
     const who = h.get('cf-access-authenticated-user-email') || h.get('x-forwarded-user') || h.get('x-forwarded-email');
     if (!who && opts.command === 'build') return done(json({ error: 'no identity from the proxy' }, 401));
     if (who) ctx.locals.editorUser = { id: who, name: who, role: 'admin' };

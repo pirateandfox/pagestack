@@ -164,7 +164,7 @@ Coming from the WordPress block editor:
 | Block toolbar, ⋮ menu | Move, parent, add, duplicate, delete, copy, save as pattern |
 | Settings sidebar, Page / Block tabs | Same, generated from the schema |
 | Rich text toolbar, links | Same; `⌘B`, `⌘I`, `⌘K`, and an HTML view |
-| Save draft, Publish, Preview | Same; Preview opens the unsaved draft in a new tab |
+| Status (Draft / Published), Publish, Preview | A **Ready to publish** switch (**Published** without `github.live`) that saves when flipped; Publish is **Publish changes** in the top bar with `github.live`; Preview opens the unsaved draft in a new tab |
 | Revisions | The page's git history |
 | Permalink | Change URL, which also adds a redirect |
 | Menus, site options | Global content, at `/edit/global/<id>` |
@@ -334,11 +334,12 @@ than setting a hard limit. Passkeys are what actually stops guessing.
 ### Staging and Go live
 
 With `github.live`, saves stay on `github.branch` (staging) and the public site builds from `live`.
-Every screen gets a **Go live** button counting the saved changes the live site doesn't have yet;
+Every screen gets a **Publish changes** button (Go live) counting the saved changes the live site doesn't have yet;
 it lists them, links to `github.stagingUrl` if you give one, and puts them all on `live` in one step.
 That is a fast-forward when nobody committed to `live` directly. When someone did, it makes a merge
 commit and moves staging to it; when their change conflicts, it refuses and says so, and a person
-merges in GitHub. A burst of saves becomes one production build.
+merges in GitHub. A burst of saves becomes one production build. Drafts (the **Ready to publish**
+switch off) stay in the files but out of the built site, whatever is published.
 
 ```js
 github: { repo: 'acme/site', branch: 'develop', live: 'main', stagingUrl: 'https://develop.acme.pages.dev/' }

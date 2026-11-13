@@ -36,6 +36,7 @@
   "devDependencies": {
     "@types/sortablejs": "^1.15.8",
     "happy-dom": "^21.0.4",
+    "parse5": "^7.3.0",
     "vitest": "^4.0.0"
   },
   "keywords": [

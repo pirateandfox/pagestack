@@ -62,12 +62,13 @@ export function cookieHeader(name: string, value: string, maxAge: number, secure
 export const clearCookieHeader = (name: string, secure: boolean) => cookieHeader(name, '', 0, secure);
 
 // ---- typed tokens ----
-export interface SessionPayload { kind: 'session'; sub: string; name: string }
+/** `cred`: the passkey this session was opened with (sessions end when it is removed). */
+export interface SessionPayload { kind: 'session'; sub: string; name: string; cred?: string }
 export interface ChallengePayload { kind: 'challenge'; challenge: string; purpose: 'login' | 'register'; invite?: InvitePayload }
 /** `id` makes an invite single-use: it's recorded on the credential created from it. */
 export interface InvitePayload { kind: 'invite'; id: string; name: string; email: string; role?: 'admin' | 'editor' }
 
-export const createSession = (user: { id: string; name: string }, secret: string) => sign<SessionPayload>({ kind: 'session', sub: user.id, name: user.name }, secret, SESSION_TTL);
+export const createSession = (user: { id: string; name: string }, secret: string, cred?: string) => sign<SessionPayload>({ kind: 'session', sub: user.id, name: user.name, ...(cred ? { cred } : {}) }, secret, SESSION_TTL);
 export const readSession = async (cookieHeaderValue: string | null, secret: string) => {
   const p = await verify<SessionPayload>(parseCookies(cookieHeaderValue)[SESSION_COOKIE], secret);
   return p?.kind === 'session' ? p : null;

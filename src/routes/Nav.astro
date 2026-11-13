@@ -17,7 +17,7 @@ const links = [
   {links.map((l) => <a href={l.href} aria-current={l.id === current ? 'page' : undefined}>{l.label}</a>)}
   <span class="ps-nav__user">
     <a href="/edit/site" aria-current={current === 'site' ? 'page' : undefined}>Browse site</a>
-    {opts.github?.live && <button type="button" id="ps-live" class="ps-btn ps-btn--primary ps-live" hidden>Go live</button>}
+    {opts.github?.live && <button type="button" id="ps-live" class="ps-btn ps-btn--primary ps-live" hidden>Publish changes</button>}
     {user && opts.auth === 'passkey' && <span>Signed in as <strong>{user.name}</strong> · <a href="/api/editor/auth/logout">Sign out</a></span>}
   </span>
 </nav>

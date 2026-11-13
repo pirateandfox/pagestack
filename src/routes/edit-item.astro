@@ -43,9 +43,8 @@ const boot = {
       <span class="ps-item__actions">
         {boot.viewUrl && <a id="ps-item-view" class="ps-btn ps-btn--ghost" href={`/edit/site?path=${encodeURIComponent(boot.viewUrl)}`} title="See the saved version on the site, and click around from there">View on site</a>}
         {boot.preview && <button type="button" id="ps-item-tab" class="ps-btn ps-btn--ghost">Preview ↗</button>}
-        <button type="button" id="ps-item-draft" class="ps-btn ps-btn--ghost" hidden>Switch to draft</button>
-        <button type="button" id="ps-item-save" class="ps-btn" disabled>Save</button>
-        <button type="button" id="ps-item-publish" class="ps-btn ps-btn--primary" hidden>Publish</button>
+        <label class="ps-switch" hidden id="ps-item-ready-wrap" title={opts.github?.live ? 'On: goes on the public site with the next Publish changes. Off: a draft, kept off the site.' : 'On: on the site after the next build. Off: a draft, kept off the site.'}><input type="checkbox" role="switch" id="ps-item-ready" /><span class="ps-switch__track" aria-hidden="true"></span><span>{opts.github?.live ? 'Ready to publish' : 'Published'}</span></label>
+        <button type="button" id="ps-item-save" class="ps-btn ps-btn--primary" disabled>Save</button>
         <button type="button" id="ps-item-more" class="ps-iconbtn" title="Options" aria-label="Options" data-icon="more"></button>
       </span>
     </header>

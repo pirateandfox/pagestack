@@ -37,7 +37,7 @@ export const ALL: APIRoute = async ({ params, request, url }) => {
       }
       case 'invite': {
         const s = await readSession(request.headers.get('cookie'), secret());
-        const inviter = s && await activeUser(s.sub);
+        const inviter = s && await activeUser(s.sub, s.cred);
         if (!inviter) return bad('unauthenticated', 401);
         if (roleOf(inviter) !== 'admin') return bad('Only admins can invite people.', 403);
         const name = String(body.name ?? '').trim(), email = String(body.email ?? '').trim();
@@ -51,6 +51,6 @@ export const ALL: APIRoute = async ({ params, request, url }) => {
   } catch (e: any) {
     if (e instanceof AuthError) return bad(e.message, e.status);
     console.error('[pagestack] auth error', e);
-    return bad(`authentication error: ${e?.message ?? e}`, 400);
+    return bad('Sign-in failed. Try again, or ask an admin for a new invite.', 400); // details stay in the log
   }
 };

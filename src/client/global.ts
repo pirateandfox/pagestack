@@ -28,6 +28,6 @@ saveBtn.addEventListener('click', async () => {
   const d = await r.json();
   if (!r.ok) { toast(d.error || 'Save failed', 'error'); saveBtn.disabled = false; return; }
   hash = d.hash; dirty = false;
-  toast(d.result.kind === 'github' ? (document.getElementById('ps-live') ? 'Saved. Use Go live to put it on the site.' : 'Saved. The site will rebuild.') : "Saved to the working tree. Commit it with git when you're happy.", 'ok');
+  toast(d.result.kind === 'github' ? (document.getElementById('ps-live') ? 'Saved. Use Publish changes to put it on the site.' : 'Saved. The site will rebuild.') : "Saved to the working tree. Commit it with git when you're happy.", 'ok');
 });
 window.addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });

@@ -1,4 +1,4 @@
-// The Go live button, in every screen's top bar. Hidden unless the site has a live branch
+// The Publish changes button (Go live), in every screen's top bar. Hidden unless the site has a live branch
 // (`github.live`): then saves wait on staging, the button counts them, and one click puts them all
 // on the public site. It refreshes itself after any save, wherever on the screen that happened.
 import { dialog, toast } from './ui';
@@ -22,7 +22,7 @@ function draw() {
   btn.hidden = false;
   const n = state.count;
   btn.disabled = n === 0;
-  btn.textContent = 'Go live';
+  btn.textContent = 'Publish changes';
   if (n) { const b = document.createElement('span'); b.className = 'ps-live__count'; b.textContent = String(n); btn.append(b); }
   btn.title = n ? `${n} saved change${n === 1 ? '' : 's'} not on the live site yet` : 'Everything saved is on the live site';
 }
@@ -61,15 +61,15 @@ async function goLive() {
     a.href = state.stagingUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'See them on the staging site first ↗';
     p.append(a); body.append(p);
   }
-  dialog('Go live?', body, [
+  dialog('Publish changes?', body, [
     { label: 'Cancel' },
     {
-      label: 'Go live', kind: 'primary', run: async () => {
+      label: 'Publish changes', kind: 'primary', run: async () => {
         const r = await fetch('/api/editor/live', { method: 'POST', headers: { accept: 'application/json' } });
         const data = await r.json().catch(() => ({}));
-        if (!r.ok) { toast(data.error ?? 'Could not go live.', 'error'); return false; }
-        if (data.nothing) toast('Everything saved was already live.', 'info');
-        else toast(`Live. ${data.count} change${data.count === 1 ? ' is' : 's are'} on the way to the site; it updates in a few minutes.`, 'ok', { href: data.url });
+        if (!r.ok) { toast(data.error ?? 'Could not publish.', 'error'); return false; }
+        if (data.nothing) toast('Everything saved was already on the site.', 'info');
+        else toast(`Published. ${data.count} change${data.count === 1 ? ' is' : 's are'} on the way to the site; it updates in a few minutes.`, 'ok', { href: data.url });
         await refresh();
       },
     },

@@ -28,7 +28,7 @@ function addPage(copyOf?: string) {
       <span class="ps-prefixed"><span class="ps-muted">/</span><input type="text" name="slug" autocomplete="off" spellcheck="false" /><span class="ps-muted">/</span></span></label>
       <p class="ps-error" hidden></p></div>
     <div class="ps-field"><label>Start from <select name="from"></select></label></div>
-    <small class="ps-muted">New pages start as drafts. Nothing is public until you press Publish.</small>`;
+    <small class="ps-muted">New pages start as drafts. Nothing is public until you turn on ${document.getElementById('ps-live') ? 'Ready to publish' : 'Published'}.</small>`;
   const title = form.querySelector<HTMLInputElement>('[name=title]')!;
   const slug = form.querySelector<HTMLInputElement>('[name=slug]')!;
   const from = form.querySelector<HTMLSelectElement>('[name=from]')!;

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.0-beta.11 — 2026-11-13
+
+**Security fixes. Upgrade before inviting people.**
+
+- **Rich text could carry a script past the sanitiser.** Its tag reader disagreed with browsers about where an unquoted attribute value ends, so a crafted `<img … onerror=…>` saved by any editor came through unchanged and ran in an admin's editor (and on the public site after a publish). Tags are now read the way the HTML spec's tokenizer reads them, and anything not plainly written is rebuilt from what was read. A new test runs the sanitiser's output through a spec HTML parser (`parse5`, dev only) with known bypasses and 20,000 generated tags. Inline SVG fields had the same problem and get the same fix.
+- **No inline event handlers anywhere on the editor's origin**: `script-src-attr 'none'` on every editor response, preview and live page, and (new) on the site's built pages the editor serves, through a block appended to the editor build's static `_headers` file. Those pages also get the site-scripts-only rule.
+- **Invite links can't be used twice**, even after the person or the passkey made from them is removed: used invite ids are kept in the users file (`usedInvites`).
+- **Removing a passkey ends the sessions it opened.** Sessions now name their passkey and stop working when it is gone (sessions from before this release last until they expire).
+- **Removed `/api/editor/asset/*`**, a debugging route that let any signed-in editor read any file in the repo, `editor-users.json` included.
+- Sign-in reads the users file through the cache, and a lookup that misses re-reads at most every 5 s, so unauthenticated requests can't spend the GitHub token's quota.
+- The uploads route checks that the person still exists, not just the cookie's signature.
+- Commit subjects sent by the client are cut to one line and can't claim "Edited by" someone else.
+- Sign-in errors no longer echo internal error text. The proxy shared secret is compared in constant time.
+
+- **Ready to publish switch** replaces the Publish / Switch to draft / Save draft / Update buttons on pages and collection items. Flipping it saves straight away and says what it means; Save is always "Save". Without `github.live` the switch reads **Published**. A page only asks before turning into a draft when that takes it off the site at the next build.
+- **Go live is now labelled "Publish changes"**, so "publish" always means the public site. Element ids are unchanged (`#ps-live`); `#ps-publish`, `#ps-item-publish` and `#ps-item-draft` are gone (use `#ps-ready` / `#ps-item-ready`, or click `#ps-ready-wrap` / `#ps-item-ready-wrap`).
+
 ## 0.1.0-beta.10 — 2026-11-12
 
 - **Faster first load of live pages and previews.** Live collections now load together, pinned to the branch head, in one GitHub GraphQL request instead of a listing plus one request per file (Sentiosonics: 70 requests and about 10 s on a fresh server, now 11 requests and under 5 s locally). Falls back to the REST reads when GraphQL isn't available. New optional storage method `readDirs(paths, ref)`.

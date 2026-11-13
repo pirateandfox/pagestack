@@ -18,8 +18,8 @@ const title = $<HTMLInputElement>('ps-item-title');
 const body = $<HTMLTextAreaElement>('ps-item-body');
 const preview = $('ps-item-preview');
 const saveBtn = $<HTMLButtonElement>('ps-item-save');
-const publishBtn = $<HTMLButtonElement>('ps-item-publish');
-const draftBtn = $<HTMLButtonElement>('ps-item-draft');
+const ready = $<HTMLInputElement>('ps-item-ready');
+const readyWrap = $('ps-item-ready-wrap');
 const status = $('ps-item-status');
 
 const data = structuredClone(boot.data);
@@ -29,12 +29,11 @@ let dirty = false;
 
 function chrome() {
   const draft = hasDraft && data.draft === true;
-  saveBtn.textContent = !hasDraft ? 'Save' : draft ? 'Save draft' : 'Update';
-  publishBtn.hidden = !draft;
-  draftBtn.hidden = !hasDraft || draft;
+  readyWrap.hidden = !hasDraft;
+  ready.checked = !draft;
   saveBtn.disabled = !dirty;
   const view = document.getElementById('ps-item-view'); if (view) view.hidden = draft;
-  status.textContent = dirty ? 'Unsaved changes' : draft ? 'Draft: not on the site yet' : '';
+  status.textContent = dirty ? 'Unsaved changes' : draft ? 'Draft: not on the site' : '';
 }
 const touch = () => { dirty = true; chrome(); };
 
@@ -87,20 +86,27 @@ body.addEventListener('keydown', (e) => {
 });
 
 // ---- saving ----
-async function save(): Promise<boolean> {
+async function save(done?: string): Promise<boolean> {
   if (frame && inline.isActive) inline.stop(true);
   saveBtn.disabled = true; status.textContent = 'Saving…';
   const res = await fetch(`/api/editor/collection/${boot.id}/${boot.slug}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data, body: body.value, base: hash }) });
   const d = await res.json();
   if (!res.ok) { toast(d.error || 'Save failed', 'error'); saveBtn.disabled = false; status.textContent = 'Not saved'; return false; }
   hash = d.hash; dirty = false; chrome();
-  toast(d.unchanged ? 'No changes to save.' : d.result?.pullRequest ? 'Saved as a pull request.' : d.result?.kind === 'github' ? (document.getElementById('ps-live') ? 'Saved. Use Go live to put it on the site.' : 'Saved. The site will rebuild.') : 'Saved.', 'ok');
+  if (done && !d.result?.pullRequest) toast(done, 'ok'); else toast(d.unchanged ? 'No changes to save.' : d.result?.pullRequest ? 'Saved as a pull request.' : d.result?.kind === 'github' ? (document.getElementById('ps-live') ? 'Saved. Use Publish changes to put it on the site.' : 'Saved. The site will rebuild.') : 'Saved.', 'ok');
   return true;
 }
-saveBtn.addEventListener('click', save);
-const setDraft = async (v: boolean) => { const was = data.draft; data.draft = v; if (!await save()) { data.draft = was; chrome(); } };
-publishBtn.addEventListener('click', () => setDraft(false));
-draftBtn.addEventListener('click', () => setDraft(true));
+saveBtn.addEventListener('click', () => save());
+// The switch saves straight away (with any other unsaved changes), so it means what it shows.
+ready.addEventListener('change', async () => {
+  const was = data.draft;
+  data.draft = !ready.checked;
+  ready.disabled = true;
+  const staged = !!document.getElementById('ps-live');
+  const ok = await save(ready.checked ? (staged ? 'Ready to publish. It goes on the site with the next Publish changes.' : 'Published. The site will rebuild.') : 'Now a draft: kept off the site.');
+  if (!ok) { data.draft = was; chrome(); }
+  ready.disabled = false;
+});
 addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (dirty) save(); } });
 addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
 

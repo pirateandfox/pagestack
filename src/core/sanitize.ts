@@ -1,6 +1,11 @@
 // Rich text is untrusted: it is typed, pasted, or arrives from another site. This is an allowlist
 // sanitiser that needs no DOM, so the same code runs in the browser and on save. Tags that pass
-// untouched keep their exact bytes, which keeps saves from rewriting existing content.
+// that are already in plain form keep their exact bytes, which keeps saves from rewriting existing content.
+//
+// Tags are read the way a browser's HTML tokenizer reads them (quotes only open a value straight
+// after `=`), and every kept tag is written back from what was read, never passed through as it came:
+// a reader that disagrees with the browser about where an attribute ends is how event handlers slip
+// past an allowlist.
 import type { Field, Node, PageDoc, SchemaRegistry } from '../runtime';
 
 /** Dropped along with everything inside them. */
@@ -29,8 +34,64 @@ export function safeUrl(url: string): boolean {
   return !scheme || SAFE_SCHEME.test(flat);
 }
 
-const TAG = /<(\/?)([a-zA-Z][a-zA-Z0-9:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/y;
-const ATTR = /([^\s=/"'<>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g;
+interface Attr { key: string; value: string | null; quoted: boolean }
+interface Tag { end: number; closing: boolean; rawName: string; attrs: Attr[]; selfClosing: boolean }
+const isWs = (c: string | undefined) => c === ' ' || c === '\t' || c === '\n' || c === '\f' || c === '\r';
+
+/**
+ * The tag starting at `lt`, read as the HTML spec's tokenizer does (tag open, attribute name and
+ * value states). Null when it is not a tag (`<` then a non-letter) or never ends: a browser shows
+ * the first as text and swallows the second, and the caller escapes the `<` either way.
+ */
+export function scanTag(s: string, lt: number): Tag | null {
+  let i = lt + 1;
+  const closing = s[i] === '/';
+  if (closing) i++;
+  if (!/[a-zA-Z]/.test(s[i] ?? '')) return null;
+  const start = i;
+  while (i < s.length && !isWs(s[i]) && s[i] !== '/' && s[i] !== '>') i++;
+  const rawName = s.slice(start, i);
+  const attrs: Attr[] = [];
+  let selfClosing = false;
+  while (i < s.length) {
+    const c = s[i];
+    if (isWs(c)) { i++; continue; }
+    if (c === '>') return { end: i + 1, closing, rawName, attrs, selfClosing };
+    if (c === '/') { i++; selfClosing = s[i] === '>'; continue; }
+    selfClosing = false;
+    const a = i++; // the first character of a name may be anything, `=` and quotes included
+    while (i < s.length && !isWs(s[i]) && s[i] !== '/' && s[i] !== '>' && s[i] !== '=') i++;
+    const key = s.slice(a, i);
+    let j = i;
+    while (isWs(s[j])) j++;
+    if (s[j] !== '=') { attrs.push({ key, value: null, quoted: false }); continue; }
+    i = j + 1;
+    while (isWs(s[i])) i++;
+    const q = s[i];
+    if (q === '"' || q === "'") {
+      const e = s.indexOf(q, i + 1);
+      if (e < 0) return null;
+      attrs.push({ key, value: s.slice(i + 1, e), quoted: true });
+      i = e + 1;
+    } else {
+      const v = i; // unquoted: quotes, `=` and `<` here are part of the value
+      while (i < s.length && !isWs(s[i]) && s[i] !== '>') i++;
+      attrs.push({ key, value: s.slice(v, i), quoted: false });
+    }
+  }
+  return null;
+}
+
+const attrText = (key: string, value: string | null) => (value === null ? key : `${key}="${value.replace(/"/g, '&quot;')}"`);
+/**
+ * May a start tag go out exactly as written? Only when nothing was dropped and nothing in it reads
+ * two ways: plain names, and unquoted values without quotes, `=`, `<`, `>` or backticks.
+ */
+const plainTag = (t: Tag, name: string, keptAll: boolean) => keptAll && t.rawName === name
+  && t.attrs.every((a) => /^[a-z][a-z0-9:-]*$/i.test(a.key) && (a.quoted || a.value === null || /^[^\s"'=<>`]+$/.test(a.value)));
+/** The tag as written when it is plain, otherwise rebuilt from what was read. */
+const emit = (whole: string, t: Tag, name: string, kept: string[]) =>
+  plainTag(t, name, kept.length === t.attrs.length) ? whole : `<${name}${kept.length ? ' ' + kept.join(' ') : ''}${t.selfClosing ? ' />' : '>'}`;
 
 /** Inline SVG (`svg` fields) and uploaded .svg files. No scripts, events, foreign content or animation. */
 const SVG_TAGS = new Set(['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'defs', 'lineargradient', 'radialgradient', 'stop', 'clippath', 'mask', 'use', 'symbol', 'pattern', 'title', 'desc', 'marker']);
@@ -51,13 +112,13 @@ function scrubSvg(svg: string, { file }: { file: boolean }): string {
       const e = open > 0 && open < gt ? svg.indexOf(']>', open) : gt;
       i = e < 0 ? svg.length : e + (open > 0 && open < gt ? 2 : 1); continue;
     }
-    TAG.lastIndex = lt;
-    const m = TAG.exec(svg);
-    if (!m) { out += '&lt;'; i = lt + 1; continue; }
-    i = TAG.lastIndex;
-    const [whole, slash, rawName, rawAttrs] = m;
+    const t = scanTag(svg, lt);
+    if (!t) { out += '&lt;'; i = lt + 1; continue; }
+    const whole = svg.slice(lt, t.end);
+    i = t.end;
+    const { rawName, closing: slash } = t;
     const name = rawName.toLowerCase();
-    const closes = rawAttrs.trimEnd().endsWith('/');
+    const closes = t.selfClosing;
     if (name === 'style' && file) { // stylesheets from design tools; never reached when inlined in a page
       if (slash || closes) continue;
       const end = svg.toLowerCase().indexOf('</style', i);
@@ -74,20 +135,19 @@ function scrubSvg(svg: string, { file }: { file: boolean }): string {
       }
       continue;
     }
-    if (slash) { out += whole; continue; }
+    if (slash) { out += whole === `</${rawName}>` ? whole : `</${rawName}>`; continue; }
     const kept: string[] = [];
-    let dropped = false;
-    for (const a of rawAttrs.matchAll(ATTR)) {
-      const key = a[1].toLowerCase();
-      const value = a[2] ?? a[3] ?? a[4] ?? '';
+    for (const a of t.attrs) {
+      const key = a.key.toLowerCase();
+      const value = a.value ?? '';
       const allowed = (SVG_ATTRS.has(key) || key.startsWith('aria-') || key.startsWith('data-'))
         && (key !== 'href' && key !== 'xlink:href' || /^#[\w-]+$/.test(value.trim()))
         && (key !== 'style' || svgStyleOk(value))
         && (!/^(fill|stroke|filter|mask|clip-path)$/.test(key) || svgStyleOk(value));
-      if (!allowed) { dropped = true; continue; }
-      kept.push(`${a[1]}="${value.replace(/"/g, '&quot;')}"`);
+      if (!allowed || !/^[a-zA-Z_:][\w:.-]*$/.test(a.key)) continue;
+      kept.push(attrText(a.key, a.value)); // SVG names keep their case (viewBox)
     }
-    out += dropped ? `<${rawName}${kept.length ? ' ' + kept.join(' ') : ''}${closes ? ' /' : ''}>` : whole;
+    out += emit(whole, t, rawName, kept);
   }
   return out;
 }
@@ -113,14 +173,14 @@ export function sanitizeHtml(html: string, { paste = false }: { paste?: boolean 
       i = end < 0 ? html.length : end + 3;
       continue;
     }
-    TAG.lastIndex = lt;
-    const m = TAG.exec(html);
-    if (!m) { out += '&lt;'; i = lt + 1; continue; }
-    i = TAG.lastIndex;
-    const [whole, slash, rawName, rawAttrs] = m;
+    const t = scanTag(html, lt);
+    if (!t) { out += '&lt;'; i = lt + 1; continue; }
+    const whole = html.slice(lt, t.end);
+    i = t.end;
+    const { rawName, closing: slash } = t;
     let name = rawName.toLowerCase();
     if (DROP.has(name)) {
-      if (!slash && !rawAttrs.trimEnd().endsWith('/')) {
+      if (!slash && !t.selfClosing) {
         const end = html.toLowerCase().indexOf(`</${name}`, i);
         if (end < 0) break;
         const close = html.indexOf('>', end);
@@ -130,17 +190,14 @@ export function sanitizeHtml(html: string, { paste = false }: { paste?: boolean 
     }
     if (paste && name === 'div') name = 'p'; // Word and Docs wrap lines in these
     if (!tags.has(name)) continue;
-    if (slash) { out += name === rawName.toLowerCase() ? whole : `</${name}>`; continue; }
+    if (slash) { out += whole === `</${name}>` ? whole : `</${name}>`; continue; }
     const kept: string[] = [];
-    let dropped = false;
-    for (const a of rawAttrs.matchAll(ATTR)) {
-      const key = a[1].toLowerCase();
-      const value = a[2] ?? a[3] ?? a[4] ?? '';
-      if (!attrs.has(key) || (URL_ATTRS.has(key) && !safeUrl(value))) { dropped = true; continue; }
-      kept.push(a[2] === undefined && a[3] === undefined && a[4] === undefined ? key : `${key}="${value.replace(/"/g, '&quot;')}"`);
+    for (const a of t.attrs) {
+      const key = a.key.toLowerCase();
+      if (!attrs.has(key) || (URL_ATTRS.has(key) && !safeUrl(a.value ?? ''))) continue;
+      kept.push(attrText(key, a.value));
     }
-    if (!dropped && name === rawName.toLowerCase()) out += whole;
-    else out += `<${name}${kept.length ? ' ' + kept.join(' ') : ''}>`;
+    out += emit(whole, t, name, kept);
   }
   return paste ? out.replace(/<p>(\s|&nbsp;|<br>)*<\/p>/g, '').trim() : out;
 }

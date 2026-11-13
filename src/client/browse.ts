@@ -33,7 +33,7 @@ function drawBar(r: Resolved) {
     note.textContent = 'Latest saved version';
   } else if (r.builtAt && r.savedAt && Date.parse(r.savedAt) > Date.parse(r.builtAt)) {
     note.textContent = `⚠ As of ${when(r.builtAt)}. May not show changes saved since.`;
-    note.title = 'This page is the copy built into the editor. Changes saved after that show here once the editor is redeployed, and on the public site after Go live.';
+    note.title = 'This page is the copy built into the editor. Changes saved after that show here once the editor is redeployed, and on the public site after Publish changes.';
     note.classList.add('is-stale');
   } else {
     note.textContent = '';
