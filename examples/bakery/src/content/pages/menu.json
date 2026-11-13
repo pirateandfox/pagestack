@@ -1,0 +1,243 @@
+{
+  "title": "Menu",
+  "description": "Bread, pastry, coffee and the odd seasonal thing. Prices and what is on this week at Crumb & Co.",
+  "sections": [
+    {
+      "id": "c881423",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "The menu",
+        "title": "What’s on the shelves",
+        "text": "<p>Bread every day we’re open, pastry until it runs out, and coffee from Hollowtree Roasters down the road.</p>",
+        "image": {
+          "src": "",
+          "alt": ""
+        },
+        "badge": "",
+        "variant": "banner",
+        "background": "wheat",
+        "anchor": ""
+      }
+    },
+    {
+      "id": "4530430",
+      "type": "menu",
+      "settings": {
+        "title": "Bread",
+        "intro": "<p>Naturally leavened, no commercial yeast, and nothing in them you couldn’t buy yourself.</p>",
+        "image": {
+          "src": "/images/sourdough.svg",
+          "alt": "A scored round sourdough loaf"
+        },
+        "side": "right",
+        "background": "cream",
+        "anchor": "bread"
+      },
+      "blocks": [
+        {
+          "id": "8b80cf1",
+          "type": "menu-item",
+          "settings": {
+            "name": "Country sourdough",
+            "price": "$9",
+            "text": "Wheat, a little rye and whole wheat, three-day ferment.",
+            "tag": ""
+          }
+        },
+        {
+          "id": "7bb2c4a",
+          "type": "menu-item",
+          "settings": {
+            "name": "Seeded rye",
+            "price": "$10",
+            "text": "Sunflower, flax, caraway. Slice it thin.",
+            "tag": "weekends"
+          }
+        },
+        {
+          "id": "ace2e93",
+          "type": "menu-item",
+          "settings": {
+            "name": "Baguette",
+            "price": "$4",
+            "text": "Out at 7 a.m. and again at 11:30.",
+            "tag": ""
+          }
+        },
+        {
+          "id": "529ef3e",
+          "type": "menu-item",
+          "settings": {
+            "name": "Rosemary focaccia",
+            "price": "$7",
+            "text": "By the slab, olive oil and flaky salt.",
+            "tag": "vegan"
+          }
+        },
+        {
+          "id": "48f3b0a",
+          "type": "menu-item",
+          "settings": {
+            "name": "Fig & walnut",
+            "price": "$11",
+            "text": "Black Mission figs, toasted walnuts, a touch of fennel.",
+            "tag": "seasonal"
+          }
+        }
+      ]
+    },
+    {
+      "id": "c54637b",
+      "type": "menu",
+      "settings": {
+        "title": "Pastry",
+        "intro": "<p>Laminated over three days with cultured butter. Best before noon.</p>",
+        "image": {
+          "src": "/images/croissant.svg",
+          "alt": "A golden croissant"
+        },
+        "side": "left",
+        "background": "paper",
+        "anchor": "pastry"
+      },
+      "blocks": [
+        {
+          "id": "e4aaf20",
+          "type": "menu-item",
+          "settings": {
+            "name": "Butter croissant",
+            "price": "$4.25",
+            "text": "The one that started the queue.",
+            "tag": ""
+          }
+        },
+        {
+          "id": "fc12fff",
+          "type": "menu-item",
+          "settings": {
+            "name": "Pain au chocolat",
+            "price": "$4.75",
+            "text": "Two batons of 70% dark chocolate.",
+            "tag": ""
+          }
+        },
+        {
+          "id": "d5c3c32",
+          "type": "menu-item",
+          "settings": {
+            "name": "Morning bun",
+            "price": "$4.75",
+            "text": "Orange zest and cardamom sugar.",
+            "tag": ""
+          }
+        },
+        {
+          "id": "c7dfead",
+          "type": "menu-item",
+          "settings": {
+            "name": "Almond croissant",
+            "price": "$5.25",
+            "text": "Twice-baked, frangipane, toasted almonds.",
+            "tag": ""
+          }
+        },
+        {
+          "id": "1388226",
+          "type": "menu-item",
+          "settings": {
+            "name": "Pear & brown butter tart",
+            "price": "$6",
+            "text": "While the pears from Hill Orchard last.",
+            "tag": "new"
+          }
+        }
+      ]
+    },
+    {
+      "id": "3f8858a",
+      "type": "menu",
+      "settings": {
+        "title": "Coffee & tea",
+        "intro": "<p>Espresso from Hollowtree Roasters; oat milk at no extra charge.</p>",
+        "image": {
+          "src": "/images/coffee.svg",
+          "alt": "A cup of coffee with steam"
+        },
+        "side": "right",
+        "background": "cream",
+        "anchor": "coffee"
+      },
+      "blocks": [
+        {
+          "id": "ba3fe3e",
+          "type": "menu-item",
+          "settings": {
+            "name": "Espresso",
+            "price": "$3",
+            "tag": ""
+          }
+        },
+        {
+          "id": "3660602",
+          "type": "menu-item",
+          "settings": {
+            "name": "Flat white",
+            "price": "$4.50",
+            "tag": ""
+          }
+        },
+        {
+          "id": "7af04db",
+          "type": "menu-item",
+          "settings": {
+            "name": "Filter, bottomless",
+            "price": "$3.50",
+            "text": "Refills while you’re here.",
+            "tag": ""
+          }
+        },
+        {
+          "id": "beafb53",
+          "type": "menu-item",
+          "settings": {
+            "name": "Chai",
+            "price": "$4.75",
+            "text": "Brewed here with whole spices.",
+            "tag": "vegan"
+          }
+        },
+        {
+          "id": "7dc3bb3",
+          "type": "menu-item",
+          "settings": {
+            "name": "Hot chocolate",
+            "price": "$4.50",
+            "text": "Same chocolate as the pain au chocolat.",
+            "tag": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "e20b5f6",
+      "type": "cta",
+      "settings": {
+        "title": "Feeding a crowd?",
+        "text": "<p>We bake for birthdays, office mornings and the odd wedding. Give us three days’ notice.</p>",
+        "background": "ink",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "ccee401",
+          "type": "button",
+          "settings": {
+            "label": "Ask about a big order",
+            "href": "/visit/#order",
+            "style": "primary"
+          }
+        }
+      ]
+    }
+  ]
+}

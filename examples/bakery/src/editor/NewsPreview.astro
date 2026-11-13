@@ -1,0 +1,14 @@
+---
+// A news post as the editor shows it: the real post page, from the unsaved item. Frontmatter
+// arrives as written (the date is a string), so apply what the content schema would.
+import type { ItemPreviewProps } from '@pirateandfox/pagestack/runtime';
+import PostPage from '../components/PostPage.astro';
+type Props = ItemPreviewProps;
+const { item, editing } = Astro.props;
+const d = item.data;
+const date = d.date ? new Date(String(d.date)) : new Date();
+const data = { ...d, title: d.title || 'Untitled', date: isNaN(date.getTime()) ? new Date() : date } as any;
+---
+<PostPage data={data} editing={editing}>
+  <Fragment set:html={item.html} />
+</PostPage>

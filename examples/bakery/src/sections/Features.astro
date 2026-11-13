@@ -1,0 +1,31 @@
+---
+import type { Node, EditCtx } from '@pirateandfox/pagestack/runtime';
+import { fieldAttrs, nodeAttrs, child } from '@pirateandfox/pagestack/runtime';
+import Sec from './Sec.astro';
+interface Props { node: Node; edit?: EditCtx }
+const { node, edit } = Astro.props;
+const s = node.settings;
+---
+<Sec node={node} edit={edit}>
+  <header class="sec__head">
+    {s.eyebrow && <p class="eyebrow" {...fieldAttrs(edit, 'eyebrow', 'text')} set:html={s.eyebrow} />}
+    {s.title && <h2 class="sec__title" {...fieldAttrs(edit, 'title', 'text')} set:html={s.title} />}
+    {s.intro && <div class="rich sec__intro" {...fieldAttrs(edit, 'intro', 'richtext')} set:html={s.intro} />}
+  </header>
+  <div class="grid" style={`--cols:${s.columns || 3}`}>
+    {(node.blocks ?? []).map((it, i) => { const e = child(edit, i); const p = it.settings; const img = p.image ?? {}; return (
+      <article class="card" {...nodeAttrs(e, it)}>
+        <div class="card__media">
+          {img.src && <img src={img.src} alt={img.alt ?? ''} loading="lazy" {...fieldAttrs(e, 'image', 'image')} />}
+          {p.tag && <span class="card__tag" {...fieldAttrs(e, 'tag', 'text')} set:html={p.tag} />}
+        </div>
+        <div class="card__body">
+          <div class="card__row">
+            <h3 class="card__name" {...fieldAttrs(e, 'name', 'text')} set:html={p.name} />
+            {p.price && <span class="card__price" {...fieldAttrs(e, 'price', 'text')} set:html={p.price} />}
+          </div>
+          {p.text && <div class="rich card__text" {...fieldAttrs(e, 'text', 'richtext')} set:html={p.text} />}
+        </div>
+      </article>); })}
+  </div>
+</Sec>

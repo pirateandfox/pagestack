@@ -1,0 +1,11 @@
+---
+import type { Node, EditCtx } from '@pirateandfox/pagestack/runtime';
+import { nodeAttrs, fieldAttrs } from '@pirateandfox/pagestack/runtime';
+interface Props { node: Node; edit?: EditCtx }
+const { node, edit } = Astro.props;
+const s = node.settings;
+---
+<a class:list={['btn', s.style && s.style !== 'primary' && `btn--${s.style}`]} href={s.href || '#'} {...nodeAttrs(edit, node)}>
+  <span {...fieldAttrs(edit, 'label', 'text')} set:html={s.label} />
+  {s.style === 'link' && <span class="btn__arrow" aria-hidden="true">→</span>}
+</a>

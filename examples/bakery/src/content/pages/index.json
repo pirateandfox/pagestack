@@ -1,0 +1,315 @@
+{
+  "title": "Home",
+  "description": "Crumb & Co. is a small neighbourhood bakery in Millbrook: naturally leavened bread, laminated pastry and good coffee, baked every morning.",
+  "sections": [
+    {
+      "id": "b7f3d47",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Neighbourhood bakery · Millbrook",
+        "title": "Bread worth getting up <em>early</em> for",
+        "text": "<p>Slow-fermented loaves, flaky pastry and strong coffee, baked in small batches on Larder Lane since 2019. Out of the oven at 7, usually gone by 2.</p>",
+        "image": {
+          "src": "/images/hero-loaves.svg",
+          "alt": "A round sourdough loaf and a baguette on a wooden board, with a sprig of wheat"
+        },
+        "badge": "Baked<br>daily",
+        "variant": "split",
+        "background": "cream",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "3754c37",
+          "type": "button",
+          "settings": {
+            "label": "See today’s menu",
+            "href": "/menu/",
+            "style": "primary"
+          }
+        },
+        {
+          "id": "99a3074",
+          "type": "button",
+          "settings": {
+            "label": "Plan a visit",
+            "href": "/visit/",
+            "style": "outline"
+          }
+        }
+      ]
+    },
+    {
+      "id": "8fe2375",
+      "type": "features",
+      "settings": {
+        "eyebrow": "From the oven",
+        "title": "The ones people come back for",
+        "intro": "<p>Six things we bake every single day. The rest of the menu changes with the week and the weather.</p>",
+        "columns": "3",
+        "background": "paper",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "013ea7f",
+          "type": "product",
+          "settings": {
+            "image": {
+              "src": "/images/sourdough.svg",
+              "alt": "A scored round sourdough loaf"
+            },
+            "name": "Country sourdough",
+            "price": "$9",
+            "text": "<p>Our everyday loaf. Three-day ferment, blistered crust, a soft and tangy crumb.</p>",
+            "tag": ""
+          }
+        },
+        {
+          "id": "d6f85ba",
+          "type": "product",
+          "settings": {
+            "image": {
+              "src": "/images/croissant.svg",
+              "alt": "A golden croissant"
+            },
+            "name": "Butter croissant",
+            "price": "$4.25",
+            "text": "<p>Laminated over three days with cultured butter. Shatters properly.</p>",
+            "tag": ""
+          }
+        },
+        {
+          "id": "460809a",
+          "type": "product",
+          "settings": {
+            "image": {
+              "src": "/images/rye.svg",
+              "alt": "A dark rye tin loaf topped with seeds"
+            },
+            "name": "Seeded rye",
+            "price": "$10",
+            "text": "<p>Dense, dark and nutty with sunflower, flax and caraway. Keeps for a week.</p>",
+            "tag": "Thu–Sat"
+          }
+        },
+        {
+          "id": "8aa1657",
+          "type": "product",
+          "settings": {
+            "image": {
+              "src": "/images/cinnamon-bun.svg",
+              "alt": "A spiralled morning bun"
+            },
+            "name": "Morning bun",
+            "price": "$4.75",
+            "text": "<p>Croissant dough rolled with orange zest and cardamom sugar.</p>",
+            "tag": ""
+          }
+        },
+        {
+          "id": "5745758",
+          "type": "product",
+          "settings": {
+            "image": {
+              "src": "/images/focaccia.svg",
+              "alt": "A slab of focaccia with rosemary"
+            },
+            "name": "Rosemary focaccia",
+            "price": "$7",
+            "text": "<p>Olive oil, flaky salt, rosemary from the garden out back. Sold by the slab.</p>",
+            "tag": ""
+          }
+        },
+        {
+          "id": "c660a76",
+          "type": "product",
+          "settings": {
+            "image": {
+              "src": "/images/baguette.svg",
+              "alt": "Two baguettes"
+            },
+            "name": "Baguette",
+            "price": "$4",
+            "text": "<p>Baked twice a day so there is always a warm one at lunch.</p>",
+            "tag": "Twice daily"
+          }
+        }
+      ]
+    },
+    {
+      "id": "5f5939c",
+      "type": "split",
+      "settings": {
+        "eyebrow": "Our story",
+        "title": "Started in a garage, with one very stubborn starter",
+        "text": "<p>Maya Okafor-Lind kept a sourdough starter alive through three moves and a winter without heating. In 2019 she borrowed a deck oven, set it up in a friend’s garage and sold forty loaves from a folding table every Saturday.</p><p>Today the starter, called Gus, lives on Larder Lane, and the folding table is still behind the counter.</p>",
+        "image": {
+          "src": "/images/oven.svg",
+          "alt": "A brick deck oven with a wooden peel"
+        },
+        "caption": "The deck oven, lit at 4 a.m. every day we’re open.",
+        "side": "left",
+        "background": "cream",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "1d3590b",
+          "type": "button",
+          "settings": {
+            "label": "Read the whole story",
+            "href": "/about/",
+            "style": "link"
+          }
+        }
+      ]
+    },
+    {
+      "id": "3ff9940",
+      "type": "quotes",
+      "settings": {
+        "eyebrow": "Overheard at the counter",
+        "title": "",
+        "background": "wheat",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "042b1ec",
+          "type": "quote",
+          "settings": {
+            "quote": "<p>I moved two streets away and I still walk over on Saturdays. The rye alone is worth it.</p>",
+            "name": "Priya S.",
+            "detail": "Regular since the garage days"
+          }
+        },
+        {
+          "id": "3871f0b",
+          "type": "quote",
+          "settings": {
+            "quote": "<p>They remembered my kid’s name and that she only likes the end of the baguette.</p>",
+            "name": "Tom H.",
+            "detail": "Larder Lane neighbour"
+          }
+        },
+        {
+          "id": "a5657da",
+          "type": "quote",
+          "settings": {
+            "quote": "<p>The croissant you think about on Tuesday, when they’re closed.</p>",
+            "name": "Ana R.",
+            "detail": "Weekend regular"
+          }
+        }
+      ]
+    },
+    {
+      "id": "53f62a5",
+      "type": "hours",
+      "settings": {
+        "eyebrow": "Come by",
+        "title": "Hours and where to find us",
+        "text": "<p><strong>14 Larder Lane, Millbrook</strong><br>Between the bike shop and the library, look for the striped awning.</p><p>Street parking on Larder Lane, a bike rack out front, and the No. 6 bus stops at the corner.</p>",
+        "note": "We close early when the shelves are empty. Check our news for holiday hours.",
+        "background": "paper",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "9d46207",
+          "type": "hours-row",
+          "settings": {
+            "day": "Monday",
+            "time": "",
+            "closed": true
+          }
+        },
+        {
+          "id": "bbdb0f7",
+          "type": "hours-row",
+          "settings": {
+            "day": "Tuesday",
+            "time": "",
+            "closed": true
+          }
+        },
+        {
+          "id": "ade4e09",
+          "type": "hours-row",
+          "settings": {
+            "day": "Wednesday",
+            "time": "7 a.m. – 3 p.m.",
+            "closed": false
+          }
+        },
+        {
+          "id": "6ea7111",
+          "type": "hours-row",
+          "settings": {
+            "day": "Thursday",
+            "time": "7 a.m. – 3 p.m.",
+            "closed": false
+          }
+        },
+        {
+          "id": "df8a773",
+          "type": "hours-row",
+          "settings": {
+            "day": "Friday",
+            "time": "7 a.m. – 6 p.m.",
+            "closed": false
+          }
+        },
+        {
+          "id": "35eafd5",
+          "type": "hours-row",
+          "settings": {
+            "day": "Saturday",
+            "time": "7 a.m. – 4 p.m.",
+            "closed": false
+          }
+        },
+        {
+          "id": "e09d15b",
+          "type": "hours-row",
+          "settings": {
+            "day": "Sunday",
+            "time": "8 a.m. – 2 p.m.",
+            "closed": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "9faeb7b",
+      "type": "cta",
+      "settings": {
+        "title": "Order ahead, skip the queue",
+        "text": "<p>Call or email by 5 p.m. and your loaves will be waiting, wrapped and named, the next morning.</p>",
+        "background": "crust",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "f32c960",
+          "type": "button",
+          "settings": {
+            "label": "How ordering works",
+            "href": "/visit/#order",
+            "style": "primary"
+          }
+        },
+        {
+          "id": "a3e1c0e",
+          "type": "button",
+          "settings": {
+            "label": "(555) 014-2290",
+            "href": "tel:5550142290",
+            "style": "outline"
+          }
+        }
+      ]
+    }
+  ]
+}

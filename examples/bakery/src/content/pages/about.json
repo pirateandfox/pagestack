@@ -1,0 +1,110 @@
+{
+  "title": "Our story",
+  "description": "How a garage bakery with one sourdough starter became Crumb & Co. on Larder Lane.",
+  "sections": [
+    {
+      "id": "27de677",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Our story",
+        "title": "Small batches, long ferments, early mornings",
+        "text": "<p>Crumb & Co. is five bakers, one deck oven and a sourdough starter older than the business.</p>",
+        "image": {
+          "src": "",
+          "alt": ""
+        },
+        "badge": "",
+        "variant": "banner",
+        "background": "cream",
+        "anchor": ""
+      }
+    },
+    {
+      "id": "b3e87d6",
+      "type": "split",
+      "settings": {
+        "eyebrow": "2019",
+        "title": "Forty loaves and a folding table",
+        "text": "<p>Maya had been baking for friends for years when a neighbour offered his garage and a second-hand deck oven. The first Saturday, forty loaves sold out by nine. The second Saturday there was a queue before the table was up.</p>",
+        "image": {
+          "src": "/images/oven.svg",
+          "alt": "A brick deck oven with a wooden peel"
+        },
+        "caption": "",
+        "side": "right",
+        "background": "cream",
+        "anchor": ""
+      }
+    },
+    {
+      "id": "8e201b7",
+      "type": "split",
+      "settings": {
+        "eyebrow": "2022",
+        "title": "A shop with a striped awning",
+        "text": "<p>When the old hardware store on Larder Lane closed, we took the lease, kept the wooden counters and painted the awning ourselves. Two days of rain later, we painted it again.</p><p>The shop opened in March with a full pastry case and, for the first time, coffee.</p>",
+        "image": {
+          "src": "/images/shopfront.svg",
+          "alt": "The bakery shopfront with a striped awning"
+        },
+        "caption": "",
+        "side": "left",
+        "background": "paper",
+        "anchor": ""
+      }
+    },
+    {
+      "id": "537bc79",
+      "type": "text",
+      "settings": {
+        "html": "<h2>How we bake</h2><p>Everything starts with flour from Two Rivers Mill, stone-ground from wheat grown within fifty miles of here. We feed the starter twice a day, mix in the afternoon and let the dough take its time in the cold overnight.</p><ul><li><strong>No shortcuts.</strong> No commercial yeast in the bread, no improvers, no premixes.</li><li><strong>Nothing wasted.</strong> Yesterday’s bread becomes croutons, bread pudding, or goes to the Millbrook food pantry.</li><li><strong>Paid fairly.</strong> Everyone here earns a living wage and nobody starts before 4 a.m.</li></ul><p>If you want to see it for yourself, ask at the counter. On quiet afternoons we’re happy to show you round.</p>",
+        "width": "narrow",
+        "align": "left",
+        "background": "cream",
+        "anchor": ""
+      }
+    },
+    {
+      "id": "46dc03e",
+      "type": "quotes",
+      "settings": {
+        "eyebrow": "",
+        "title": "",
+        "background": "sage",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "eb85535",
+          "type": "quote",
+          "settings": {
+            "quote": "<p>Good bread isn’t complicated. It just won’t be hurried, and neither will we.</p>",
+            "name": "Maya Okafor-Lind",
+            "detail": "Founder and head baker"
+          }
+        }
+      ]
+    },
+    {
+      "id": "a10dd2a",
+      "type": "cta",
+      "settings": {
+        "title": "We’re hiring a morning baker",
+        "text": "<p>Four days a week, 4 a.m. starts, and all the croissant offcuts you can eat.</p>",
+        "background": "crust",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "7e24377",
+          "type": "button",
+          "settings": {
+            "label": "Say hello",
+            "href": "mailto:hello@crumbandco.example",
+            "style": "primary"
+          }
+        }
+      ]
+    }
+  ]
+}

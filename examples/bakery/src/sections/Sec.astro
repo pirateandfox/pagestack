@@ -1,0 +1,12 @@
+---
+// Wrapper for every section: <section class="sec sec--<type> bg--<background>"> carrying the
+// editor's node markers, with a centred inner column.
+import type { Node, EditCtx } from '@pirateandfox/pagestack/runtime';
+import { nodeAttrs } from '@pirateandfox/pagestack/runtime';
+interface Props { node: Node; edit?: EditCtx; class?: string; inner?: string }
+const { node, edit, class: cls, inner } = Astro.props;
+const s = node.settings;
+---
+<section id={s.anchor || undefined} class:list={['sec', `sec--${node.type}`, `bg--${s.background || 'cream'}`, cls]} {...nodeAttrs(edit, node)}>
+  <div class:list={['wrap', inner]}><slot /></div>
+</section>

@@ -1,0 +1,15 @@
+{
+  "announcement": "Hot cross buns are back, Fridays only until they sell out.",
+  "nav": [
+    { "label": "Menu", "href": "/menu/" },
+    { "label": "Our story", "href": "/about/" },
+    { "label": "News", "href": "/news/" },
+    { "label": "Visit", "href": "/visit/" }
+  ],
+  "orderLabel": "Order ahead",
+  "orderHref": "/visit/#order",
+  "address": "14 Larder Lane, Millbrook",
+  "phone": "(555) 014-2290",
+  "email": "hello@crumbandco.example",
+  "footerNote": "Baked by hand, every morning, from flour milled two counties over. What we don't sell goes to the Millbrook food pantry by noon the next day."
+}

@@ -1,0 +1,21 @@
+{
+  "name": "pagestack-example-bakery",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Crumb & Co., a made-up neighbourhood bakery: a small demo host site for PageStack.",
+  "scripts": {
+    "dev": "astro dev",
+    "dev:editor": "EDITOR=dev astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@pirateandfox/pagestack": "file:../..",
+    "astro": "^7.4.7"
+  },
+  "engines": {
+    "node": ">=22.23.4"
+  }
+}

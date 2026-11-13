@@ -1,0 +1,25 @@
+---
+import type { Node, EditCtx } from '@pirateandfox/pagestack/runtime';
+import { fieldAttrs, nodeAttrs, child } from '@pirateandfox/pagestack/runtime';
+import Sec from './Sec.astro';
+interface Props { node: Node; edit?: EditCtx }
+const { node, edit } = Astro.props;
+const s = node.settings;
+---
+<Sec node={node} edit={edit} inner="hours__inner">
+  <div class="hours__intro">
+    {s.eyebrow && <p class="eyebrow" {...fieldAttrs(edit, 'eyebrow', 'text')} set:html={s.eyebrow} />}
+    {s.title && <h2 class="sec__title" {...fieldAttrs(edit, 'title', 'text')} set:html={s.title} />}
+    {s.text && <div class="rich hours__address" {...fieldAttrs(edit, 'text', 'richtext')} set:html={s.text} />}
+  </div>
+  <div class="hours__card">
+    <dl class="hours__list">
+      {(node.blocks ?? []).map((r, i) => { const e = child(edit, i); const p = r.settings; return (
+        <div class:list={['hours__row', p.closed && 'is-closed']} {...nodeAttrs(e, r)}>
+          <dt {...fieldAttrs(e, 'day', 'text')} set:html={p.day} />
+          <dd>{p.closed ? 'Closed' : <span {...fieldAttrs(e, 'time', 'text')} set:html={p.time} />}</dd>
+        </div>); })}
+    </dl>
+    {s.note && <p class="hours__note" {...fieldAttrs(edit, 'note', 'text')} set:html={s.note} />}
+  </div>
+</Sec>

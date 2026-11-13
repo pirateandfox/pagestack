@@ -1,0 +1,28 @@
+---
+import type { Node, EditCtx } from '@pirateandfox/pagestack/runtime';
+import { fieldAttrs, nodeAttrs, child } from '@pirateandfox/pagestack/runtime';
+import Sec from './Sec.astro';
+interface Props { node: Node; edit?: EditCtx }
+const { node, edit } = Astro.props;
+const s = node.settings;
+const items = node.blocks ?? [];
+---
+<Sec node={node} edit={edit} class={items.length === 1 ? 'quotes--single' : ''}>
+  {(s.eyebrow || s.title) && (
+    <header class="sec__head sec__head--center">
+      {s.eyebrow && <p class="eyebrow" {...fieldAttrs(edit, 'eyebrow', 'text')} set:html={s.eyebrow} />}
+      {s.title && <h2 class="sec__title" {...fieldAttrs(edit, 'title', 'text')} set:html={s.title} />}
+    </header>
+  )}
+  <div class="quotes">
+    {items.map((q, i) => { const e = child(edit, i); const p = q.settings; return (
+      <figure class="quote" {...nodeAttrs(e, q)}>
+        <svg class="quote__mark" viewBox="0 0 48 36" aria-hidden="true"><path d="M0 36V20C0 8.4 6.2 1.6 18.6 0l1.6 5.2C13.4 7 10 11 10 16h8v20H0Zm27.8 0V20c0-11.6 6.2-18.4 18.6-20L48 5.2C41.2 7 37.8 11 37.8 16h8v20h-18Z" fill="currentColor"/></svg>
+        <blockquote class="rich quote__text" {...fieldAttrs(e, 'quote', 'richtext')} set:html={p.quote} />
+        <figcaption>
+          <span class="quote__name" {...fieldAttrs(e, 'name', 'text')} set:html={p.name} />
+          {p.detail && <span class="quote__detail" {...fieldAttrs(e, 'detail', 'text')} set:html={p.detail} />}
+        </figcaption>
+      </figure>); })}
+  </div>
+</Sec>

@@ -1,0 +1,22 @@
+---
+// One news post. Used by the real page (src/pages/news/[slug].astro) and by the editor's preview
+// (src/editor/NewsPreview.astro), so both look the same. Must not import astro:content: the
+// editor renders it on its own server, where content loaders don't run.
+import { itemField } from '@pirateandfox/pagestack/runtime';
+import Base from '../layouts/Base.astro';
+import { fmtDate } from '../lib/dates';
+interface Props { data: { title: string; date: Date; excerpt?: string; image?: string; imageAlt?: string }; editing?: boolean }
+const { data, editing } = Astro.props;
+---
+<Base title={data.title} description={data.excerpt}>
+  <article class="post">
+    <header class="wrap post__head">
+      <a class="post__back" href="/news/">← All news</a>
+      <p class="eyebrow"><time datetime={data.date.toISOString().slice(0, 10)}>{fmtDate(data.date)}</time></p>
+      <h1 class="post__title" {...itemField(editing, 'title')}>{data.title}</h1>
+      {data.excerpt && <p class="post__lede">{data.excerpt}</p>}
+    </header>
+    {data.image && <figure class="wrap post__media"><img src={data.image} alt={data.imageAlt ?? ''} {...itemField(editing, 'image', 'image')} /></figure>}
+    <div class="wrap prose prose--narrow"><div class="rich post__body"><slot /></div></div>
+  </article>
+</Base>

@@ -1,0 +1,141 @@
+{
+  "title": "Visit",
+  "description": "Opening hours, directions and how to order ahead at Crumb & Co., 14 Larder Lane, Millbrook.",
+  "sections": [
+    {
+      "id": "e4e012f",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Visit us",
+        "title": "Come for a loaf, stay for a coffee",
+        "text": "<p>Five small tables inside, two benches out front, and a water bowl for dogs by the door.</p>",
+        "image": {
+          "src": "/images/shopfront.svg",
+          "alt": "The bakery shopfront with a striped awning"
+        },
+        "badge": "Since<br>2019",
+        "variant": "split",
+        "background": "wheat",
+        "anchor": ""
+      }
+    },
+    {
+      "id": "cb183d2",
+      "type": "hours",
+      "settings": {
+        "eyebrow": "Opening hours",
+        "title": "Wednesday to Sunday",
+        "text": "<p><strong>14 Larder Lane, Millbrook</strong><br>Between the bike shop and the library, look for the striped awning.</p><p>Street parking on Larder Lane, a bike rack out front, and the No. 6 bus stops at the corner.</p>",
+        "note": "Holiday hours are posted in News a week ahead.",
+        "background": "cream",
+        "anchor": "hours"
+      },
+      "blocks": [
+        {
+          "id": "8c543ec",
+          "type": "hours-row",
+          "settings": {
+            "day": "Monday",
+            "time": "",
+            "closed": true
+          }
+        },
+        {
+          "id": "5aeead0",
+          "type": "hours-row",
+          "settings": {
+            "day": "Tuesday",
+            "time": "",
+            "closed": true
+          }
+        },
+        {
+          "id": "6f9529e",
+          "type": "hours-row",
+          "settings": {
+            "day": "Wednesday",
+            "time": "7 a.m. – 3 p.m.",
+            "closed": false
+          }
+        },
+        {
+          "id": "8e8afe7",
+          "type": "hours-row",
+          "settings": {
+            "day": "Thursday",
+            "time": "7 a.m. – 3 p.m.",
+            "closed": false
+          }
+        },
+        {
+          "id": "e2d1977",
+          "type": "hours-row",
+          "settings": {
+            "day": "Friday",
+            "time": "7 a.m. – 6 p.m.",
+            "closed": false
+          }
+        },
+        {
+          "id": "fe2eb1e",
+          "type": "hours-row",
+          "settings": {
+            "day": "Saturday",
+            "time": "7 a.m. – 4 p.m.",
+            "closed": false
+          }
+        },
+        {
+          "id": "943d514",
+          "type": "hours-row",
+          "settings": {
+            "day": "Sunday",
+            "time": "8 a.m. – 2 p.m.",
+            "closed": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "dd2017d",
+      "type": "text",
+      "settings": {
+        "html": "<h2>Ordering ahead</h2><p>Call <a href=\"tel:5550142290\">(555) 014-2290</a> or email <a href=\"mailto:hello@crumbandco.example\">hello@crumbandco.example</a> by 5 p.m. and we’ll set your order aside for the next morning. Tell us your name, what you’d like and roughly when you’ll come by.</p><p>Whole cakes, tarts and orders of more than a dozen pastries need three days’ notice. We hold orders until 1 p.m.</p><h3>Allergies</h3><p>Everything is baked in one small kitchen with wheat, dairy, eggs and nuts, so we can’t promise anything is free of them. Ask us; we’ll tell you exactly what’s in it.</p>",
+        "width": "narrow",
+        "align": "left",
+        "background": "paper",
+        "anchor": "order"
+      }
+    },
+    {
+      "id": "809fc55",
+      "type": "cta",
+      "settings": {
+        "title": "Questions? Just ask.",
+        "text": "<p>We answer email between bakes, usually within a day.</p>",
+        "background": "ink",
+        "anchor": ""
+      },
+      "blocks": [
+        {
+          "id": "3c9c075",
+          "type": "button",
+          "settings": {
+            "label": "hello@crumbandco.example",
+            "href": "mailto:hello@crumbandco.example",
+            "style": "primary"
+          }
+        },
+        {
+          "id": "bb5f33f",
+          "type": "button",
+          "settings": {
+            "label": "(555) 014-2290",
+            "href": "tel:5550142290",
+            "style": "outline"
+          }
+        }
+      ]
+    }
+  ]
+}

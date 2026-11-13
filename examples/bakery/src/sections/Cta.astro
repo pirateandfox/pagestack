@@ -1,0 +1,26 @@
+---
+import type { Node, EditCtx } from '@pirateandfox/pagestack/runtime';
+import { fieldAttrs } from '@pirateandfox/pagestack/runtime';
+import Sec from './Sec.astro';
+import Render from './Render.astro';
+interface Props { node: Node; edit?: EditCtx }
+const { node, edit } = Astro.props;
+const s = node.settings;
+---
+<Sec node={node} edit={edit} inner="cta__inner">
+  <svg class="cta__wheat" viewBox="0 0 120 240" aria-hidden="true">
+    <path d="M60 236V40" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <g fill="currentColor">
+      <path d="M60 52c-12-4-18-16-17-30 12 3 18 14 17 30Zm0 0c12-4 18-16 17-30-12 3-18 14-17 30Z"/>
+      <path d="M60 86c-13-4-20-17-19-32 13 3 20 15 19 32Zm0 0c13-4 20-17 19-32-13 3-20 15-19 32Z"/>
+      <path d="M60 120c-13-4-20-17-19-32 13 3 20 15 19 32Zm0 0c13-4 20-17 19-32-13 3-20 15-19 32Z"/>
+      <path d="M60 154c-13-4-20-17-19-32 13 3 20 15 19 32Zm0 0c13-4 20-17 19-32-13 3-20 15-19 32Z"/>
+      <path d="M60 40c-3-10-1-22 0-34 1 12 3 24 0 34Z"/>
+    </g>
+  </svg>
+  <div class="cta__body">
+    <h2 class="cta__title" {...fieldAttrs(edit, 'title', 'text')} set:html={s.title} />
+    {s.text && <div class="rich cta__text" {...fieldAttrs(edit, 'text', 'richtext')} set:html={s.text} />}
+  </div>
+  {node.blocks?.length ? <div class="actions cta__actions"><Render nodes={node.blocks} edit={edit} /></div> : null}
+</Sec>

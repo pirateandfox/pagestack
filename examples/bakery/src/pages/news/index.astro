@@ -1,0 +1,32 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { fmtDate } from '../../lib/dates';
+const posts = (await getCollection('news', (p) => !p.data.draft)).sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+---
+<Base title="News" description="What's new at Crumb & Co.: specials, hours and the occasional story from the kitchen.">
+  <section class="sec sec--hero hero--banner bg--wheat">
+    <div class="wrap hero__inner">
+      <div class="hero__body">
+        <p class="eyebrow">From the kitchen</p>
+        <h1 class="hero__title">News</h1>
+        <div class="rich hero__text"><p>Specials, holiday hours and the occasional story from behind the counter.</p></div>
+      </div>
+    </div>
+  </section>
+  <section class="sec bg--cream">
+    <div class="wrap news">
+      {posts.map((p) => (
+        <a class="news__item" href={`/news/${p.id}/`}>
+          {p.data.image && <span class="news__media"><img src={p.data.image} alt="" loading="lazy" /></span>}
+          <span class="news__body">
+            <span class="eyebrow"><time datetime={p.data.date.toISOString().slice(0, 10)}>{fmtDate(p.data.date)}</time></span>
+            <span class="news__title">{p.data.title}</span>
+            {p.data.excerpt && <span class="news__excerpt">{p.data.excerpt}</span>}
+            <span class="btn btn--link">Read more <span class="btn__arrow" aria-hidden="true">→</span></span>
+          </span>
+        </a>
+      ))}
+    </div>
+  </section>
+</Base>
