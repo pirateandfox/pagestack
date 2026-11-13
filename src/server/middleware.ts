@@ -61,6 +61,23 @@ function sameText(a: string, b: string): boolean {
 }
 
 
+/** A deployed editor missing a secret it can't work without: said plainly rather than a 500. */
+function setupProblem(): string | null {
+  if (opts.storage === 'github' && !(process.env.GITHUB_TOKEN || process.env.EDITOR_GITHUB_TOKEN)) {
+    return 'The editor is not connected to GitHub yet. Add a GITHUB_TOKEN secret (a fine-grained token for this repository with Contents: read and write) to the editor deployment.';
+  }
+  if (opts.auth === 'passkey' && (process.env[opts.secretEnv] ?? '').length < 16) {
+    return `The editor has no signing key yet. Add an ${opts.secretEnv} secret (at least 16 random characters) to the editor deployment.`;
+  }
+  return null;
+}
+const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+function setupPage(message: string): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Editor setup needed</title>
+<style>body{font:16px/1.55 system-ui,sans-serif;margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f6f4;color:#1d1d1b}main{max-width:34rem;padding:2rem;background:#fff;border:1px solid #e3e3df;border-radius:12px}h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:.5rem 0 0}</style></head>
+<body><main><h1>One more setup step</h1><p>${escapeHtml(message)}</p><p>Once it is added, reload this page.</p></main></body></html>`;
+}
+
 export const onRequest = defineMiddleware(async (ctx, next) => {
   if (ctx.isPrerendered) return next(); // public pages, which never carry a session
   // Host list pages rendered here (liveRoutes) read collections from storage. Set on the first
@@ -86,6 +103,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     if (opts.auth === 'passkey' && !process.env.EDITOR_ORIGIN) console.warn('[pagestack] Set EDITOR_ORIGIN to the public https origin: without it invite links trust the Host header, and behind a proxy cookies may not be marked Secure.');
   }
   if (crossSite(request, ctx.url)) return done(json({ error: 'cross-site request refused' }, 403));
+  const missing = setupProblem();
+  if (missing) {
+    if (pathname.startsWith('/api/')) return done(json({ error: missing }, 503));
+    return done(new Response(setupPage(missing), { status: 503, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } }));
+  }
 
   if (pathname.startsWith('/api/editor/auth/') && request.method === 'POST') {
     const { ok, retryAfter } = authAttempts(clientIp(ctx));

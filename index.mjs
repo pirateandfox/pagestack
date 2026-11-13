@@ -21,9 +21,27 @@ function writeEditorHeaders(clientDir, previewScripts) {
   if (!fs.existsSync(clientDir)) return;
   const file = path.join(clientDir, '_headers');
   const scripts = previewScripts === 'all' ? "script-src-attr 'none'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; script-src-attr 'none'";
-  const block = `\n# pagestack: built pages served by the editor\n/*\n  Content-Security-Policy: ${scripts}; object-src 'none'; base-uri 'self'; frame-ancestors 'self'\n  X-Frame-Options: SAMEORIGIN\n`;
+  const block = `\n# pagestack: built pages served by the editor\n/*\n  Content-Security-Policy: ${scripts}; object-src 'none'; base-uri 'self'; frame-ancestors 'self'\n  X-Frame-Options: SAMEORIGIN\n  X-Robots-Tag: noindex\n`;
   const existing = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   if (!existing.includes('# pagestack: built pages served by the editor')) fs.writeFileSync(file, existing + block);
+}
+
+/**
+ * Cloudflare serves files in the assets directory before the Worker runs, which would put every
+ * built site page on the editor's domain with no sign-in. Send everything but hashed build assets
+ * through the Worker (src/worker.ts decides). Leaves a host's own `run_worker_first` alone.
+ */
+function routeThroughWorker(serverDir, logger) {
+  const file = path.join(serverDir, 'wrangler.json');
+  if (!fs.existsSync(file)) return;
+  const conf = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (!conf.assets) return;
+  if (conf.assets.run_worker_first === undefined) {
+    conf.assets.run_worker_first = ['/*', '!/_astro/*'];
+    fs.writeFileSync(file, JSON.stringify(conf));
+  } else if (conf.assets.run_worker_first === false) {
+    logger?.warn('wrangler assets.run_worker_first is false: built site pages on the editor are served without sign-in.');
+  }
 }
 
 const VIRTUAL = 'virtual:pagestack/site';
@@ -107,13 +125,18 @@ export default function sectionEditor(userOptions) {
     hooks: {
       ...forwarded,
       'astro:config:done': async (params) => {
-        if (editorBuild) editorBuild.dirs = [params.config.build.client, params.config.outDir]; // with an adapter, files go to build.client
+        if (editorBuild) {
+          editorBuild.dirs = [params.config.build.client, params.config.outDir]; // with an adapter, files go to build.client
+          editorBuild.server = params.config.build.server;
+          editorBuild.logger = params.logger;
+        }
         await forwarded['astro:config:done'](params);
       },
       'astro:build:done': async (params) => {
         await forwarded['astro:build:done'](params);
         const dir = editorBuild?.dirs?.map((u) => fileURLToPath(u)).find((d) => fs.existsSync(d));
         if (dir) writeEditorHeaders(dir, editorBuild.previewScripts);
+        if (editorBuild?.cloudflare && editorBuild.server) routeThroughWorker(fileURLToPath(editorBuild.server), editorBuild.logger);
       },
       // List pages named in `liveRoutes` render on request on the editor's server, reading what
       // has been saved. Only in the editor build: the public build never gets here.
@@ -169,7 +192,15 @@ export default function sectionEditor(userOptions) {
           vite: {
             plugins: [{
               name: 'pagestack:virtual',
-              resolveId(id) { if (id === VIRTUAL || id === VIRTUAL_RENDERER || id === VIRTUAL_PREVIEWS) return '\0' + id; },
+              enforce: 'pre',
+              resolveId(id) {
+                if (id === VIRTUAL || id === VIRTUAL_RENDERER || id === VIRTUAL_PREVIEWS) return '\0' + id;
+                // On Cloudflare the editor's Worker checks site pages before the adapter (src/worker.ts).
+                if (isBuild && /^@astrojs\/cloudflare\/entrypoints\/server(\.js)?$/.test(id)) {
+                  editorBuild.cloudflare = true;
+                  return fileURLToPath(new URL('./src/worker.ts', import.meta.url));
+                }
+              },
               load(id) {
                 // The renderer (and the site layout/CSS behind it) is only imported by the preview
                 // route, so the editor shell doesn't drag the whole site's CSS into its page.

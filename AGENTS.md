@@ -4,7 +4,7 @@ PageStack is an Astro integration that adds a visual section editor to a static 
 site stays fully static; the editor exists only on `/edit/*` and `/api/editor/*`, only when the host
 turns it on; pages are JSON in the host's repo; saving is a file write (dev) or one git commit
 (production); login is passkeys. Published on npm as **`@pirateandfox/pagestack`**. Repo:
-https://github.com/pirateandfox/pagestack. First host site: `pirateandfox/lcfcc-web`.
+https://github.com/pirateandfox/pagestack. A demo host lives in `examples/bakery`.
 
 Read this before changing anything. The non-negotiables are in section 6.
 
@@ -91,7 +91,7 @@ Node 22.23.4+ is required. Astro 7's `astro dev` backgrounds itself when run by 
 `--ignore-lock` to keep it in the foreground. Unit tests don't execute `src/server` or the routes, so
 a broken import there only shows up in a host: run a type check or the host's suite.
 
-Most behaviour can only be seen inside a host. Use the LCFCC site (or any host) with a local link:
+Most behaviour can only be seen inside a host. Use `examples/bakery` (or any host) with a local link:
 
 ```bash
 # in the host repo
@@ -146,7 +146,7 @@ git push --follow-tags
 
 # 6. verify, then bump the host(s)
 npm view @pirateandfox/pagestack versions dist-tags
-cd ../lcfcc-web && npm install @pirateandfox/pagestack@0.1.0-beta.5 --save-exact && npm run build && npm test
+cd ../your-host && npm install @pirateandfox/pagestack@<version> --save-exact && npm run build && npm test
 ```
 
 Notes:
