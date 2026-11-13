@@ -7,13 +7,14 @@
       "type": "hero",
       "settings": {
         "eyebrow": "Neighbourhood bakery · Millbrook",
-        "title": "Bread worth getting up <em>early</em> for",
+        "title": "Bread worth getting up early for",
+        "accent": "early",
         "text": "<p>Slow-fermented loaves, flaky pastry and strong coffee, baked in small batches on Larder Lane since 2019. Out of the oven at 7, usually gone by 2.</p>",
         "image": {
           "src": "/images/hero-loaves.svg",
           "alt": "A round sourdough loaf and a baguette on a wooden board, with a sprig of wheat"
         },
-        "badge": "Baked<br>daily",
+        "badge": "Baked daily",
         "variant": "split",
         "background": "cream",
         "anchor": ""

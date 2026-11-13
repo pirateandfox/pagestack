@@ -210,6 +210,17 @@ const { node, edit } = Astro.props;
 passes `child(edit, i)` to each child. The `renderer` component takes `{ page, editing }` and
 renders the page inside the site's normal layout.
 
+A few things worth knowing while you set up the schema:
+
+- **Components can live in the schema or beside it.** The editor strips `component` before sending
+  the registry to the browser, so either works. `examples/bakery` keeps them in a separate map
+  (`src/sections/components.ts`) so the schema stays plain data.
+- **List View names a block after its first non-empty inline text field**, so put the field people
+  recognise (the title) first.
+- **`text` fields are plain text.** Typing in them replaces any markup they held. For a styled word
+  in a heading, give the block its own field for it (the bakery's hero has *Word in italics*).
+- **The home page is `src/content/pages/index.json`**, edited at `/edit/index`.
+
 ## Editing
 
 Coming from the WordPress block editor:

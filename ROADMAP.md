@@ -36,6 +36,12 @@ Host sites pin an npm version and bump when they want a new one.
 - [x] **Block transforms** and `/` in an empty block.
 - [ ] A content security policy that restricts scripts in the editor; hosts' preview scripts need thought first.
 
+- [x] Site pages on a deployed editor need sign-in, and open in Browse (Cloudflare).
+- [ ] Bold and italic inside single-line text fields (headings), as in WordPress.
+- [ ] Image fields that store width and height, so pages don't shift as images load.
+- [ ] Hide Astro's dev toolbar inside the editor's preview.
+- [ ] Admin-only Publish changes; withdraw an unused invite; logout by POST only.
+
 ## Before 1.0
 
 - [ ] A week of real use of Go live on Sentiosonics.

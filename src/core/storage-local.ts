@@ -42,16 +42,18 @@ export class LocalStorage implements Storage {
   }
   async putAsset(p: string, bytes: Uint8Array): Promise<void> {
     const f = this.abs(p);
+    noteWrite(f);
     await fs.mkdir(path.dirname(f), { recursive: true });
     await fs.writeFile(f, bytes);
   }
   async commit({ files, deletes = [] }: { message: string; files: FileChange[]; deletes?: string[] }): Promise<CommitResult> {
     for (const f of files) {
       const abs = this.abs(f.path);
+      noteWrite(abs);
       await fs.mkdir(path.dirname(abs), { recursive: true });
       await fs.writeFile(abs, f.content);
     }
-    for (const p of deletes) await fs.rm(this.abs(p), { force: true });
+    for (const p of deletes) { noteWrite(this.abs(p)); await fs.rm(this.abs(p), { force: true }); }
     return { kind: 'local', files: [...files.map((f) => f.path), ...deletes] };
   }
   /** Reads the working tree's git log; a folder that isn't a repository simply has no history. */
@@ -68,4 +70,13 @@ export class LocalStorage implements Storage {
   }
   async pendingAsset(): Promise<undefined> { return undefined; }
   async asset(): Promise<undefined> { return undefined; } // the dev server serves the working tree
+}
+
+/**
+ * Files the editor just wrote, so the dev server doesn't answer its own save with a full page
+ * reload (which would throw away the editor's selection and undo history). Read in index.mjs.
+ */
+function noteWrite(abs: string) {
+  const g = globalThis as any;
+  (g.__PS_WRITES__ ??= new Map<string, number>()).set(path.resolve(abs), Date.now());
 }

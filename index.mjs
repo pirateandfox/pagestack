@@ -193,6 +193,28 @@ export default function sectionEditor(userOptions) {
             plugins: [{
               name: 'pagestack:virtual',
               enforce: 'pre',
+              // A save in dev writes files the site's routes import, and Vite answers with a full
+              // reload of every open page, the editor included. Drop reloads caused by the editor's
+              // own writes (src/core/storage-local.ts); the editor refreshes its preview itself.
+              configureServer(server) {
+                const recent = () => {
+                  const writes = globalThis.__PS_WRITES__;
+                  if (!writes) return false;
+                  const now = Date.now();
+                  for (const [f, t] of writes) if (now - t > 3000) writes.delete(f);
+                  return writes.size > 0;
+                };
+                const own = (payload) => {
+                  if (payload?.type !== 'full-reload' || !recent()) return false;
+                  const by = payload.triggeredBy ? path.resolve(payload.triggeredBy) : null;
+                  return !by || globalThis.__PS_WRITES__.has(by) || /\.(json|md|mdx)$/.test(by);
+                };
+                const channels = [server.ws, ...Object.values(server.environments ?? {}).map((e) => e.hot)].filter(Boolean);
+                for (const ch of new Set(channels)) {
+                  const send = ch.send.bind(ch);
+                  ch.send = (payload, ...rest) => { if (!own(payload)) send(payload, ...rest); };
+                }
+              },
               resolveId(id) {
                 if (id === VIRTUAL || id === VIRTUAL_RENDERER || id === VIRTUAL_PREVIEWS) return '\0' + id;
                 // On Cloudflare the editor's Worker checks site pages before the adapter (src/worker.ts).

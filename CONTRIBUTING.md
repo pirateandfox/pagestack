@@ -12,6 +12,8 @@ Thanks for looking. PageStack is young and opinionated; small, focused changes l
    npm install
    cd examples/bakery && npm install && npm run dev:editor   # http://localhost:4321/edit
    ```
+   The bakery installs PageStack from `../..` as a copy (`install-links` in its `.npmrc`), so run
+   `npm install` there again after changing PageStack's source.
 4. **Test.** `npm test` runs the unit tests. Add one for what you changed.
 5. **Note it in `CHANGELOG.md`** under *Unreleased*, in plain words a site owner would follow.
 

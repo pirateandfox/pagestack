@@ -145,7 +145,7 @@ p { margin: 0; }
 .badge {
   position: absolute; left: -1.25rem; bottom: 2rem;
   width: 7.25rem; height: 7.25rem; border-radius: 50%;
-  display: grid; place-content: center; text-align: center;
+  display: grid; place-content: center; text-align: center; padding: 1.4rem; text-wrap: balance;
   background: var(--crust); color: #fff8ef;
   font: italic 500 1.2rem/1.05 var(--serif);
   transform: rotate(-10deg);

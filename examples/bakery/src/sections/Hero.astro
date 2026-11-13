@@ -8,18 +8,23 @@ const { node, edit } = Astro.props;
 const s = node.settings;
 const img = s.image ?? {};
 const banner = s.variant === 'banner';
+// Titles are plain text; the italic word is its own field, so editing the title never loses it.
+const esc = (t = '') => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const title = esc(s.title);
+const accent = esc(s.accent).trim();
+const titleHtml = accent && title.includes(accent) ? title.replace(accent, `<em>${accent}</em>`) : title;
 ---
 <Sec node={node} edit={edit} class={`hero--${banner ? 'banner' : 'split'}`} inner="hero__inner">
   <div class="hero__body">
     {s.eyebrow && <p class="eyebrow" {...fieldAttrs(edit, 'eyebrow', 'text')} set:html={s.eyebrow} />}
-    <h1 class="hero__title" {...fieldAttrs(edit, 'title', 'text')} set:html={s.title} />
+    <h1 class="hero__title" {...fieldAttrs(edit, 'title', 'text')} set:html={titleHtml} />
     {s.text && <div class="rich hero__text" {...fieldAttrs(edit, 'text', 'richtext')} set:html={s.text} />}
     {node.blocks?.length ? <div class="actions"><Render nodes={node.blocks} edit={edit} /></div> : null}
   </div>
   {img.src && (
     <figure class="hero__media">
       <img src={img.src} alt={img.alt ?? ''} width={img.width} height={img.height} {...fieldAttrs(edit, 'image', 'image')} />
-      {s.badge && <span class="badge" {...fieldAttrs(edit, 'badge', 'text')} set:html={s.badge} />}
+      {s.badge && <span class="badge" {...fieldAttrs(edit, 'badge', 'text')}>{s.badge}</span>}
     </figure>
   )}
 </Sec>

@@ -22,6 +22,7 @@ export const schemas: SchemaRegistry = {
     fields: {
       // Title first: the List View names a section after its first text field.
       title: text('Title', 'Bread worth getting up early for'),
+      accent: { type: 'text', label: 'Word in italics', default: '', help: 'A word from the title to set in orange italics, e.g. "early". Blank for none.' },
       eyebrow: text('Eyebrow', 'Fresh this morning'),
       text: rich('Text', '<p>Say what makes this place worth the walk.</p>'),
       image: image('Illustration'),

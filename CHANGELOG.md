@@ -5,6 +5,9 @@
 - **Site pages on a deployed editor need sign-in, and open in Browse.** The editor's build carries a copy of every site page, and Cloudflare served those files before the editor's code ran: anyone could read them (saved work included, for pages rebuilt from a staging branch), and opening one showed no editor bar. On Cloudflare, editor builds now route everything except hashed build assets through the editor's Worker (`assets.run_worker_first` is set in the generated `dist/server/wrangler.json`, unless the host set it) and PageStack wraps the adapter's entry: a page opened directly goes to Browse, a page loaded any other way needs a session. Styles, scripts, images and fonts are served as before. Hosts change nothing.
 - **A deployed editor missing `GITHUB_TOKEN` or `EDITOR_SECRET` says so** on every editor page, instead of a 500.
 - The editor's copies of site pages are sent with `X-Robots-Tag: noindex`.
+- **Saving in dev no longer reloads the editor.** A save writes files the site's routes import, and Vite answered with a full reload of every open page, which threw away the selection and undo history. Reloads caused by the editor's own writes are now dropped.
+- Editor pages have a favicon (the PageStack mark).
+- **`examples/bakery`**: Crumb & Co., an invented bakery site to try the editor on (`npm run dev:editor`).
 - `@astrojs/cloudflare` is now an optional peer dependency.
 - Repo: MIT `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, issue templates; tests run only from `test/`.
 
