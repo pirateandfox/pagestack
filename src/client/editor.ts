@@ -128,9 +128,11 @@ const inline = new InlineEditor({
   onInput: (path, value) => { state.apply(setAt(state.doc, path, value), 'inline', false); refreshButtons(); },
   onCommit: (path, value, changed) => {
     idoc().body.removeAttribute('data-ps-typing');
-    if (changed) state.apply(setAt(state.doc, path, value), 'inline', false); else state.dropSnapshot();
+    // Not changed: clicked in and out, or Escape. Live updates already reached the doc, so go back.
+    let reverted = false;
+    if (changed) state.apply(setAt(state.doc, path, value), 'inline', false); else reverted = state.dropSnapshot(true);
     refreshChrome();
-    if (changed || renderQueued) scheduleRender(0);
+    if (changed || reverted || renderQueued) scheduleRender(0);
     renderQueued = false;
   },
 });

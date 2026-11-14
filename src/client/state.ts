@@ -38,8 +38,17 @@ export class EditorState extends EventTarget {
     if (this.past.length > 200) this.past.shift();
     this.future = [];
   }
-  /** Take back a `snapshot` that turned out to have no change after it. */
-  dropSnapshot() { this.past.pop(); }
+  /**
+   * Take back a `snapshot` that turned out to have no change after it. With `restore`, also go back
+   * to the document it holds (an inline edit cancelled with Escape after live updates). True when that changed the doc.
+   */
+  dropSnapshot(restore = false): boolean {
+    const prev = this.past.pop();
+    if (!restore || prev === undefined || prev === JSON.stringify(this.doc)) return false;
+    this.doc = JSON.parse(prev);
+    this.persist();
+    return true;
+  }
   undo() {
     const prev = this.past.pop();
     if (prev === undefined) return;

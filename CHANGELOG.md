@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.15 — 2026-11-14
+
+- **Escape really cancels an in-page edit.** Text typed and then cancelled with Escape disappeared from the page but stayed in the draft, so Save lit up and the cancelled words were saved. Escape now puts the draft back as it was before the edit.
+- README: a section on bold and italic in headings (`marks`), with how to render it and where to strip the tags.
+
 ## 0.1.0-beta.14 — 2026-11-14
 
 - **Bold and italic in headings.** A `text` field with `marks: true` allows bold and italic, as a WordPress heading does. Clicking it on the page shows a small **B** / **I** bar (⌘B / ⌘I work too), the sidebar shows a one-line field with the same two buttons, and pasting keeps bold and italic and drops everything else. The value is HTML holding only `<strong>` and `<em>`, cleaned to exactly that on save; render it with `set:html`. Fields without `marks` are unchanged, so existing sites see no difference until they opt in.

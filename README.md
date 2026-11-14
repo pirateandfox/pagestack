@@ -171,7 +171,7 @@ export const schemas = {
   heading: {
     label: 'Heading',
     fields: {
-      text:  { type: 'text',   label: 'Text', inline: true, default: 'Heading' },
+      text:  { type: 'text',   label: 'Text', inline: true, marks: true, default: 'Heading' }, // marks: bold + italic
       tag:   { type: 'select', label: 'HTML tag', options: [...], default: 'h2', group: 'advanced' },
       color: { type: 'color',  label: 'Text colour', group: 'style' },
     },
@@ -189,7 +189,8 @@ export const presets: Preset[] = [
 
 Field types: `text`, `richtext`, `image`, `link`, `color`, `select`, `number`, `boolean`,
 `textarea`, `code`, `svg`. `inline: true` on `text` / `richtext` / `image` makes the field
-editable by clicking it in the preview. The schema drives the sidebar form, validation on save,
+editable by clicking it in the preview. `marks: true` on a `text` field allows bold and italic in it
+(see [Bold and italic in headings](#bold-and-italic-in-headings)). The schema drives the sidebar form, validation on save,
 the add-block menus and the tree labels. **Presets are the section library.**
 
 ### 3. Components that mark what they render
@@ -217,11 +218,36 @@ A few things worth knowing while you set up the schema:
   (`src/sections/components.ts`) so the schema stays plain data.
 - **List View names a block after its first non-empty inline text field**, so put the field people
   recognise (the title) first.
-- **`text` fields are plain text, unless you add `marks: true`.** With it, the field allows bold
-  and italic, as a WordPress heading does: select words and press **B** / **I** (or ⌘B / ⌘I) on the
-  page or in the sidebar. The value is then HTML holding only `<strong>` and `<em>` (everything else
-  is removed on save), so render it with `set:html`. The bakery's section titles use it.
+- **`text` fields are plain text, unless you add `marks: true`**, which allows bold and italic as
+  in a WordPress heading. See [Bold and italic in headings](#bold-and-italic-in-headings).
 - **The home page is `src/content/pages/index.json`**, edited at `/edit/index`.
+
+### Bold and italic in headings
+
+Text fields are plain text by default. Add `marks: true` to one and it behaves like a WordPress
+heading: editors select words and press **B** or **I** in the small bar that appears, or `⌘B` / `⌘I`;
+the sidebar shows the same field as one line with the two buttons. Pasting keeps bold and italic and
+drops all other formatting.
+
+```ts
+title: { type: 'text', label: 'Title', inline: true, marks: true, default: 'Bread worth getting up <em>early</em> for' },
+```
+
+```astro
+<h2 {...fieldAttrs(edit, 'title', 'text')} set:html={s.title} />
+```
+
+- The value is HTML holding only `<strong>` and `<em>`. Saving cleans it to exactly that (`<b>` and
+  `<i>` become `<strong>` and `<em>`; line breaks, links, spans and attributes are removed), so it is
+  safe with `set:html`.
+- Render it with `set:html`. Rendered as `{s.title}`, the tags show up as text.
+- Where the same value is used as plain text (a `<title>`, `alt`, `aria-label`, a breadcrumb, a
+  URL), strip the tags first: `s.title.replace(/<[^>]*>/g, '')`. Leave `marks` off fields that only
+  ever end up in places like that.
+- Switching it on for an existing field is safe: plain values stay as they are. Values that held
+  other markup lose it the next time the page is saved, so check for that first.
+- Headings inside a Markdown body (collections) need nothing: they are edited with the full rich
+  text toolbar already, and `**bold**` / `*italic*` is written back to the Markdown.
 
 ## Editing
 
@@ -235,6 +261,7 @@ Coming from the WordPress block editor:
 | Block toolbar, ⋮ menu | Move, parent, add, duplicate, delete, copy, save as pattern |
 | Settings sidebar, Page / Block tabs | Same, generated from the schema |
 | Rich text toolbar, links | Same; `⌘B`, `⌘I`, `⌘K`, and an HTML view |
+| Bold / italic in a heading | Same, on `text` fields with `marks: true`: a **B** / **I** bar, `⌘B`, `⌘I` |
 | Status (Draft / Published), Publish, Preview | A **Ready to publish** switch (**Published** without `github.live`) that saves when flipped; Publish is **Publish changes** in the top bar with `github.live`; Preview opens the unsaved draft in a new tab |
 | Revisions | The page's git history |
 | Permalink | Change URL, which also adds a redirect |
@@ -249,6 +276,7 @@ Coming from the WordPress block editor:
 - **Preview**: the page renders in a frame at real device widths, scaled to fit. Every change POSTs
   the draft to `/edit/preview/<slug>`; the server renders it and only changed sections are swapped.
 - **Inline**: click text to edit it in place; click an image to open the picker (alt text required).
+  Enter (in a one-line field) or clicking away keeps the edit; Escape cancels it.
 - **Drafts** are kept in `localStorage` until saved; undo/redo is per session.
 - **Save** sanitises rich text, validates the document, and writes the file (local) or commits
   (github). A hash of what you loaded is sent along; if someone saved first you get a 409 and a
