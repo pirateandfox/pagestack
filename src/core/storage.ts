@@ -58,8 +58,12 @@ export interface Storage {
   lastChange?(): Promise<string | null>;
   /** Stage a binary (upload). It must be reachable at its URL before the next commit. */
   putAsset(path: string, bytes: Uint8Array): Promise<void>;
-  /** Make a set of text changes durable, together with any staged assets. `deletes` are repo-relative paths. */
-  commit(opts: { message: string; files: FileChange[]; deletes?: string[] }): Promise<CommitResult>;
+  /**
+   * Make a set of text changes durable, together with any staged assets. `deletes` are repo-relative
+   * paths. With `expect`, each named file must still hold that text (null: must not exist) in the
+   * version the commit builds on, else nothing is written and it throws `StaleWrite`.
+   */
+  commit(opts: { message: string; files: FileChange[]; deletes?: string[]; expect?: Record<string, string | null> }): Promise<CommitResult>;
   /** Commits that touched a file, newest first. [] when there is no history to read. */
   history(path: string, limit?: number): Promise<Revision[]>;
   /** Text of a file as of a commit from `history`, or null. */
@@ -75,6 +79,11 @@ export interface Storage {
   pending?(): Promise<PendingChanges>;
   /** Puts everything staged on the live branch (fast-forward, else a merge commit). */
   goLive?(message: string): Promise<{ commit: string; url: string; merged: boolean } | null>;
+}
+
+/** A conditional commit found the file changed since it was read. Read it again and retry. */
+export class StaleWrite extends Error {
+  constructor(path: string) { super(`${path} changed while saving; try again.`); this.name = 'StaleWrite'; }
 }
 
 export async function sha256(text: string): Promise<string> {

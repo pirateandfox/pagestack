@@ -8,7 +8,7 @@
 // branch goes away. Keeping them in the repo rather than in memory means an upload and the save
 // after it can land on different server instances (Workers), and a restart loses nothing.
 import type { CommitResult, FileChange, PendingChanges, Revision, Storage } from './storage';
-import { fromBase64, isSha, safeRelPath, toBase64 } from './storage';
+import { fromBase64, isSha, safeRelPath, StaleWrite, toBase64 } from './storage';
 
 export interface GitHubOptions {
   /** "owner/name" */
@@ -199,13 +199,16 @@ export class GitHubStorage implements Storage {
   }
 
   async readAt(p: string, sha: string): Promise<string | null> {
-    if (!isSha(sha)) return null;
-    const data = await this.req<any>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${sha}`, undefined, true);
+    return isSha(sha) ? this.textAt(p, sha) : null;
+  }
+  /** `ref` here is trusted: a branch name or a sha this adapter got from GitHub itself. */
+  private async textAt(p: string, ref: string): Promise<string | null> {
+    const data = await this.req<any>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${encodeURIComponent(ref)}`, undefined, true);
     if (!data || data.type !== 'file') return null;
     return new TextDecoder().decode(fromBase64(String(data.content).replace(/\n/g, '')));
   }
 
-  async commit({ message, files, deletes = [] }: { message: string; files: FileChange[]; deletes?: string[] }): Promise<CommitResult> {
+  async commit({ message, files, deletes = [], expect }: { message: string; files: FileChange[]; deletes?: string[]; expect?: Record<string, string | null> }): Promise<CommitResult> {
     const all: FileChange[] = files.map((f) => ({ ...f, path: safeRelPath(f.path) }));
     const removed = deletes.map(safeRelPath);
     const uploads = (await this.waiting()).filter((u) => !removed.includes(u.path));
@@ -213,6 +216,9 @@ export class GitHubStorage implements Storage {
     const base = await this.req<any>('GET', `${this.repoUrl}/git/ref/heads/${encodeURIComponent(this.branch)}`);
     const baseSha: string = base.object.sha;
     const baseCommit = await this.req<any>('GET', `${this.repoUrl}/git/commits/${baseSha}`);
+    for (const [p, want] of Object.entries(expect ?? {})) {
+      if ((await this.textAt(p, baseSha)) !== want) throw new StaleWrite(p);
+    }
 
     const tree: { path: string; mode: string; type: string; sha: string | null }[] = [...removed.map((path) => ({ path, mode: '100644', type: 'blob', sha: null })), ...uploads];
     for (const f of all) {
@@ -230,7 +236,10 @@ export class GitHubStorage implements Storage {
       const pr = await this.req<any>('POST', `${this.repoUrl}/pulls`, { title: message, head: branch, base: this.branch, body: `Opened by the site editor.\n\nFiles:\n${[...all.map((f) => f.path), ...uploads.map((u) => u.path), ...removed].map((f) => `- ${f}`).join('\n')}` });
       pullRequest = pr.html_url;
     } else {
-      await this.req('PATCH', `${this.repoUrl}/git/refs/heads/${encodeURIComponent(this.branch)}`, { sha: commit.sha, force: false });
+      const moved = await this.raw('PATCH', `${this.repoUrl}/git/refs/heads/${encodeURIComponent(this.branch)}`, { sha: commit.sha, force: false });
+      // Not a fast-forward: another save landed after this one read the branch.
+      if (moved.status === 422 && expect) throw new StaleWrite(Object.keys(expect)[0]);
+      if (!moved.ok) throw new Error(`GitHub PATCH ${this.branch} -> ${moved.status} ${(await moved.text()).slice(0, 300)}`);
     }
     if (uploads.length) await this.req('DELETE', `${this.repoUrl}/git/refs/heads/${UPLOADS}`, undefined, true).catch(() => { /* an empty next commit is harmless */ });
     return { kind: 'github', files: [...all.map((f) => f.path), ...uploads.map((u) => u.path), ...removed], commit: commit.sha, url: commit.html_url ?? `https://github.com/${this.opts.repo}/commit/${commit.sha}`, branch, pullRequest };

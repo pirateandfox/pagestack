@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { GitHubStorage } from '../src/core/storage-github';
-import { toBase64 } from '../src/core/storage';
+import { StaleWrite, toBase64 } from '../src/core/storage';
 
 interface Call { method: string; path: string; body?: any; headers: Record<string, string> }
 
 /** A tiny fake of the parts of the GitHub REST API the adapter touches. */
-function fakeGitHub(files: Record<string, string> = {}, opts: { failWith?: number } = {}) {
+function fakeGitHub(files: Record<string, string> = {}, opts: { failWith?: number; refMoved?: boolean } = {}) {
   const calls: Call[] = [];
   const side: Record<string, string> = {};
   let sideRef = false;
@@ -50,7 +50,7 @@ function fakeGitHub(files: Record<string, string> = {}, opts: { failWith?: numbe
     if (rest === 'git/trees' && method === 'POST') return json({ sha: 'tree111' });
     if (rest === 'git/commits' && method === 'POST') return json({ sha: 'c0ffee1234567', html_url: 'https://github.com/o/r/commit/c0ffee1234567' });
     if (rest === 'git/refs' && method === 'POST') { if (body.ref.endsWith('pagestack-uploads')) sideRef = true; return json({ ref: body.ref }, 201); }
-    if (rest === 'git/refs/heads/main' && method === 'PATCH') return json({ object: { sha: body.sha } });
+    if (rest === 'git/refs/heads/main' && method === 'PATCH') return opts.refMoved ? json({ message: 'Update is not a fast forward' }, 422) : json({ object: { sha: body.sha } });
     if (rest === 'pulls' && method === 'POST') return json({ html_url: 'https://github.com/o/r/pull/7', number: 7 }, 201);
     return json({ message: `unhandled ${method} ${path}` }, 500);
   };
@@ -165,5 +165,20 @@ describe('GitHubStorage page lifecycle', () => {
     expect(await make(gh).readAt('a.json', 'abc1234')).toBe('old');
     expect(gh.calls[0].path).toBe('/repos/o/r/contents/a.json?ref=abc1234');
     expect(await make(gh).readAt('a.json', 'main&x=1')).toBeNull();
+  });
+
+  it('a conditional commit checks the file at the commit it builds on', async () => {
+    const gh = fakeGitHub({ 'editor-users.json': 'v1' });
+    const s = make(gh);
+    await s.commit({ message: 'm', files: [{ path: 'editor-users.json', content: 'v2' }], expect: { 'editor-users.json': 'v1' } });
+    expect(gh.calls.some((c) => c.path === '/repos/o/r/contents/editor-users.json?ref=base000')).toBe(true);
+    const stale = fakeGitHub({ 'editor-users.json': 'someone else' });
+    await expect(make(stale).commit({ message: 'm', files: [{ path: 'editor-users.json', content: 'v2' }], expect: { 'editor-users.json': 'v1' } })).rejects.toBeInstanceOf(StaleWrite);
+    expect(stale.calls.some((c) => c.method === 'PATCH')).toBe(false); // nothing written
+  });
+  it('a conditional commit that loses the race to the branch is StaleWrite; a plain one is an error', async () => {
+    const opts = { refMoved: true };
+    await expect(make(fakeGitHub({ 'u.json': 'v1' }, opts)).commit({ message: 'm', files: [{ path: 'u.json', content: 'v2' }], expect: { 'u.json': 'v1' } })).rejects.toBeInstanceOf(StaleWrite);
+    await expect(make(fakeGitHub({}, opts)).commit({ message: 'm', files: [{ path: 'a.json', content: '1' }] })).rejects.toThrow(/422/);
   });
 });

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-beta.13 — 2026-11-13
+
+- **Only admins can publish.** With `github.live`, **Publish changes** puts staging live for admins only. Editors still see the count and the list of what's waiting, with a note that an admin publishes it; the API refuses them (403).
+- **Withdraw an invite.** The Users screen lists invite links nobody has used yet (who, role, time left, who sent it), each with **Withdraw**: the link stops working at once. Invites made there are recorded in the users file (`invites`); used, withdrawn and expired ones drop off. Links from the `pagestack-invite` CLI aren't listed.
+- **Signing out is a POST.** The Sign out links are now small forms, and the editor menu posts. A GET to `/api/editor/auth/logout` only shows a Sign out button, so a link on another site can't sign anyone out.
+- **No lost changes to the users file.** Enrolling, inviting, changing a role and removing someone now read, change and save the file as one step: if another change landed in between, the file is read again and the change re-applied. Storage adapters gained a conditional commit (`expect`, throwing `StaleWrite`).
+- Astro's dev toolbar no longer shows inside the editor's preview.
+- Hosts: the message for a used invite link is now "This invite link has already been used or was withdrawn."
+
 ## 0.1.0-beta.12 — 2026-11-13
 
 - **Site pages on a deployed editor need sign-in, and open in Browse.** The editor's build carries a copy of every site page, and Cloudflare served those files before the editor's code ran: anyone could read them (saved work included, for pages rebuilt from a staging branch), and opening one showed no editor bar. On Cloudflare, editor builds now route everything except hashed build assets through the editor's Worker (`assets.run_worker_first` is set in the generated `dist/server/wrangler.json`, unless the host set it) and PageStack wraps the adapter's entry: a page opened directly goes to Browse, a page loaded any other way needs a session. Styles, scripts, images and fonts are served as before. Hosts change nothing.

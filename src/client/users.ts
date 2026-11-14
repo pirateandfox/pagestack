@@ -1,17 +1,21 @@
-// The Users screen.
+// The Users screen: people, their passkeys, and invites not used yet.
 import { confirmDialog, toast } from './ui';
 
 interface Passkey { id: string; label: string | null; createdAt: string; synced: boolean }
 interface User { id: string; name: string; email: string; role: 'admin' | 'editor'; passkeys: Passkey[] }
+interface Invite { id: string; name: string; email: string; role: 'admin' | 'editor'; createdAt: string; expiresAt: string; by?: string }
 const list = document.getElementById('ps-users')!;
+const waiting = document.getElementById('ps-invites');
 
 async function call(method: string, body?: unknown) {
   const res = await fetch('/api/editor/users', { method, headers: { 'content-type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const data = await res.json();
   if (!res.ok) { toast(data.error || 'That did not work.', 'error'); return load(); }
-  draw(data.users);
+  draw(data.users); drawInvites(data.invites ?? []);
 }
-async function load() { const r = await fetch('/api/editor/users'); draw((await r.json()).users ?? []); }
+async function load() { const r = await fetch('/api/editor/users'); const d = await r.json(); draw(d.users ?? []); drawInvites(d.invites ?? []); }
+// The invite form says when it made a new link.
+document.addEventListener('ps:invited', () => { load(); });
 
 const text = (tag: string, s: string, cls?: string) => { const e = document.createElement(tag); e.textContent = s; if (cls) e.className = cls; return e; };
 
@@ -37,4 +41,24 @@ function draw(users: User[]) {
     return li;
   }));
 }
+
+function timeLeft(iso: string): string {
+  const h = Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 3_600_000));
+  return h >= 24 ? `${Math.round(h / 24)} day${Math.round(h / 24) === 1 ? '' : 's'} left` : `${h} h left`;
+}
+
+function drawInvites(invites: Invite[]) {
+  if (!waiting) return;
+  waiting.hidden = !invites.length;
+  waiting.querySelector('ul')!.replaceChildren(...invites.map((i) => {
+    const li = document.createElement('li'); li.dataset.invite = i.email;
+    const who = document.createElement('div'); who.className = 'ps-pagelist__edit';
+    who.append(text('strong', i.name), text('span', [i.email, i.role === 'admin' ? 'Admin' : 'Editor', timeLeft(i.expiresAt), i.by ? `invited by ${i.by}` : ''].filter(Boolean).join(' · '), 'ps-muted'));
+    const del = text('button', 'Withdraw', 'ps-btn ps-btn--small ps-btn--ghost ps-btn--danger') as HTMLButtonElement; del.type = 'button';
+    del.addEventListener('click', async () => { if (await confirmDialog('Withdraw invite', `The link sent to ${i.name} stops working at once. You can invite them again later.`, 'Withdraw', 'danger')) call('DELETE', { invite: i.id }); });
+    li.append(who, del);
+    return li;
+  }));
+}
+
 load();

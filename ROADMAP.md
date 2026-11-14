@@ -39,8 +39,8 @@ Host sites pin an npm version and bump when they want a new one.
 - [x] Site pages on a deployed editor need sign-in, and open in Browse (Cloudflare).
 - [ ] Bold and italic inside single-line text fields (headings), as in WordPress.
 - [ ] Image fields that store width and height, so pages don't shift as images load.
-- [ ] Hide Astro's dev toolbar inside the editor's preview.
-- [ ] Admin-only Publish changes; withdraw an unused invite; logout by POST only.
+- [x] Hide Astro's dev toolbar inside the editor's preview.
+- [x] Admin-only Publish changes; withdraw an unused invite; logout by POST only; no lost writes to the users file.
 
 ## Before 1.0
 

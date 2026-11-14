@@ -14,4 +14,5 @@ form?.addEventListener('submit', async (e) => {
   copy.addEventListener('click', async () => { await navigator.clipboard.writeText(data.url); copy.textContent = 'Copied'; });
   const hint = Object.assign(document.createElement('small'), { className: 'ps-muted', textContent: `Send this link to ${fd.get('name')}. It works once and expires in ${Math.round(data.expiresIn / 86400)} days.` });
   out.append(input, copy, hint);
+  document.dispatchEvent(new CustomEvent('ps:invited'));
 });

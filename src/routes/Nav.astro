@@ -18,7 +18,7 @@ const links = [
   <span class="ps-nav__user">
     <a href="/edit/site" aria-current={current === 'site' ? 'page' : undefined}>Browse site</a>
     {opts.github?.live && <button type="button" id="ps-live" class="ps-btn ps-btn--primary ps-live" hidden>Publish changes</button>}
-    {user && opts.auth === 'passkey' && <span>Signed in as <strong>{user.name}</strong> · <a href="/api/editor/auth/logout">Sign out</a></span>}
+    {user && opts.auth === 'passkey' && <span>Signed in as <strong>{user.name}</strong> · <form method="post" action="/api/editor/auth/logout" class="ps-signout"><button type="submit">Sign out</button></form></span>}
   </span>
 </nav>
 <script>import '../client/live.ts';</script>

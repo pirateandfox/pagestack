@@ -1,6 +1,6 @@
 {
   "name": "@pirateandfox/pagestack",
-  "version": "0.1.0-beta.12",
+  "version": "0.1.0-beta.13",
   "description": "A block editor for Astro sites. Content stays in your repo, saves are git commits, the public site stays static, sign-in is passkeys.",
   "license": "MIT",
   "type": "module",

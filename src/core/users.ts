@@ -30,11 +30,25 @@ export interface EditorUser {
   credentials: StoredCredential[];
 }
 
+/** An invite link made from the Users screen that nobody has used yet. Listed so it can be withdrawn. */
+export interface PendingInvite {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+  expiresAt: string;
+  /** Name of the admin who made it. */
+  by?: string;
+}
+
 export interface UsersFile {
   version: 1;
   users: EditorUser[];
-  /** Ids of invites that have been used. Kept when the person or passkey is removed, so a link never works twice. */
+  /** Ids of invites that have been used or withdrawn. Kept when the person or passkey is removed, so a link never works twice. */
   usedInvites?: string[];
+  /** Invites waiting to be used. Links made with the command-line tool aren't listed. */
+  invites?: PendingInvite[];
 }
 
 export const emptyUsers = (): UsersFile => ({ version: 1, users: [] });
@@ -46,7 +60,12 @@ export function parseUsers(raw: string | null | undefined): UsersFile {
   for (const u of data.users) {
     if (typeof u.id !== 'string' || typeof u.email !== 'string' || !Array.isArray(u.credentials)) throw new Error(`editor users file: malformed user ${JSON.stringify(u.id ?? u)}`);
   }
-  return { version: 1, users: data.users, ...(Array.isArray(data.usedInvites) ? { usedInvites: data.usedInvites.filter((x: unknown) => typeof x === 'string') } : {}) };
+  const invites = Array.isArray(data.invites) ? data.invites.filter((i: any) => i && typeof i.id === 'string' && typeof i.email === 'string' && typeof i.expiresAt === 'string') : null;
+  return {
+    version: 1, users: data.users,
+    ...(Array.isArray(data.usedInvites) ? { usedInvites: data.usedInvites.filter((x: unknown) => typeof x === 'string') } : {}),
+    ...(invites?.length ? { invites } : {}),
+  };
 }
 
 export const serializeUsers = (file: UsersFile): string => JSON.stringify(file, null, 2) + '\n';
@@ -79,7 +98,10 @@ export function addCredential(file: UsersFile, who: { name: string; email: strin
   }
   user.credentials.push(credential);
   // Invites live 3 days; the last few hundred ids cover far more than that.
-  if (credential.inviteId) copy.usedInvites = [...(copy.usedInvites ?? []), credential.inviteId].slice(-500);
+  if (credential.inviteId) {
+    copy.usedInvites = [...(copy.usedInvites ?? []), credential.inviteId].slice(-500);
+    dropInvite(copy, credential.inviteId, now.getTime());
+  }
   return { file: copy, user };
 }
 
@@ -88,6 +110,33 @@ const keepInvites = (file: UsersFile, gone: StoredCredential[]): string[] | unde
   const ids = [...(file.usedInvites ?? []), ...gone.map((c) => c.inviteId).filter((x): x is string => !!x)];
   return ids.length ? [...new Set(ids)].slice(-500) : undefined;
 };
+
+/** Takes an invite off the waiting list, and expired ones with it. Mutates `file`. */
+function dropInvite(file: UsersFile, id: string | null, now: number) {
+  const left = (file.invites ?? []).filter((i) => i.id !== id && Date.parse(i.expiresAt) > now);
+  if (left.length) file.invites = left; else delete file.invites;
+}
+
+/** Invites that can still be used, newest first. */
+export const pendingInvites = (file: UsersFile, now = Date.now()) =>
+  (file.invites ?? []).filter((i) => Date.parse(i.expiresAt) > now && !inviteUsed(file, i.id)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+export function addInvite(file: UsersFile, invite: PendingInvite, now = Date.now()): UsersFile {
+  const copy: UsersFile = structuredClone(file);
+  dropInvite(copy, null, now);
+  copy.invites = [...(copy.invites ?? []), invite];
+  return copy;
+}
+
+/** The link stops working at once: its id joins the used ones. */
+export function withdrawInvite(file: UsersFile, id: string, now = Date.now()): { file: UsersFile; invite: PendingInvite } {
+  const invite = pendingInvites(file, now).find((i) => i.id === id);
+  if (!invite) throw new Error('That invite has already been used, withdrawn or has expired.');
+  const copy: UsersFile = structuredClone(file);
+  copy.usedInvites = [...(copy.usedInvites ?? []), id].slice(-500);
+  dropInvite(copy, id, now);
+  return { file: copy, invite };
+}
 
 export function removeCredential(file: UsersFile, credentialId: string): UsersFile {
   const copy: UsersFile = structuredClone(file);

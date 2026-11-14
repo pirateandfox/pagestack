@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addCredential, emptyUsers, findByCredential, findByEmail, inviteUsed, parseUsers, removeCredential, removeUser, serializeUsers, setRole, type StoredCredential } from '../src/core/users';
+import { addCredential, addInvite, emptyUsers, findByCredential, findByEmail, inviteUsed, parseUsers, pendingInvites, removeCredential, removeUser, serializeUsers, setRole, withdrawInvite, type StoredCredential } from '../src/core/users';
 
 const cred = (id: string, inviteId?: string): StoredCredential => ({ id, publicKey: 'pk_' + id, counter: 0, createdAt: '2026-01-01T00:00:00.000Z', inviteId });
 
@@ -56,5 +56,42 @@ describe('users file', () => {
     const text = serializeUsers(file);
     expect(text.endsWith('\n')).toBe(true);
     expect(parseUsers(text)).toEqual(file);
+  });
+});
+
+describe('pending invites', () => {
+  const t0 = Date.parse('2026-03-01T00:00:00Z');
+  const inv = (id: string, hoursLeft = 72) => ({ id, name: `N ${id}`, email: `${id}@x.y`, role: 'editor' as const, createdAt: new Date(t0).toISOString(), expiresAt: new Date(t0 + hoursLeft * 3_600_000).toISOString(), by: 'Ada' });
+
+  it('lists invites until they are used, withdrawn or expire, and survives a round trip', () => {
+    let f = addInvite(emptyUsers(), inv('a'), t0);
+    f = addInvite(f, inv('b', 1), t0);
+    expect(pendingInvites(f, t0).map((i) => i.id).sort()).toEqual(['a', 'b']);
+    expect(pendingInvites(f, t0 + 2 * 3_600_000).map((i) => i.id)).toEqual(['a']); // b expired
+    expect(pendingInvites(parseUsers(serializeUsers(f)), t0)).toHaveLength(2);
+    // Used: enrolling with it takes it off the list
+    const used = addCredential(f, { name: 'A', email: 'a@x.y' }, cred('c1', 'a'), new Date(t0)).file;
+    expect(pendingInvites(used, t0).map((i) => i.id)).toEqual(['b']);
+    expect(used.invites?.map((i) => i.id)).toEqual(['b']);
+  });
+
+  it('withdrawing makes the link used at once and refuses unknown or used ones', () => {
+    const f = addInvite(emptyUsers(), inv('a'), t0);
+    const { file, invite } = withdrawInvite(f, 'a', t0);
+    expect(invite.name).toBe('N a');
+    expect(inviteUsed(file, 'a')).toBe(true);
+    expect(pendingInvites(file, t0)).toEqual([]);
+    expect(file.invites).toBeUndefined();
+    expect(() => withdrawInvite(file, 'a', t0)).toThrow(/already been used, withdrawn/);
+    expect(() => withdrawInvite(f, 'zzz', t0)).toThrow();
+    expect(() => withdrawInvite(f, 'a', t0 + 100 * 3_600_000)).toThrow(); // expired
+  });
+
+  it('drops expired invites when a new one is added, and ignores malformed entries', () => {
+    let f = addInvite(emptyUsers(), inv('old', 1), t0);
+    f = addInvite(f, inv('new'), t0 + 5 * 3_600_000);
+    expect(f.invites?.map((i) => i.id)).toEqual(['new']);
+    const parsed = parseUsers(JSON.stringify({ version: 1, users: [], invites: [{ id: 'ok', email: 'e@x.y', expiresAt: '2099-01-01T00:00:00Z', name: 'n', role: 'editor', createdAt: '' }, { nope: 1 }, null] }));
+    expect(parsed.invites?.map((i) => i.id)).toEqual(['ok']);
   });
 });

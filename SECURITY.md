@@ -31,9 +31,8 @@ PageStack is in beta. Only the newest release gets fixes; upgrade to it before r
 
 ## Known limits (beta)
 
-These are deliberate for now. Each is on the roadmap.
-
-- Every editor can press **Publish changes**. There is no admin-only publish yet.
-- An invite that hasn't been used can't be withdrawn. It expires after 3 days.
-- Two admins changing the user list at the same moment can overwrite each other's change.
-- Log out works over GET, so another site could sign someone out (but not in).
+- Invite links made with the command-line tool (`pagestack-invite`) aren't listed on the Users
+  screen, so they can't be withdrawn there. They expire after 3 days. Links made on the Users screen
+  can be withdrawn.
+- Editors can't add raw HTML, but they can publish everything else they save on sites without a
+  staging branch (`github.live`). With one, only admins can publish.

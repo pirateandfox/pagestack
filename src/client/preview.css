@@ -62,3 +62,6 @@ body[data-ps-typing] .ps-toolbar { display: none; }
 .ps-popmenu button.is-danger { color: #b91c1c; }
 .ps-popmenu kbd { font: inherit; color: #6b7280; }
 .ps-popmenu hr { width: 100%; border: 0; border-top: 1px solid #e2e4e8; margin: 4px 0; }
+
+/* Astro's dev toolbar belongs to the site's developer, not the person editing in the preview. */
+astro-dev-toolbar { display: none !important; }

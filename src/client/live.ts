@@ -3,7 +3,7 @@
 // on the public site. It refreshes itself after any save, wherever on the screen that happened.
 import { dialog, toast } from './ui';
 
-interface Pending { enabled: true; branch: string; live: string; count: number; changes: { sha: string; message: string; author: string; date: string }[]; stagingUrl: string | null }
+interface Pending { enabled: true; branch: string; live: string; count: number; changes: { sha: string; message: string; author: string; date: string }[]; stagingUrl: string | null; canPublish?: boolean }
 
 const btn = document.getElementById('ps-live') as HTMLButtonElement | null;
 let state: Pending | null = null;
@@ -24,7 +24,8 @@ function draw() {
   btn.disabled = n === 0;
   btn.textContent = 'Publish changes';
   if (n) { const b = document.createElement('span'); b.className = 'ps-live__count'; b.textContent = String(n); btn.append(b); }
-  btn.title = n ? `${n} saved change${n === 1 ? '' : 's'} not on the live site yet` : 'Everything saved is on the live site';
+  btn.title = !n ? 'Everything saved is on the live site'
+    : `${n} saved change${n === 1 ? '' : 's'} not on the live site yet${state.canPublish === false ? '. An admin publishes them.' : ''}`;
 }
 
 let inflight: Promise<void> | null = null;
@@ -54,6 +55,7 @@ async function goLive() {
     const meta = document.createElement('span'); meta.className = 'ps-muted'; meta.textContent = [c.author, ago(c.date)].filter(Boolean).join(' · ');
     li.append(what, meta); list.append(li);
   }
+  if (state.canPublish === false) intro.textContent = `${state.count} saved change${state.count === 1 ? ' is' : 's are'} waiting for the public site. Only an admin can publish them; nothing is lost in the meantime.`;
   body.append(intro, list);
   if (state.count > state.changes.length) { const more = document.createElement('p'); more.className = 'ps-muted'; more.textContent = `…and ${state.count - state.changes.length} earlier.`; body.append(more); }
   if (state.stagingUrl) {
@@ -61,6 +63,7 @@ async function goLive() {
     a.href = state.stagingUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'See them on the staging site first ↗';
     p.append(a); body.append(p);
   }
+  if (state.canPublish === false) { dialog('Waiting to publish', body, [{ label: 'Close', kind: 'primary' }], { wide: true }); return; }
   dialog('Publish changes?', body, [
     { label: 'Cancel' },
     {

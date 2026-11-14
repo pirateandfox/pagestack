@@ -23,6 +23,10 @@ const passkey = opts.auth === 'passkey';
       {passkey ? (
         <>
           <ul class="ps-pagelist" id="ps-users"></ul>
+          <section id="ps-invites" class="ps-invites" hidden>
+            <h2>Invites not used yet</h2>
+            <ul class="ps-pagelist"></ul>
+          </section>
           <details class="ps-invite" open>
             <summary>Invite someone</summary>
             <form id="ps-invite" class="ps-invite__form">
@@ -32,7 +36,7 @@ const passkey = opts.auth === 'passkey';
               <button type="submit" class="ps-btn ps-btn--primary ps-btn--small">Create invite link</button>
               <output></output>
             </form>
-            <p class="ps-muted">The link lets them create a passkey for this site. It works once and expires after 3 days. Their public key is committed to <code>{opts.usersFile}</code>; nothing secret is stored.</p>
+            <p class="ps-muted">The link lets them create a passkey for this site. It works once and expires after 3 days. Until it's used it's listed above, where you can withdraw it. Their public key is committed to <code>{opts.usersFile}</code>; nothing secret is stored.</p>
           </details>
         </>
       ) : <p>People are managed by your login proxy, not here.</p>}

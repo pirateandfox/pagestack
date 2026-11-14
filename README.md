@@ -405,6 +405,8 @@ than setting a hard limit. Passkeys are what actually stops guessing.
 With `github.live`, saves stay on `github.branch` (staging) and the public site builds from `live`.
 Every screen gets a **Publish changes** button (Go live) counting the saved changes the live site doesn't have yet;
 it lists them, links to `github.stagingUrl` if you give one, and puts them all on `live` in one step.
+Only admins can publish; editors see what's waiting, and their saves stay on staging until an admin
+publishes.
 That is a fast-forward when nobody committed to `live` directly. When someone did, it makes a merge
 commit and moves staging to it; when their change conflicts, it refuses and says so, and a person
 merges in GitHub. A burst of saves becomes one production build. Drafts (the **Ready to publish**
@@ -432,7 +434,9 @@ like any other push.
   invite links (3 days). Tokens are `base64url(json).base64url(hmac-sha256)` with the expiry inside,
   so there is no server state.
 - **Invites** are single-use: the invite id is recorded on the credential it created. Make the first
-  one from the CLI, later ones from the "Invite another editor" panel on `/edit`:
+  one from the CLI, later ones from **Users** (`/edit/users`), which lists invites not used yet and
+  lets an admin withdraw one; a withdrawn link stops working at once. Links made with the CLI aren't
+  listed there.
 
   ```bash
   EDITOR_SECRET=… npx pagestack-invite --name "Jane Doe" --email jane@example.com --origin https://example.com
@@ -442,6 +446,10 @@ like any other push.
 - Set `EDITOR_ORIGIN` when a proxy rewrites `Host`; WebAuthn binds credentials to the origin the
   browser sees.
 - The signature counter is not persisted (it would mean a commit per login; synced passkeys report 0).
+- Changes to the users file are conditional: when two of them race (two admins, or an invite used
+  while an admin edits roles), the later one is re-read and re-applied, so neither is lost.
+- Signing out is a POST from the editor's own pages. Opening `/api/editor/auth/logout` from a link
+  only shows a Sign out button, so another site can't sign anyone out.
 
 ### `auth: "none-behind-proxy"`
 

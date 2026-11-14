@@ -3,9 +3,9 @@
 // server-side state is the committed users file (public keys) read/written through storage.
 import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from '@simplewebauthn/server';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
-import { cachedUsers, loadUsers, opts, secret, saveUsers } from './context';
+import { cachedUsers, loadUsers, opts, secret, updateUsers } from './context';
 import { b64url, createChallengeToken, createSession, readChallengeToken, readInvite, unb64url, type InvitePayload } from '../core/auth';
-import { addCredential, findByCredential, findByEmail, inviteUsed, type StoredCredential } from '../core/users';
+import { addCredential, findByCredential, findByEmail, inviteUsed, type EditorUser, type StoredCredential } from '../core/users';
 
 /**
  * Relying-party identity. WebAuthn binds credentials to the origin the browser sees, so behind a
@@ -16,7 +16,7 @@ export function relyingParty(url: URL) {
   return { origin, rpID: new URL(origin).hostname, rpName: opts.siteName, secure: origin.startsWith('https:') };
 }
 
-export { loadUsers, saveUsers };
+export { loadUsers };
 
 export async function loginOptions(url: URL) {
   const { rpID } = relyingParty(url);
@@ -49,7 +49,7 @@ export async function registerOptions(url: URL, inviteToken: string) {
   const invite = await readInvite(inviteToken, secret());
   if (!invite) throw new AuthError('This invite link is invalid or has expired. Ask for a new one.');
   const users = await loadUsers();
-  if (inviteUsed(users, invite.id)) throw new AuthError('This invite link has already been used.');
+  if (inviteUsed(users, invite.id)) throw new AuthError('This invite link has already been used or was withdrawn.');
   const existing = findByEmail(users, invite.email);
   const options = await generateRegistrationOptions({
     rpName, rpID,
@@ -72,7 +72,7 @@ export async function registerVerify(url: URL, token: string, response: Registra
   claimed.add(invite.id); // two tabs racing the same link: only one gets past here
   try {
   const users = await loadUsers();
-  if (inviteUsed(users, invite.id)) throw new AuthError('This invite link has already been used.');
+  if (inviteUsed(users, invite.id)) throw new AuthError('This invite link has already been used or was withdrawn.');
   const result = await verifyRegistrationResponse({ response, expectedChallenge: ch.challenge, expectedOrigin: origin, expectedRPID: rpID });
   if (!result.verified) throw new AuthError('Passkey registration failed.');
   const info = result.registrationInfo;
@@ -81,8 +81,14 @@ export async function registerVerify(url: URL, token: string, response: Registra
     transports: info.credential.transports, deviceType: info.credentialDeviceType, backedUp: info.credentialBackedUp,
     createdAt: new Date().toISOString(), inviteId: invite.id, label: label?.slice(0, 60) || undefined,
   };
-  const { file, user } = addCredential(users, invite, credential);
-  const commit = await saveUsers(file, `Add passkey for ${user.name} (site editor)`);
+  let user!: EditorUser;
+  const { commit } = await updateUsers((f) => {
+    // Read again on a retry: the invite may have been withdrawn in the meantime.
+    if (inviteUsed(f, invite.id)) throw new AuthError('This invite link has already been used or was withdrawn.');
+    const added = addCredential(f, invite, credential);
+    user = added.user;
+    return added.file;
+  }, `Add passkey for ${invite.name} (site editor)`);
   return { user, commit, session: await createSession({ id: user.id, name: user.name }, secret(), credential.id) };
   } finally { claimed.delete(invite.id); }
 }

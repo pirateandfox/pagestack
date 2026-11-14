@@ -6,7 +6,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { CommitResult, FileChange, Revision, Storage } from './storage';
-import { isSha, safeRelPath } from './storage';
+import { isSha, safeRelPath, StaleWrite } from './storage';
 
 const run = promisify(execFile);
 
@@ -46,7 +46,11 @@ export class LocalStorage implements Storage {
     await fs.mkdir(path.dirname(f), { recursive: true });
     await fs.writeFile(f, bytes);
   }
-  async commit({ files, deletes = [] }: { message: string; files: FileChange[]; deletes?: string[] }): Promise<CommitResult> {
+  async commit({ files, deletes = [], expect }: { message: string; files: FileChange[]; deletes?: string[]; expect?: Record<string, string | null> }): Promise<CommitResult> {
+    for (const [p, want] of Object.entries(expect ?? {})) {
+      const now = await fs.readFile(this.abs(p), 'utf8').catch(() => null);
+      if (now !== want) throw new StaleWrite(p);
+    }
     for (const f of files) {
       const abs = this.abs(f.path);
       noteWrite(abs);

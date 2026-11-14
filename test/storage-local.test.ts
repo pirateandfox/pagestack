@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { LocalStorage } from '../src/core/storage-local';
-import { safeRelPath, sha256 } from '../src/core/storage';
+import { safeRelPath, sha256, StaleWrite } from '../src/core/storage';
 
 let root: string;
 beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'ps-local-')); });
@@ -76,5 +76,15 @@ describe('LocalStorage page lifecycle', () => {
     expect(await s.history('a.json')).toEqual([]);
     expect(await s.readAt('a.json', '--output=/tmp/x')).toBeNull();
     expect(await s.readAt('a.json', 'deadbeef')).toBeNull();
+  });
+});
+
+describe('LocalStorage conditional commit', () => {
+  it('writes when the file is as expected and refuses with StaleWrite when it changed', async () => {
+    const s = new LocalStorage(root);
+    await s.commit({ message: 'm', files: [{ path: 'users.json', content: 'v1' }], expect: { 'users.json': null } });
+    await s.commit({ message: 'm', files: [{ path: 'users.json', content: 'v2' }], expect: { 'users.json': 'v1' } });
+    await expect(s.commit({ message: 'm', files: [{ path: 'users.json', content: 'v3' }], expect: { 'users.json': 'v1' } })).rejects.toBeInstanceOf(StaleWrite);
+    expect(await s.readFile('users.json')).toBe('v2');
   });
 });

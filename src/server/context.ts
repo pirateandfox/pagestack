@@ -1,8 +1,8 @@
 // Server-side glue shared by the routes: resolved options, the storage adapter, page IO.
 import { options, site } from 'virtual:pagestack/site';
 import type { CollectionDoc, Field, GlobalDoc, Node, PageDoc, PageTemplate, SchemaRegistry } from '../runtime';
-import type { Storage } from '../core/storage';
-import { sha256 } from '../core/storage';
+import type { CommitResult, Storage } from '../core/storage';
+import { sha256, StaleWrite } from '../core/storage';
 import { LocalStorage } from '../core/storage-local';
 import { GitHubStorage } from '../core/storage-github';
 import { serializeRegistry, validateDoc } from '../core/schema';
@@ -142,10 +142,23 @@ export const cleanNode = (node: Node, locals: unknown, keep?: Node) => sanitizeN
 // ---- people ----
 export async function loadUsers(): Promise<UsersFile> { return parseUsers(await storage().readFile(opts.usersFile)); }
 let usersCache: { file: UsersFile; at: number } | null = null;
-export async function saveUsers(file: UsersFile, message: string) {
-  const result = await storage().commit({ message, files: [{ path: opts.usersFile, content: serializeUsers(file) }] });
-  usersCache = null;
-  return result;
+/**
+ * Read the users file, change it and save it, as one step: if someone else saved it in between
+ * (two admins at once, or an invite used while an admin edits roles), it is read again and the
+ * change re-applied, so neither save is lost. `change` may throw to refuse.
+ */
+export async function updateUsers(change: (file: UsersFile) => UsersFile, message: string): Promise<{ file: UsersFile; commit: CommitResult }> {
+  for (let attempt = 0; ; attempt++) {
+    const raw = await storage().readFile(opts.usersFile);
+    const file = change(parseUsers(raw));
+    try {
+      const commit = await storage().commit({ message, files: [{ path: opts.usersFile, content: serializeUsers(file) }], expect: { [opts.usersFile]: raw } });
+      usersCache = null;
+      return { file, commit };
+    } catch (e) {
+      if (!(e instanceof StaleWrite) || attempt >= 3) throw e instanceof StaleWrite ? new Error('Someone else changed the user list at the same moment. Try again.') : e;
+    }
+  }
 }
 const USERS_TTL = 15_000;
 /** A miss may mean "saved a moment ago by another instance": re-read, but not more than this often. */

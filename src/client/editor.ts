@@ -784,7 +784,7 @@ $('#ps-more').addEventListener('click', (e) => {
     { label: 'Revisions', run: showRevisions },
     { label: 'All pages', run: () => { location.href = '/edit'; }, separator: true },
   ];
-  if (boot.options.auth === 'passkey' && boot.options.user) items.push({ label: `Sign out ${boot.options.user}`, run: () => { location.href = '/api/editor/auth/logout'; } });
+  if (boot.options.auth === 'passkey' && boot.options.user) items.push({ label: `Sign out ${boot.options.user}`, run: async () => { await fetch('/api/editor/auth/logout', { method: 'POST', headers: { accept: 'application/json' } }).catch(() => {}); location.href = '/edit/login'; } });
   openMenu(e.currentTarget as HTMLElement, items);
 });
 

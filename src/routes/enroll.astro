@@ -13,7 +13,7 @@ if (opts.auth !== 'passkey') error = `Passkey sign-in is not enabled for this si
 else {
   const inv = await readInvite(token, secret());
   if (!inv) error = 'This invite link is invalid or has expired. Ask for a new one.';
-  else if (inviteUsed(await loadUsers(), inv.id)) error = 'This invite link has already been used.';
+  else if (inviteUsed(await loadUsers(), inv.id)) error = 'This invite link has already been used or was withdrawn.';
   else invite = { name: inv.name, email: inv.email };
 }
 ---
