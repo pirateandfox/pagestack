@@ -1,9 +1,11 @@
 // In-page editing of text / richtext fields inside the preview iframe.
 // - text: contenteditable="plaintext-only", Enter commits, Escape reverts.
+// - text with `marks`: one line too, with just bold and italic (headings).
 // - richtext: contenteditable with the floating formatting toolbar.
 // Edits stream to `onInput` (silent draft updates); `onCommit` fires on blur.
 import type { PageLink } from './rich';
-import { cleanPaste, exec, linkPopover, richToolbar } from './rich';
+import { sanitizeMarks } from '../core/sanitize';
+import { cleanPaste, exec, linkPopover, markKey, marksPaste, marksToolbar, richToolbar } from './rich';
 
 export interface InlineCallbacks {
   onStart: (fieldPath: string) => void;
@@ -11,6 +13,8 @@ export interface InlineCallbacks {
   onCommit: (fieldPath: string, value: string, changed: boolean) => void;
   /** `/` typed in an empty field: the block inserter takes over. */
   onSlash?: (fieldPath: string) => void;
+  /** Is this text field allowed bold and italic (`marks` in its schema)? */
+  marks?: (fieldPath: string) => boolean;
   pages?: PageLink[];
 }
 
@@ -25,8 +29,9 @@ export class InlineEditor {
     if (this.active?.el === el) return;
     this.stop();
     const path = el.dataset.psField!;
-    const type = el.dataset.psFieldType!;
+    let type = el.dataset.psFieldType!;
     if (type !== 'text' && type !== 'richtext') return;
+    if (type === 'text' && this.cb.marks?.(path)) type = 'marks';
     const original = el.innerHTML;
     this.active = { el, path, type, original };
     el.setAttribute('contenteditable', type === 'text' ? 'plaintext-only' : 'true');
@@ -34,13 +39,13 @@ export class InlineEditor {
     el.addEventListener('input', this.onInput);
     el.addEventListener('keydown', this.onKey);
     el.addEventListener('blur', this.onBlur);
-    if (type === 'richtext') el.addEventListener('paste', this.onPaste);
+    if (type !== 'text') el.addEventListener('paste', this.onPaste);
     el.focus();
     const doc = el.ownerDocument;
     // caret at end
     const range = doc.createRange(); range.selectNodeContents(el); range.collapse(false);
     const sel = doc.getSelection(); sel?.removeAllRanges(); sel?.addRange(range);
-    if (type === 'richtext') this.mountToolbar(el);
+    if (type !== 'text') this.mountToolbar(el);
     this.cb.onStart(path);
   }
 
@@ -64,16 +69,18 @@ export class InlineEditor {
   private parse(html: string, like: HTMLElement) { const t = like.ownerDocument.createElement(like.tagName); t.innerHTML = html; return t; }
   private read(el: HTMLElement, type: string): string {
     if (type === 'text') return el.textContent?.replace(/ /g, ' ') ?? '';
+    if (type === 'marks') return sanitizeMarks(el.innerHTML);
     return el.innerHTML.trim();
   }
 
   private onInput = () => { const a = this.active; if (a) this.cb.onInput(a.path, this.read(a.el, a.type)); };
-  private onPaste = (e: ClipboardEvent) => { const a = this.active; if (a) cleanPaste(e, a.el, this.onInput); };
+  private onPaste = (e: ClipboardEvent) => { const a = this.active; if (a) (a.type === 'marks' ? marksPaste : cleanPaste)(e, a.el, this.onInput); };
   private onKey = (e: KeyboardEvent) => {
     const a = this.active; if (!a) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.stop(false); return; }
-    if (e.key === 'Enter' && a.type === 'text') { e.preventDefault(); a.el.blur(); return; }
+    if (e.key === 'Enter' && a.type !== 'richtext') { e.preventDefault(); a.el.blur(); return; }
     if (e.key === '/' && !a.el.textContent?.trim() && this.cb.onSlash) { e.preventDefault(); this.cb.onSlash(a.path); return; }
+    if (a.type === 'marks') { markKey(e, a.el, this.onInput); return; }
     if ((e.metaKey || e.ctrlKey) && a.type === 'richtext') {
       const k = e.key.toLowerCase();
       const cmd = ({ b: 'bold', i: 'italic', u: 'underline' } as Record<string, string>)[k];
@@ -89,7 +96,7 @@ export class InlineEditor {
 
   private mountToolbar(el: HTMLElement) {
     const doc = el.ownerDocument;
-    const tb = richToolbar(el, this.richOptions());
+    const tb = this.active!.type === 'marks' ? marksToolbar(el, this.onInput, 'Esc cancels') : richToolbar(el, this.richOptions());
     doc.body.append(tb);
     this.active!.toolbar = tb;
     this.place();

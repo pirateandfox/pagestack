@@ -45,6 +45,22 @@ export function inlineFields(schema: BlockSchema): string[] {
   return Object.entries(schema.fields).filter(([, f]) => f.inline).map(([k]) => k);
 }
 
+/**
+ * The field a path inside a node's settings names: `title`, or `items.2.label` through a list's rows.
+ * Undefined for anything the schema doesn't describe.
+ */
+export function fieldOf(schema: BlockSchema | undefined, settingsPath: string): Field | undefined {
+  let fields = schema?.fields;
+  let f: Field | undefined;
+  for (const key of settingsPath.split('.')) {
+    if (/^\d+$/.test(key)) { if (f?.type !== 'list') return undefined; continue; }
+    f = fields && Object.hasOwn(fields, key) ? fields[key] : undefined;
+    if (!f) return undefined;
+    fields = f.fields;
+  }
+  return f;
+}
+
 /** Validate a document against the registry. Returns human-readable problems (empty = ok). */
 export function validateDoc(doc: unknown, registry: SchemaRegistry): string[] {
   const errors: string[] = [];

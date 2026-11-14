@@ -202,6 +202,17 @@ export function sanitizeHtml(html: string, { paste = false }: { paste?: boolean 
   return paste ? out.replace(/<p>(\s|&nbsp;|<br>)*<\/p>/g, '').trim() : out;
 }
 
+const MARK = { b: 'strong', strong: 'strong', i: 'em', em: 'em' } as Record<string, string>;
+/** One line with bold and italic only (a text field with `marks`): every other tag goes, its text stays. */
+export function sanitizeMarks(html: string): string {
+  return sanitizeHtml(html)
+    .replace(/<(\/?)([a-zA-Z][\w-]*)[^>]*>/g, (_, close, tag) => { const t = MARK[tag.toLowerCase()]; return t ? `<${close}${t}>` : tag.toLowerCase() === 'br' ? ' ' : ''; })
+    .replace(/<(strong|em)>(\s*)<\/\1>/g, '$2')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Text with no markup at all, for values that end up in `<title>` and `<meta>`. */
 export const plainText = (s: string) => s.replace(/<!--[\s\S]*?(-->|$)/g, '').replace(/<\/?[a-zA-Z][^>]*>?/g, '').replace(/</g, '');
 
@@ -248,7 +259,9 @@ function cleanField(v: any, field: Field, o: CleanOptions): any {
       return typeof v === 'string' ? sanitizeSvg(v) : undefined;
     case 'code':
       return typeof v !== 'string' || o.rawOk?.(v) ? v : sanitizeHtml(v);
-    default: // text, textarea, richtext
+    case 'text':
+      return cleanDeep(v, field.marks ? sanitizeMarks : sanitizeHtml);
+    default: // textarea, richtext
       return cleanDeep(v, sanitizeHtml);
   }
 }

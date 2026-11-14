@@ -1,6 +1,6 @@
 // Rich text formatting, shared by in-page editing and the sidebar: the toolbar, the link popover
 // and clean paste. Everything acts on one contenteditable element, in whichever document it lives.
-import { safeUrl, sanitizeHtml } from '../core/sanitize';
+import { safeUrl, sanitizeHtml, sanitizeMarks } from '../core/sanitize';
 
 export interface PageLink { url: string; title: string }
 export interface RichOptions { pages?: PageLink[]; onChange: () => void; hint?: string }
@@ -228,5 +228,117 @@ export function richField(id: string, value: string, onChange: (html: string, li
   body.addEventListener('paste', (e) => cleanPaste(e, body, changed));
   body.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); linkPopover(body, bar, { pages, onChange: () => emit(true) }); } });
   box.append(bar, body, source);
+  return box;
+}
+
+// ---- Bold and italic in one line (text fields with `marks`) ----
+// Headings are usually bold already, and the browser's own bold command "unbolds" them with inline
+// styles we strip, so these two marks are applied by hand: wrap the selection, or unwrap the mark it's in.
+
+const MARK_TAGS = { bold: ['STRONG', 'B'], italic: ['EM', 'I'] } as const;
+type Mark = keyof typeof MARK_TAGS;
+
+function markAt(target: HTMLElement, mark: Mark, node: Node | null | undefined): HTMLElement | null {
+  for (let n = node; n && n !== target; n = n.parentNode) if (n.nodeType === 1 && (MARK_TAGS[mark] as readonly string[]).includes((n as Element).tagName)) return n as HTMLElement;
+  return null;
+}
+
+/** Wraps the selection in <strong>/<em>, or takes the mark off when the selection is already inside one. */
+export function toggleMark(target: HTMLElement, mark: Mark): boolean {
+  const doc = target.ownerDocument;
+  const sel = doc.getSelection();
+  if (!sel?.rangeCount) return false;
+  const range = sel.getRangeAt(0);
+  if (!target.contains(range.commonAncestorContainer)) return false;
+  const inside = markAt(target, mark, range.commonAncestorContainer);
+  if (inside) {
+    const first = inside.firstChild, last = inside.lastChild;
+    inside.replaceWith(...inside.childNodes);
+    if (first && last) { const r = doc.createRange(); r.setStartBefore(first); r.setEndAfter(last); sel.removeAllRanges(); sel.addRange(r); }
+    target.normalize();
+    return true;
+  }
+  if (range.collapsed) return false;
+  const frag = range.extractContents();
+  frag.querySelectorAll(MARK_TAGS[mark].join(',')).forEach((el) => el.replaceWith(...el.childNodes));
+  const wrap = doc.createElement(mark === 'bold' ? 'strong' : 'em');
+  wrap.append(frag);
+  range.insertNode(wrap);
+  const r = doc.createRange(); r.selectNodeContents(wrap); sel.removeAllRanges(); sel.addRange(r);
+  return true;
+}
+
+/** Just B and I, for one line. */
+export function marksToolbar(target: HTMLElement, onChange: () => void, hint?: string): HTMLElement {
+  const doc = target.ownerDocument;
+  const bar = doc.createElement('div');
+  bar.setAttribute('data-ps-toolbar', '');
+  bar.className = 'ps-rt ps-rt--marks';
+  for (const b of BUTTONS.filter((x) => x.cmd === 'bold' || x.cmd === 'italic')) {
+    const el = doc.createElement('button');
+    el.type = 'button'; el.title = b.title; el.setAttribute('aria-label', b.title); el.dataset.cmd = b.cmd;
+    el.innerHTML = b.html;
+    bar.append(el);
+  }
+  if (hint) { const h = doc.createElement('span'); h.className = 'ps-rt__hint'; h.textContent = hint; bar.append(h); }
+  const sync = () => {
+    if (!bar.isConnected) { doc.removeEventListener('selectionchange', sync); return; }
+    const n = doc.getSelection()?.anchorNode;
+    if (!n || !target.contains(n)) return;
+    bar.querySelectorAll<HTMLButtonElement>('button[data-cmd]').forEach((b) => b.classList.toggle('is-on', !!markAt(target, b.dataset.cmd as Mark, n)));
+  };
+  bar.addEventListener('mousedown', (e) => e.preventDefault());
+  bar.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-cmd]');
+    if (!b) return;
+    e.preventDefault();
+    target.focus();
+    if (toggleMark(target, b.dataset.cmd as Mark)) onChange();
+    sync();
+  });
+  doc.addEventListener('selectionchange', sync);
+  return bar;
+}
+
+/** ⌘B / ⌘I in a one-line field. True when the key was handled. */
+export function markKey(e: KeyboardEvent, target: HTMLElement, onChange: () => void): boolean {
+  if (!(e.metaKey || e.ctrlKey)) return false;
+  const mark = ({ b: 'bold', i: 'italic' } as Record<string, Mark>)[e.key.toLowerCase()];
+  if (!mark) return false;
+  e.preventDefault();
+  if (toggleMark(target, mark)) onChange();
+  return true;
+}
+
+/** Paste into one line: bold and italic survive, everything else becomes plain words. */
+export function marksPaste(e: ClipboardEvent, target: HTMLElement, onChange: () => void) {
+  const data = e.clipboardData;
+  if (!data) return;
+  e.preventDefault();
+  const html = data.getData('text/html');
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const clean = html ? sanitizeMarks(html.replace(/<b[^>]*docs-internal-guid[^>]*>/i, '')) : esc(data.getData('text/plain').replace(/\s+/g, ' ').trim());
+  target.ownerDocument.execCommand('insertHTML', false, clean || ' ');
+  onChange();
+}
+
+/** The sidebar's version of a text field with `marks`: one line you can make bold or italic. */
+export function marksField(id: string, value: string, onChange: (html: string, live: boolean) => void): HTMLElement {
+  const box = document.createElement('div');
+  box.className = 'ps-rich ps-rich--line';
+  const body = document.createElement('div');
+  body.id = id; body.className = 'ps-rich__body'; body.contentEditable = 'true'; body.setAttribute('role', 'textbox');
+  body.innerHTML = sanitizeMarks(value);
+  let last = body.innerHTML, timer: ReturnType<typeof setTimeout> | undefined;
+  const emit = (live: boolean) => { clearTimeout(timer); const html = sanitizeMarks(body.innerHTML); if (html !== last) { last = html; onChange(html, live); } };
+  const changed = () => { clearTimeout(timer); timer = setTimeout(() => emit(true), 250); };
+  body.addEventListener('input', changed);
+  body.addEventListener('blur', () => emit(false));
+  body.addEventListener('paste', (e) => marksPaste(e, body, changed));
+  body.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); emit(false); return; }
+    markKey(e, body, () => emit(true));
+  });
+  box.append(marksToolbar(body, () => emit(true)), body);
   return box;
 }

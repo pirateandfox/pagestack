@@ -23,6 +23,11 @@ export interface Field {
   default?: unknown;
   /** Field can be edited by clicking it in the page (text, richtext, image). */
   inline?: boolean;
+  /**
+   * For 'text': allow bold and italic in the line (headings, titles). The value is then HTML holding
+   * only `<strong>` and `<em>`; render it with `set:html`. Without it, a text field is plain text.
+   */
+  marks?: boolean;
   options?: { value: string; label: string }[];
   /** Sidebar grouping. Defaults to 'content'. */
   group?: 'content' | 'style' | 'advanced';

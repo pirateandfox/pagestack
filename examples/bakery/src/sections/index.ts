@@ -26,8 +26,7 @@ export const presets: Preset[] = [
     description: 'Big headline, a few words, two buttons and an illustration.',
     create: () => make('hero', {
       eyebrow: 'Fresh this morning',
-      title: 'Bread worth getting up early for',
-      accent: 'early',
+      title: 'Bread worth getting up <em>early</em> for',
       text: '<p>Slow-fermented loaves, flaky pastry and strong coffee, baked in small batches every morning.</p>',
       image: img('hero-loaves', 'A round sourdough loaf and a baguette on a board'),
       badge: 'Baked daily',

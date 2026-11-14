@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.14 — 2026-11-14
+
+- **Bold and italic in headings.** A `text` field with `marks: true` allows bold and italic, as a WordPress heading does. Clicking it on the page shows a small **B** / **I** bar (⌘B / ⌘I work too), the sidebar shows a one-line field with the same two buttons, and pasting keeps bold and italic and drops everything else. The value is HTML holding only `<strong>` and `<em>`, cleaned to exactly that on save; render it with `set:html`. Fields without `marks` are unchanged, so existing sites see no difference until they opt in.
+- **`examples/bakery`**: section titles use `marks`. The hero's separate *Word in italics* field is gone; its title is now `Bread worth getting up <em>early</em> for`.
+
 ## 0.1.0-beta.13 — 2026-11-13
 
 - **Only admins can publish.** With `github.live`, **Publish changes** puts staging live for admins only. Editors still see the count and the list of what's waiting, with a note that an admin publishes it; the API refuses them (403).

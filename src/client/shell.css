@@ -226,6 +226,7 @@ body.ps[data-left="add"] .ps-listview, body:not([data-left="add"]) .ps-inserter 
 .ps-rich .ps-rt button:hover { background: #e8ebf0; }
 .ps-rich .ps-rt button.is-on { background: #e8efff; color: var(--ps-accent); }
 .ps-rich__body { min-height: 96px; max-height: 320px; overflow: auto; padding: 6px 8px; outline: none; font-size: 13px; }
+.ps-rich--line .ps-rich__body { min-height: 0; white-space: nowrap; overflow-x: auto; }
 .ps-rich__body:focus { box-shadow: inset 0 0 0 1px var(--ps-accent); }
 .ps-rich__body > :first-child { margin-top: 0; } .ps-rich__body > :last-child { margin-bottom: 0; }
 .ps-rich textarea { border: 0 !important; border-radius: 0 0 6px 6px !important; }

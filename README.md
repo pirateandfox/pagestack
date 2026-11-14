@@ -217,8 +217,10 @@ A few things worth knowing while you set up the schema:
   (`src/sections/components.ts`) so the schema stays plain data.
 - **List View names a block after its first non-empty inline text field**, so put the field people
   recognise (the title) first.
-- **`text` fields are plain text.** Typing in them replaces any markup they held. For a styled word
-  in a heading, give the block its own field for it (the bakery's hero has *Word in italics*).
+- **`text` fields are plain text, unless you add `marks: true`.** With it, the field allows bold
+  and italic, as a WordPress heading does: select words and press **B** / **I** (or ⌘B / ⌘I) on the
+  page or in the sidebar. The value is then HTML holding only `<strong>` and `<em>` (everything else
+  is removed on save), so render it with `set:html`. The bakery's section titles use it.
 - **The home page is `src/content/pages/index.json`**, edited at `/edit/index`.
 
 ## Editing

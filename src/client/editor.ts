@@ -4,7 +4,7 @@ import type { Field, Node, PageDoc, SchemaRegistry } from '../runtime';
 import { cloneWithNewIds } from '../runtime';
 import { getAt, insertNode, isNodePath, moveNode, nodeAt, nodePathOf, pathOfId, removeNode, replaceNode, setAt, splitNodePath } from '../core/patch';
 import { transformNode, transformTargets } from '../core/transform';
-import { accepts, allowedChildTypes, createNode, nodeLabel } from '../core/schema';
+import { accepts, allowedChildTypes, createNode, fieldOf, nodeLabel } from '../core/schema';
 import type { InsertItem, Pattern, SavedPattern } from '../core/insert';
 import { insertItems } from '../core/insert';
 import { slugProblem } from '../core/pages';
@@ -118,6 +118,11 @@ function onPreviewClick(e: MouseEvent) {
 
 const inline = new InlineEditor({
   onSlash: (fieldPath) => slash(fieldPath),
+  marks: (fieldPath) => {
+    const nodePath = nodePathOf(fieldPath);
+    const node: Node | undefined = getAt(state.doc, nodePath);
+    return !!(node && fieldOf(registry[node.type], fieldPath.slice(nodePath.length + '.settings.'.length))?.marks);
+  },
   pages: pageLinks,
   onStart: () => { state.snapshot(); idoc().body.setAttribute('data-ps-typing', ''); },
   onInput: (path, value) => { state.apply(setAt(state.doc, path, value), 'inline', false); refreshButtons(); },

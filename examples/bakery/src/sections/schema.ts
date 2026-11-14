@@ -4,6 +4,8 @@ import type { BlockSchema, Field, SchemaRegistry } from '@pirateandfox/pagestack
 
 const opt = (vals: [string, string][]) => vals.map(([value, label]) => ({ value, label }));
 const text = (label: string, def = '', extra: Partial<Field> = {}): Field => ({ type: 'text', label, inline: true, default: def, ...extra });
+// Section titles may set a word in bold or italic (the site's CSS makes italics orange).
+const title = (def = ''): Field => text('Title', def, { marks: true });
 const rich = (label: string, def = '', extra: Partial<Field> = {}): Field => ({ type: 'richtext', label, inline: true, default: def, ...extra });
 const image = (label = 'Image'): Field => ({ type: 'image', label, inline: true, default: { src: '', alt: '' } });
 const select = (label: string, def: string, options: [string, string][], extra: Partial<Field> = {}): Field => ({ type: 'select', label, default: def, options: opt(options), group: 'style', ...extra });
@@ -21,8 +23,7 @@ export const schemas: SchemaRegistry = {
     blocks: ['button'],
     fields: {
       // Title first: the List View names a section after its first text field.
-      title: text('Title', 'Bread worth getting up early for'),
-      accent: { type: 'text', label: 'Word in italics', default: '', help: 'A word from the title to set in orange italics, e.g. "early". Blank for none.' },
+      title: title('Bread worth getting up <em>early</em> for'),
       eyebrow: text('Eyebrow', 'Fresh this morning'),
       text: rich('Text', '<p>Say what makes this place worth the walk.</p>'),
       image: image('Illustration'),
@@ -39,7 +40,7 @@ export const schemas: SchemaRegistry = {
     keywords: ['cards', 'grid', 'breads', 'products', 'features'],
     blocks: ['product'],
     fields: {
-      title: text('Title', 'What we bake'),
+      title: title('What we bake'),
       eyebrow: text('Eyebrow', 'From the oven'),
       intro: rich('Intro', ''),
       columns: select('Columns', '3', [['2', 'Two'], ['3', 'Three'], ['4', 'Four']]),
@@ -54,7 +55,7 @@ export const schemas: SchemaRegistry = {
     keywords: ['media', 'story', 'about', 'two column'],
     blocks: ['button'],
     fields: {
-      title: text('Title', 'A heading for this story'),
+      title: title('A heading for this story'),
       eyebrow: text('Eyebrow', ''),
       text: rich('Text', '<p>Tell it in a paragraph or two.</p>'),
       image: image(),
@@ -84,7 +85,7 @@ export const schemas: SchemaRegistry = {
     keywords: ['testimonial', 'review', 'quote'],
     blocks: ['quote'],
     fields: {
-      title: text('Title', ''),
+      title: title(''),
       eyebrow: text('Eyebrow', 'Overheard at the counter'),
       background: background('wheat'),
       anchor,
@@ -97,7 +98,7 @@ export const schemas: SchemaRegistry = {
     keywords: ['opening times', 'address', 'map', 'visit', 'contact'],
     blocks: ['hours-row'],
     fields: {
-      title: text('Title', 'Hours and where to find us'),
+      title: title('Hours and where to find us'),
       eyebrow: text('Eyebrow', 'Come by'),
       text: rich('Address and directions', '<p>14 Larder Lane, Millbrook</p>'),
       note: text('Note under the hours', 'We close early when the shelves are empty.'),
@@ -112,7 +113,7 @@ export const schemas: SchemaRegistry = {
     keywords: ['prices', 'menu', 'list', 'coffee', 'pastries'],
     blocks: ['menu-item'],
     fields: {
-      title: text('Title', 'Pastries'),
+      title: title('Pastries'),
       intro: rich('Intro', ''),
       image: image('Illustration'),
       side: select('Illustration side', 'right', [['left', 'Left'], ['right', 'Right']]),
@@ -127,7 +128,7 @@ export const schemas: SchemaRegistry = {
     keywords: ['cta', 'banner', 'signup', 'order'],
     blocks: ['button'],
     fields: {
-      title: text('Title', 'Order ahead, skip the queue'),
+      title: title('Order ahead, skip the queue'),
       text: rich('Text', '<p>One line on why, and when.</p>'),
       background: background('crust'),
       anchor,

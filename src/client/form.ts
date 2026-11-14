@@ -1,7 +1,7 @@
 // Schema -> sidebar form. One widget per field type; changes are reported through `onChange`.
 import type { BlockSchema, Field, ImageValue } from '../runtime';
 import { formModel } from '../core/schema';
-import { richField } from './rich';
+import { marksField, richField } from './rich';
 
 export interface FormCallbacks {
   onChange: (name: string, value: unknown, opts?: { live?: boolean }) => void;
@@ -40,6 +40,11 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
   // `cancel` matters: a live update landing after `change` would reorder the edit and split its undo step.
   const debounce = (fn: () => void, ms = 250) => { let t: ReturnType<typeof setTimeout>; const run = () => { clearTimeout(t); t = setTimeout(fn, ms); }; run.cancel = () => clearTimeout(t); return run; };
 
+  if (field.type === 'text' && field.marks) {
+    wrap.append(marksField(id, (value as string) ?? '', (html, live) => cb.onChange(name, html, { live })));
+    if (help) wrap.append(help);
+    return wrap;
+  }
   switch (field.type) {
     case 'text':
     case 'link': {
