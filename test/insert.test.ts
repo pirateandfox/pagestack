@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupItems, insertItems, searchItems } from '../src/core/insert';
+import { groupItems, insertItems, insertTarget, searchItems } from '../src/core/insert';
 import type { SchemaRegistry } from '../src/runtime';
 
 const registry: SchemaRegistry = {
@@ -57,4 +57,18 @@ describe('searchItems', () => {
 
 it('groupItems keeps first-seen category order', () => {
   expect(groupItems(insertItems('box', registry, [])).map((g) => g.category)).toEqual(['Blocks', 'Text']);
+});
+
+describe('insertTarget', () => {
+  const doc = { sections: [{ ...node('hero'), blocks: [node('button')] }, node('box'), node('heading')] };
+  it('nothing selected: the end of the page', () => {
+    expect(insertTarget(doc, null)).toEqual({ listPath: 'sections', index: 3 });
+  });
+  it('a container selected: after it, not inside it', () => {
+    expect(insertTarget(doc, 'sections.1')).toEqual({ listPath: 'sections', index: 2 });
+    expect(insertTarget(doc, 'sections.0')).toEqual({ listPath: 'sections', index: 1 });
+  });
+  it('a child selected: after it, in its parent', () => {
+    expect(insertTarget(doc, 'sections.0.blocks.0')).toEqual({ listPath: 'sections.0.blocks', index: 1 });
+  });
 });

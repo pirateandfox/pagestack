@@ -1,6 +1,7 @@
 // What the block inserter offers at a given place in the page. Pure so the rules can be tested.
 import type { Node, SchemaRegistry } from '../runtime';
 import { accepts, allowedChildTypes } from './schema';
+import { splitNodePath } from './patch';
 
 export interface Pattern { label: string; description?: string; node: Node }
 export interface SavedPattern extends Pattern { id: string; /** Copies stay linked, and can all be updated at once. */ synced?: boolean }
@@ -67,4 +68,15 @@ export function groupItems(items: InsertItem[]): { category: string; items: Inse
   const groups = new Map<string, InsertItem[]>();
   for (const i of items) groups.set(i.category, [...(groups.get(i.category) ?? []), i]);
   return [...groups].map(([category, items]) => ({ category, items }));
+}
+
+/**
+ * Where the toolbar's Add block button (and `/`) puts a new block: right after the selected one,
+ * beside it in the same list, as WordPress does. With nothing selected, at the end of the page.
+ * A container is no exception; adding inside one is its own Add block button.
+ */
+export function insertTarget(doc: { sections: Node[] }, selected: string | null): { listPath: string; index: number } {
+  if (!selected) return { listPath: 'sections', index: doc.sections.length };
+  const { listPath, index } = splitNodePath(selected);
+  return { listPath, index: index + 1 };
 }

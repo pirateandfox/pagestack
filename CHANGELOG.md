@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-beta.16 — 2026-11-15
+
+- **Add block goes after the selected block, as in WordPress.** With a section that holds blocks selected (a logo strip, a feature grid), the top bar's **Add block** button and the `/` key put the new block *inside* it, at the end. They now put it right after the selected block, beside it, and the panel says where ("Adding to the page"). To add inside a section, use the **Add block** button on that section's toolbar, as before. With nothing selected, new blocks still go at the end of the page.
+
 ## 0.1.0-beta.15 — 2026-11-14
 
 - **Escape really cancels an in-page edit.** Text typed and then cancelled with Escape disappeared from the page but stayed in the draft, so Save lit up and the cancelled words were saved. Escape now puts the draft back as it was before the edit.

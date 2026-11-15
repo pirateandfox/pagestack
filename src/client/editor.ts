@@ -6,7 +6,7 @@ import { getAt, insertNode, isNodePath, moveNode, nodeAt, nodePathOf, pathOfId, 
 import { transformNode, transformTargets } from '../core/transform';
 import { accepts, allowedChildTypes, createNode, fieldOf, nodeLabel } from '../core/schema';
 import type { InsertItem, Pattern, SavedPattern } from '../core/insert';
-import { insertItems } from '../core/insert';
+import { insertTarget, insertItems } from '../core/insert';
 import { slugProblem } from '../core/pages';
 import type { Revision } from '../core/storage';
 import { EditorState } from './state';
@@ -670,13 +670,7 @@ function setLeft(view: typeof leftView) {
   fitPreview();
 }
 
-function defaultTarget(): Target {
-  if (!selected) return { listPath: 'sections', index: state.doc.sections.length };
-  const node = nodeAt(state.doc, selected)!;
-  if (allowedChildTypes(node.type, registry)?.length) return { listPath: `${selected}.blocks`, index: node.blocks?.length ?? 0 };
-  const { listPath, index } = splitNodePath(selected);
-  return { listPath, index: index + 1 };
-}
+const defaultTarget = (): Target => insertTarget(state.doc, selected);
 
 function openInserter(at: Target = defaultTarget()) {
   inline.stop(true);
