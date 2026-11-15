@@ -25,7 +25,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const source = await readPage(String(body.copyOf));
     if (!source) return bad('The page to copy no longer exists.', 404);
     keep = source.page;
-    page = copyPage(source.page, title);
+    const { sample: _sample, ...plain } = source.page;
+    page = copyPage(plain, title);
   } else if (body.template != null) {
     const template = templates[Number(body.template)];
     if (!template) return bad('Unknown template.');

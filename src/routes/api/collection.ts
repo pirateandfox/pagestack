@@ -79,10 +79,12 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   if (body.base && body.base !== await sha256(raw)) return json({ error: 'This changed since you opened it. Reload to get the latest version.' }, 409);
   const data = cleanData(c, body.data);
   if ('title' in c.fields && !String(data.title ?? '').trim()) return bad('Give it a title.');
-  const content = writeMarkdown(raw, data, sanitizeMarkdown(body.body));
+  let content = writeMarkdown(raw, data, sanitizeMarkdown(body.body));
   const next = typeof body.slug === 'string' ? body.slug.trim() : slug;
   const moving = next !== slug;
   if (!moving && content === raw) return json({ ok: true, unchanged: true, hash: await sha256(raw) });
+  // Once someone has saved a sample item, it is theirs: Hide/Delete sample content leave it alone.
+  if (parseMarkdown(content).data.sample === true) content = writeMarkdown(content, { sample: null }, parseMarkdown(content).body);
   const files: FileChange[] = [{ path: file(c, next), content }];
   let deletes: string[] | undefined;
   if (moving) {

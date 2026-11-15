@@ -2,7 +2,7 @@
 import { publicPath, slugify, slugProblem, uniqueSlug } from '../core/pages';
 import { confirmDialog, dialog, toast } from './ui';
 
-interface Boot { pages: { slug: string; title: string }[]; reserved: string[]; templates: { id: number; label: string; description?: string }[] }
+interface Boot { pages: { slug: string; title: string }[]; reserved: string[]; templates: { id: number; label: string; description?: string }[]; samples?: { state: 'shown' | 'hidden' | 'none'; list: { title: string; where: string }[] } }
 const boot = (window as any).__PS_PAGES__ as Boot;
 const existing = boot.pages.map((p) => p.slug);
 const titleOnly = (t: string) => t.split(/\s[-–|]\s/)[0];
@@ -87,3 +87,29 @@ search.addEventListener('input', () => {
   document.querySelectorAll<HTMLElement>('#ps-pagelist > li').forEach((li) => { const on = li.dataset.search!.includes(q); li.hidden = !on; if (on) shown++; });
   document.getElementById('ps-no-match')!.hidden = shown > 0;
 });
+
+// ---- sample content: hide (drafts) or delete, one commit each ----
+async function samples(action: 'hide' | 'delete') {
+  const list = boot.samples?.list ?? [];
+  const body = document.createElement('div');
+  const intro = document.createElement('p');
+  intro.textContent = action === 'hide'
+    ? 'These become drafts: they stay in the editor to open and copy from, and leave the public site. The sample home page moves to a draft called "Sample: …" and a blank home page takes its place.'
+    : 'These are removed from the site. They stay in the site\'s git history, so a developer can recover them. Images are kept.';
+  const ul = document.createElement('ul');
+  ul.className = 'ps-samplelist';
+  for (const s of list) { const li = document.createElement('li'); li.textContent = `${s.title} (${s.where})`; ul.append(li); }
+  body.append(intro, ul);
+  let ok = false;
+  await new Promise<void>((resolve) => dialog(action === 'hide' ? 'Hide sample content' : 'Delete sample content', body, [
+    { label: 'Cancel' },
+    { label: action === 'hide' ? 'Hide sample content' : `Delete ${list.length} ${list.length === 1 ? 'item' : 'items'}`, kind: action === 'hide' ? 'primary' : 'danger', run: () => { ok = true; } },
+  ], { onClose: resolve }));
+  if (!ok) return;
+  const res = await fetch('/api/editor/samples', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { toast(data.error || 'That did not work.', 'error'); return; }
+  if (data.result?.pullRequest) { toast('The change is in a pull request.', 'ok', { href: data.result.pullRequest }); return; }
+  location.reload();
+}
+document.querySelectorAll<HTMLElement>('[data-samples]').forEach((b) => b.addEventListener('click', () => samples(b.dataset.samples as 'hide' | 'delete')));

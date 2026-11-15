@@ -40,7 +40,9 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   const current = await readPage(slug);
   if (!current) return bad('no such page', 404);
   if (base && base !== current.hash) return json({ error: STALE, hash: current.hash }, 409);
-  const content = serializePage(clean(page, locals, current.page));
+  // Once someone has saved a sample page, it is theirs: Hide/Delete sample content leave it alone.
+  const { sample: _sample, ...saved } = clean(page, locals, current.page);
+  const content = serializePage(saved);
 
   const moving = typeof nextSlug === 'string' && nextSlug !== slug;
   const files: FileChange[] = [{ path: pagePath(moving ? nextSlug : slug), content }];

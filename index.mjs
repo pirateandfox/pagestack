@@ -276,6 +276,7 @@ export default function sectionEditor(userOptions) {
         injectRoute({ pattern: '/api/editor/users', entrypoint: route('api/users.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/browse', entrypoint: route('api/browse.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/live', entrypoint: route('api/live.ts'), prerender: false });
+        injectRoute({ pattern: '/api/editor/samples', entrypoint: route('api/samples.ts'), prerender: false });
         injectRoute({ pattern: '/api/editor/auth/[action]', entrypoint: route('api/auth.ts'), prerender: false });
         // Uploads saved after this editor was built aren't static files in it; serve them from the repo.
         const uploadsUrl = options.storage === 'github' && uploadsUrlPrefix(options.uploadsDir, options.publicDir);

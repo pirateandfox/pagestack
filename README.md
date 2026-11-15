@@ -311,7 +311,32 @@ export const globals = {
     },
   },
 };
+
+// For a starter or template: what replaces its sample content (see "Sample content" below)
+export const sampleContent = {
+  label: 'Crumb, the sample bakery',
+  home: { title: 'Home', sections: [/* … */] },
+  globals: { menus: { announcement: '' } },
+};
 ```
+
+#### Sample content
+
+A starter or theme can ship sample pages and posts and let the site's owner clear them with one
+button. Mark each sample with `"sample": true` at the top of a page's JSON, or `sample: true` in
+an item's frontmatter. While any are on the site, admins see a notice on the Pages screen with:
+
+- **Hide sample content**: sample pages become drafts and sample items `draft: true`, so they stay
+  in the editor to open and copy from and leave the public site. The home page can't be a draft,
+  so the sample one moves to a draft page `sample-home` and `sampleContent.home` takes its place
+  (default: an empty page titled Home).
+- **Delete sample content**: every sample page and item is removed, and a sample home page is
+  replaced the same way. The confirmation lists them all.
+
+Either is one commit, and both set the `sampleContent.globals` values (an announcement that
+advertised a sample event, say). Images are never touched. Saving a sample from the editor drops
+its mark: once someone has edited it, it's theirs, and Hide and Delete leave it alone. Pages still
+marked show a **Sample** pill in the page list.
 
 #### Editing a collection item on its own page
 

@@ -290,6 +290,13 @@ body.ps[data-left="add"] .ps-listview, body:not([data-left="add"]) .ps-inserter 
 
 /* Markdown items */
 .ps-pill--synced { background: #e0e7ff; color: #3730a3; }
+.ps-pill--sample { background: #f1f5f9; color: #475569; }
+.ps-samples { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 24px; margin-top: 24px; padding: 14px 16px; background: #fff; border: 1px solid var(--ps-border); border-left: 3px solid var(--ps-accent); border-radius: 8px; }
+.ps-samples--hidden { border-left-color: var(--ps-border); }
+.ps-samples p { margin: 4px 0 0; max-width: 62ch; }
+.ps-samples__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ps-samplelist { max-height: 40vh; overflow: auto; margin: 8px 0 0; padding-left: 18px; }
+.ps-samplelist li { margin: 2px 0; }
 .ps-check { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-weight: normal; }
 .ps-check input { width: auto; }
 .ps-item__top { display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: #fff; border-bottom: 1px solid var(--ps-border); }

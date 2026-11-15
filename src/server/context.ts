@@ -13,6 +13,7 @@ import { parseMarkdown } from '../core/frontmatter';
 import type { EditorUser, Role, UsersFile } from '../core/users';
 import { publicPath, RESERVED_SLUGS } from '../core/pages';
 import type { SavedPattern } from '../core/insert';
+import { isSampleItem, isSamplePage, type SampleContent, type SampleGlobal, type SampleItem, type SamplePage } from '../core/samples';
 
 export { options, site };
 
@@ -54,11 +55,39 @@ export function presets() {
 }
 
 /** Host extras from the `sections` module; all optional. */
-const extras = site as unknown as { pageFields?: Record<string, Field>; templates?: PageTemplate[]; globals?: Record<string, GlobalDoc>; collections?: Record<string, CollectionDoc> };
+const extras = site as unknown as { pageFields?: Record<string, Field>; templates?: PageTemplate[]; globals?: Record<string, GlobalDoc>; collections?: Record<string, CollectionDoc>; sampleContent?: SampleContent };
 export const pageFields = extras.pageFields ?? {};
 export const templates = extras.templates ?? [];
 export const globals = extras.globals ?? {};
 export const collections = extras.collections ?? {};
+export const sampleContent: SampleContent = extras.sampleContent ?? {};
+
+/** Every page and Markdown item marked `sample: true`, and the globals the host resets with them. */
+export async function readSamples(): Promise<{ pages: SamplePage[]; items: SampleItem[]; globals: SampleGlobal[]; slugs: string[] }> {
+  const slugs = opts.pages === false ? [] : await pageSlugs();
+  const pages: SamplePage[] = [];
+  for (const slug of slugs) {
+    const r = await readPage(slug);
+    if (r && isSamplePage(r.page)) pages.push({ slug, path: pagePath(slug), raw: r.raw, page: r.page });
+  }
+  const items: SampleItem[] = [];
+  for (const [id, c] of Object.entries(collections)) {
+    // readDir: one request on GitHub, where reading each file would cost one each.
+    const files = storage().readDir ? await storage().readDir!(c.dir)
+      : await Promise.all((await storage().listDir(c.dir)).filter((e) => e.type === 'file').map(async (e) => ({ name: e.name, content: await storage().readFile(`${c.dir}/${e.name}`) ?? '' })));
+    for (const { name, content: raw } of files) {
+      if (!name.endsWith('.md') || !isSampleItem(raw)) continue;
+      const { data } = parseMarkdown(raw);
+      items.push({ collection: id, label: c.label, slug: name.slice(0, -3), path: `${c.dir}/${name}`, raw, title: String(data.title ?? name), draft: data.draft === true });
+    }
+  }
+  const globalsOut: SampleGlobal[] = [];
+  for (const id of Object.keys(sampleContent.globals ?? {})) {
+    const g = Object.hasOwn(globals, id) ? globals[id] : null;
+    if (g) globalsOut.push({ id, path: g.file, raw: await storage().readFile(g.file) });
+  }
+  return { pages, items, globals: globalsOut, slugs };
+}
 /** Pages (and their titles) whose stored JSON mentions a URL. Globals and patterns count too. */
 export async function whereUsed(src: string): Promise<{ title: string; href: string }[]> {
   const out: { title: string; href: string }[] = [];
@@ -97,7 +126,7 @@ export async function readPage(slug: string): Promise<{ page: PageDoc; hash: str
   return { page: JSON.parse(raw) as PageDoc, hash: await sha256(raw), raw };
 }
 
-export interface PageSummary { slug: string; title: string; sections: number; status: 'draft' | 'published' }
+export interface PageSummary { slug: string; title: string; sections: number; status: 'draft' | 'published'; sample?: boolean }
 
 export async function pageSlugs(dir = '', depth = 0): Promise<string[]> {
   const entries = await storage().listDir(dir ? `${opts.pagesDir}/${dir}` : opts.pagesDir);
@@ -114,7 +143,7 @@ export async function listPages(): Promise<PageSummary[]> {
   const out: PageSummary[] = [];
   for (const slug of await pageSlugs()) {
     const r = await readPage(slug);
-    if (r) out.push({ slug, title: r.page.title, sections: r.page.sections.length, status: r.page.status === 'draft' ? 'draft' : 'published' });
+    if (r) out.push({ slug, title: r.page.title, sections: r.page.sections.length, status: r.page.status === 'draft' ? 'draft' : 'published', ...(isSamplePage(r.page) ? { sample: true } : {}) });
   }
   return out.sort((a, b) => (a.slug === 'index' ? -1 : b.slug === 'index' ? 1 : a.slug.localeCompare(b.slug)));
 }

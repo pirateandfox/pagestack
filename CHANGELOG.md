@@ -2,6 +2,7 @@
 
 ## 0.1.0-beta.16 — 2026-11-15
 
+- **Hide or delete sample content.** A starter or theme can mark its sample pages (`"sample": true` in the page JSON) and posts (`sample: true` in front matter). While any are on the site, admins see a notice on the Pages screen with **Hide sample content** (they become drafts, kept in the editor to copy from; a sample home page moves to a `sample-home` draft and the host's replacement takes its place) and **Delete sample content** (they're removed; the confirmation lists them all). Each is one commit. A host can set the replacement home page and reset globals with them through a new optional `sampleContent` export (type `SampleContent` in the runtime). Images are never touched. Saving a sample from the editor drops its mark, so anything someone has edited is theirs and is left alone. Marked pages show a **Sample** pill in the page list. Sites without marked content see no change.
 - **Add block goes after the selected block, as in WordPress.** With a section that holds blocks selected (a logo strip, a feature grid), the top bar's **Add block** button and the `/` key put the new block *inside* it, at the end. They now put it right after the selected block, beside it, and the panel says where ("Adding to the page"). To add inside a section, use the **Add block** button on that section's toolbar, as before. With nothing selected, new blocks still go at the end of the page.
 
 ## 0.1.0-beta.15 — 2026-11-14

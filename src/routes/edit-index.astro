@@ -1,6 +1,7 @@
 ---
 // /edit — the Pages screen: every page, with add, duplicate, delete and search.
-import { collections, globals, listPages, opts, publicPath, reservedSlugs, templates } from '../server/context';
+import { collections, globals, isAdmin, listPages, opts, publicPath, readSamples, reservedSlugs, sampleContent, templates } from '../server/context';
+import { sampleState } from '../core/samples';
 import Nav from './Nav.astro';
 import '../client/shell.css';
 export const prerender = false;
@@ -9,10 +10,19 @@ if (opts.pages === false) {
   return Astro.redirect(first ? `/edit/collection/${first}` : '/edit/media');
 }
 const pages = await listPages();
+// Sample content a starter shipped with: admins can hide it or delete it from here.
+const samples = isAdmin(Astro.locals) ? await readSamples() : null;
+const sampleNow = samples ? sampleState(samples.pages, samples.items) : 'none';
+const sampleList = samples ? [
+  ...samples.pages.map((p) => ({ title: p.page.title, where: p.slug === 'index' ? 'Home page' : 'Page' })),
+  ...samples.items.map((i) => ({ title: i.title, where: i.label })),
+] : [];
+const sampleCount = sampleList.length;
 const boot = {
   pages: pages.map((p) => ({ slug: p.slug, title: p.title })),
   reserved: reservedSlugs(),
   templates: templates.map((t, i) => ({ id: i, label: t.label, description: t.description })),
+  samples: { state: sampleNow, list: sampleList },
 };
 const globalLinks = Object.entries(globals).map(([id, g]) => ({ id, label: g.label, description: g.description }));
 ---
@@ -35,6 +45,25 @@ const globalLinks = Object.entries(globals).map(([id, g]) => ({ id, label: g.lab
         </div>
         <button type="button" id="ps-add-page" class="ps-btn ps-btn--primary">Add page</button>
       </header>
+      {sampleNow !== 'none' && (
+        <section class={`ps-samples ps-samples--${sampleNow}`} aria-label="Sample content">
+          {sampleNow === 'shown' ? (
+            <div>
+              <strong>This site still has its sample content{sampleContent.label ? `: ${sampleContent.label}` : ''}.</strong>
+              <p class="ps-muted">{sampleCount} sample {sampleCount === 1 ? 'page or post' : 'pages and posts'}. <b>Hide</b> keeps them as drafts you can open and copy from, off the public site. <b>Delete</b> removes them. Anything you've edited and saved is yours and stays. Images stay either way.</p>
+            </div>
+          ) : (
+            <div>
+              <strong>Sample content is hidden.</strong>
+              <p class="ps-muted">{sampleCount} {sampleCount === 1 ? 'draft is' : 'drafts are'} kept for reference. Delete them once you no longer need them.</p>
+            </div>
+          )}
+          <div class="ps-samples__actions">
+            {sampleNow === 'shown' && <button type="button" class="ps-btn ps-btn--primary" data-samples="hide">Hide sample content</button>}
+            <button type="button" class="ps-btn ps-btn--ghost ps-btn--danger" data-samples="delete">Delete sample content</button>
+          </div>
+        </section>
+      )}
       {globalLinks.length > 0 && (
         <nav class="ps-globals" aria-label="Site settings">
           {globalLinks.map((g) => <a href={`/edit/global/${g.id}`}><strong>{g.label}</strong>{g.description && <span class="ps-muted">{g.description}</span>}</a>)}
@@ -47,7 +76,7 @@ const globalLinks = Object.entries(globals).map(([id, g]) => ({ id, label: g.lab
       <ul class="ps-pagelist" id="ps-pagelist">
         {pages.map((p) => (
           <li data-slug={p.slug} data-search={`${p.title} ${p.slug}`.toLowerCase()}>
-            <a class="ps-pagelist__edit" href={`/edit/${p.slug}`}><strong>{p.title}{p.status === 'draft' && <span class="ps-pill">Draft</span>}</strong><span class="ps-muted">{publicPath(p.slug)} · {p.sections} {p.sections === 1 ? 'section' : 'sections'}</span></a>
+            <a class="ps-pagelist__edit" href={`/edit/${p.slug}`}><strong>{p.title}{p.status === 'draft' && <span class="ps-pill">Draft</span>}{p.sample && <span class="ps-pill ps-pill--sample">Sample</span>}</strong><span class="ps-muted">{publicPath(p.slug)} · {p.sections} {p.sections === 1 ? 'section' : 'sections'}</span></a>
             <div class="ps-pagelist__actions">
               {p.status !== 'draft' && <a class="ps-btn ps-btn--small ps-btn--ghost" href={`/edit/site?path=${encodeURIComponent(publicPath(p.slug))}`}>View</a>}
               <button type="button" class="ps-btn ps-btn--small ps-btn--ghost" data-duplicate={p.slug}>Duplicate</button>

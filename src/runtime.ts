@@ -66,6 +66,8 @@ export interface BlockSchema {
   transforms?: string[];
 }
 
+export type { SampleContent } from './core/samples';
+
 export interface ImageValue { src: string; alt: string; width?: number; height?: number }
 
 export interface Node {
@@ -87,6 +89,8 @@ export interface PageDoc {
   ogImage?: string;
   /** Site-specific frame data (layout, CSS files…); the editor never interprets it. */
   layout?: Record<string, any>;
+  /** Sample content a starter ships with. Hide/Delete sample content act on it; saving it from the editor drops the mark. */
+  sample?: boolean;
   sections: Node[];
 }
 
