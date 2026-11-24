@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { renderForm } from '../src/client/form';
+import { renderForm, showMissing } from '../src/client/form';
+import { missingFields } from '../src/core/required';
 import type { BlockSchema } from '../src/runtime';
 
 const schema: BlockSchema = {
@@ -246,5 +247,47 @@ describe('showIf', () => {
     expect([hidden(root, '#ps-f-rows-0-until'), hidden(root, '#ps-f-rows-1-until')]).toEqual([false, true]);
     choose(root, '#ps-f-rows-1-repeats', 'weekly');
     expect(hidden(root, '#ps-f-rows-1-until')).toBe(false);
+  });
+});
+
+describe('required fields', () => {
+  const fields: BlockSchema['fields'] = {
+    year: { type: 'number', label: 'Year', required: true, group: 'advanced' },
+    on: { type: 'boolean', label: 'On', required: true },
+    pics: { type: 'multiselect', label: 'Days', required: true, options: [{ value: 'a', label: 'A' }] },
+    image: { type: 'image', label: 'Image', required: true },
+    body: { type: 'richtext', label: 'Body', required: true },
+    links: { type: 'list', label: 'Links', fields: { url: { type: 'link', label: 'URL', required: true } } },
+  };
+  const draw = (values: Record<string, unknown>, onChange = vi.fn()) => {
+    const root = document.createElement('div'); document.body.append(root);
+    renderForm(root, { label: 'X', fields }, values, { onChange, pickImage: vi.fn() });
+    return root;
+  };
+  it('are starred, but not booleans', () => {
+    const root = draw({ links: [{}] });
+    expect([...root.querySelectorAll('.ps-req')].map((s) => s.parentElement!.textContent)).toEqual(['Days *', 'Image *', 'Body *', 'URL *', 'Year *']);
+    expect(root.querySelector('#ps-f-year')!.getAttribute('aria-required')).toBe('true');
+    expect(root.querySelector('#ps-f-on')!.hasAttribute('aria-required')).toBe(false);
+  });
+  it('are pointed at when missing, inside rows and closed groups too, until they change', () => {
+    const values = { links: [{ url: '/a' }, {}], image: { src: '/a.png', alt: '' }, body: '<p>x</p>', pics: ['a'] };
+    const root = draw(values);
+    const missing = missingFields(fields, values);
+    showMissing(root, missing);
+    const marked = () => [...root.querySelectorAll<HTMLElement>('.is-missing')].map((w) => w.dataset.psForm);
+    expect(marked()).toEqual(['ps-f-links-1-url', 'ps-f-year']);
+    expect((root.querySelector('#ps-f-year')!.closest('details') as HTMLDetailsElement).open).toBe(true);
+    expect([...root.querySelectorAll<HTMLDetailsElement>('.ps-list__row')].map((d) => d.open)).toEqual([false, true]);
+    expect(document.activeElement).toBe(root.querySelector('#ps-f-year')); // the first in form order
+    const year = root.querySelector('#ps-f-year') as HTMLInputElement;
+    year.value = '2020'; fire(year, 'change');
+    expect(marked()).toEqual(['ps-f-links-1-url']);
+    showMissing(root, missing); // saving again doesn't repeat the message
+    expect(root.querySelectorAll('.ps-error')).toHaveLength(2);
+    showMissing(root, [{ path: ['body'], label: 'Body' }]);
+    expect(document.activeElement).toBe(root.querySelector('#ps-f-body')); // not its toolbar
+    showMissing(root, []);
+    expect(root.querySelectorAll('.ps-error, .is-missing')).toHaveLength(0);
   });
 });

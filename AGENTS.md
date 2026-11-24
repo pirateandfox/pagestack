@@ -16,7 +16,7 @@ bin/invite.mjs         CLI `pagestack-invite`: mints a one-time passkey invite l
 live.mjs               `@pirateandfox/pagestack/live`: liveEntries() for host list pages (plain JS, no imports, so a
                        public build that never loads the editor can import it)
 src/runtime.ts         the ONLY module hosts import at render time: types, nodeAttrs/fieldAttrs/child, newId, withDefaults, staticPages
-src/core/              pure logic, unit-tested, no DOM/Node: schema (validate, form groups), patch (undo/redo ops),
+src/core/              pure logic, unit-tested, no DOM/Node: schema (validate, form groups), required (what is still to fill in), patch (undo/redo ops),
                        pages (slugs, new/copy page, redirects), insert (inserter items), sanitize (everything saved),
                        transform (Turn into), synced (patterns), frontmatter (Markdown files), media (upload rules), ratelimit,
                        storage (interface) + storage-local (fs) + storage-github (REST, one commit per save), auth (HMAC
@@ -120,6 +120,11 @@ Checklist for any change:
    bump accordingly.
 5. Nothing site-specific landed in this package (grep for host names, class names, URLs). Anything a
    host might need to vary is an option with a sensible default.
+
+Never make a GitHub request per file or folder. Use `readDirs` (a folder with contents), `readFiles` (several
+files), `listTree` (names below a folder) and one `commit`: a Worker on
+Cloudflare's free plan may make 50 requests per page. `test/subrequests.test.ts` enforces it with a fetch
+that refuses request 51; add any new screen that lists files.
 
 ## 4. Release
 

@@ -10,14 +10,15 @@ import { insertTarget, insertItems } from '../core/insert';
 import { slugProblem } from '../core/pages';
 import type { Revision } from '../core/storage';
 import { EditorState } from './state';
-import { renderForm } from './form';
+import { missingInPage, missingMessage } from '../core/required';
+import { commitTyping, renderForm, showMissing } from './form';
 import { renderTree } from './tree';
 import { renderInserter } from './inserter';
 import { InlineEditor } from './inline';
 import { pickImage } from './picker';
 import { icons } from './icons';
 import type { MenuItem } from './ui';
-import { confirmDialog, dialog, openMenu, promptDialog, toast } from './ui';
+import { confirmDialog, dialog, openMenu, promptDialog, taskQueue, toast } from './ui';
 import previewCss from './preview.css?raw';
 
 interface Boot {
@@ -489,7 +490,7 @@ function renderPageTab(root: HTMLElement) {
   root.append(form);
 
   if (Object.keys(boot.pageFields).length) {
-    const layout = document.createElement('div');
+    const layout = document.createElement('div'); layout.id = 'ps-layout-form';
     renderForm(layout, { label: 'Layout', fields: boot.pageFields }, state.doc.layout ?? {}, {
       ...formCallbacks,
       onChange: (name, value, o) => { renderFull = !o?.live; applyField(`layout.${name}`, value, o?.live, boot.pageFields[name]); },
@@ -770,7 +771,7 @@ $('#ps-discard').addEventListener('click', async () => {
   renderFull = true;
   state.reset(r.page, r.hash);
 });
-$('#ps-save').addEventListener('click', () => save());
+$('#ps-save').addEventListener('click', () => { inline.stop(true); save(); });
 $<HTMLInputElement>('#ps-ready').addEventListener('change', (e) => publish((e.target as HTMLInputElement).checked));
 $('#ps-preview-tab').addEventListener('click', previewInTab);
 document.querySelectorAll<HTMLButtonElement>('.ps-top__devices button').forEach((b) => b.addEventListener('click', () => {
@@ -801,23 +802,40 @@ function previewInTab() {
   form.remove();
 }
 
-async function save(opts: { slug?: string } = {}): Promise<{ slug?: string; result?: any } | null> {
-  if (!state.dirty && !opts.slug) return null;
+/** Says which required fields are empty, opens the first one's block and points at it. */
+function complete(doc: PageDoc): boolean {
+  const missing = missingInPage(doc, registry, boot.pageFields);
+  if (!missing.length) return true;
   inline.stop(true);
+  toast(missingMessage(missing), 'error');
+  const node = missing[0].node ?? null;
+  select(node);
+  showMissing($(node ? '#ps-inspector' : '#ps-layout-form'), missing.filter((m) => m.node === node));
+  return false;
+}
+
+const queued = taskQueue();
+const save = (opts: { slug?: string } = {}) => queued(() => saveNow(opts));
+
+/** Leaves the field being edited alone, in the sidebar or on the page: its text is in the document already. */
+async function saveNow(opts: { slug?: string }): Promise<{ slug?: string; result?: any } | null> {
+  if (!state.dirty && !opts.slug) return null;
+  if (!complete(state.doc)) return null;
+  const sent = state.doc;
   saving = true; refreshButtons(); setSaveStatus('Saving…');
   try {
-    const res = await fetch(`/api/editor/page/${boot.slug}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ page: state.doc, base: state.hash, slug: opts.slug }) });
+    const res = await fetch(`/api/editor/page/${boot.slug}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ page: sent, base: state.hash, slug: opts.slug }) });
     const data = await res.json();
     if (!res.ok) { toast(data.error || 'Save failed', 'error'); setSaveStatus(''); return null; }
-    state.markSaved(data.hash);
-    boot.page = state.doc;
+    state.markSaved(data.hash, sent);
+    boot.page = sent;
     const r = data.result;
     if (r.kind === 'github') toast(r.pullRequest ? `Committed and opened a pull request: ${r.pullRequest}` : document.getElementById('ps-live') ? 'Saved. Use Publish changes to put it on the site.' : `Committed ${String(r.commit).slice(0, 7)} to ${r.branch}. The host will rebuild the site.`, 'ok', { href: r.pullRequest || r.url });
     else toast(`Saved to the working tree (${r.files.join(', ')}). Commit it with git when you're happy.`, 'ok');
-    setSaveStatus('Saved');
+    setSaveStatus(state.dirty ? '' : 'Saved');
     return data;
   } catch (e: any) { toast(`Save failed: ${e.message}`, 'error'); setSaveStatus(''); return null; }
-  finally { saving = false; refreshChrome(); }
+  finally { saving = false; refreshChrome({ inspector: false }); }
 }
 
 /** The Ready to publish switch: a draft or not. Saves straight away, so the switch means what it shows. */
@@ -828,6 +846,7 @@ async function publish(live: boolean) {
   inline.stop(true);
   const next = structuredClone(state.doc);
   if (live) delete next.status; else next.status = 'draft';
+  if (!complete(next)) { refreshButtons(); return; }
   state.apply(next);
   if (await save()) toast(live ? (staged ? `${next.title} is ready to publish. It goes on the site with the next Publish changes.` : `${next.title} is published.`) : `${next.title} is now a draft: kept off the site.`, 'ok');
   else { state.undo(); refreshButtons(); }
@@ -841,10 +860,11 @@ async function changeUrl() {
     check: (v) => (v === boot.slug ? null : slugProblem(v, { existing, reserved: boot.reserved })),
   });
   if (!slug || slug === boot.slug) return;
+  inline.stop(true);
   const data = await save({ slug });
   if (!data) return;
   if (data.result?.pullRequest) return; // the move is in a pull request; this page stays where it is for now
-  leaving = true;
+  leaving = !state.dirty; // something typed while it moved: the browser asks first
   location.replace(`/edit/${data.slug}`);
 }
 
@@ -920,7 +940,7 @@ function onKeydown(e: KeyboardEvent) {
   const mod = e.metaKey || e.ctrlKey;
   const key = e.key.toLowerCase();
   const run = (fn: () => void) => { e.preventDefault(); fn(); };
-  if (mod && key === 's') return run(() => { save(); });
+  if (mod && key === 's') return run(() => { commitTyping(); save(); });
   if (mod && e.shiftKey && (key === ',' || key === '<')) return run(toggleSettings);
   if (e.ctrlKey && e.altKey && (key === 'o' || e.code === 'KeyO')) return run(() => setLeft(leftView === 'list' ? 'off' : 'list'));
   if (typing) return;
@@ -946,7 +966,7 @@ window.addEventListener('beforeunload', (e) => { if (state.dirty && !leaving) e.
 state.addEventListener('change', (e) => {
   const source = (e as CustomEvent).detail.source;
   if (source === 'inline') return; // DOM already matches; chrome refreshes on commit
-  if (source === 'field') { refreshChrome({ inspector: false }); return; } // the sidebar is the source: leave the focused input alone
+  if (source === 'field' || source === 'save') { refreshChrome({ inspector: false }); return; } // leave the focused input alone
   if (source === 'undo' || source === 'redo' || source === 'restore' || source === 'reset') {
     inline.stop(false);
     if (selected && !nodeAt(state.doc, selected)) { selected = null; tab = 'page'; }

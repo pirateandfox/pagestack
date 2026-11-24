@@ -2,9 +2,10 @@
 import { marked } from 'marked';
 import type { Field } from '../runtime';
 import { sanitizeHtml } from '../core/sanitize';
-import { renderForm } from './form';
+import { missingFields, missingMessage } from '../core/required';
+import { commitTyping, renderForm, showMissing } from './form';
 import { pickImage } from './picker';
-import { confirmDialog, dialog, openMenu, promptDialog, toast } from './ui';
+import { confirmDialog, dialog, openMenu, promptDialog, taskQueue, toast } from './ui';
 import { icons } from './icons';
 import { InlineEditor } from './inline';
 import { NEW_BLOCKS, blockAt, insertBlock, replaceBlock } from '../core/markdown';
@@ -86,13 +87,26 @@ body.addEventListener('keydown', (e) => {
 });
 
 // ---- saving ----
-async function save(done?: string): Promise<boolean> {
+/** Says which required fields are empty, and points at them. The title has its own message from the server. */
+function complete(): boolean {
+  const missing = missingFields(side, data);
+  if (!missing.length) return true;
+  toast(`${missingMessage(missing)} The site needs ${missing.length === 1 ? 'it' : 'them'} to build, drafts included.`, 'error');
+  showMissing($('ps-item-form'), missing);
+  return false;
+}
+const queued = taskQueue();
+const save = (done?: string) => queued(() => saveNow(done));
+async function saveNow(done?: string): Promise<boolean> {
+  if (!dirty && !done) return true; // a save that was waiting, with nothing new since
   if (frame && inline.isActive) inline.stop(true);
+  if (!complete()) return false;
   saveBtn.disabled = true; status.textContent = 'Saving…';
+  const sent = JSON.stringify([data, body.value]);
   const res = await fetch(`/api/editor/collection/${boot.id}/${boot.slug}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data, body: body.value, base: hash }) });
   const d = await res.json();
   if (!res.ok) { toast(d.error || 'Save failed', 'error'); saveBtn.disabled = false; status.textContent = 'Not saved'; return false; }
-  hash = d.hash; dirty = false; chrome();
+  hash = d.hash; dirty = JSON.stringify([data, body.value]) !== sent; chrome(); // edits made meanwhile are still to be saved
   if (done && !d.result?.pullRequest) toast(done, 'ok'); else toast(d.unchanged ? 'No changes to save.' : d.result?.pullRequest ? 'Saved as a pull request.' : d.result?.kind === 'github' ? (document.getElementById('ps-live') ? 'Saved. Use Publish changes to put it on the site.' : 'Saved. The site will rebuild.') : 'Saved.', 'ok');
   return true;
 }
@@ -107,7 +121,7 @@ ready.addEventListener('change', async () => {
   if (!ok) { data.draft = was; chrome(); }
   ready.disabled = false;
 });
-addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (dirty) save(); } });
+addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); commitTyping(); if (dirty) save(); } });
 addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
 
 // ---- URL, revisions, delete ----
@@ -127,11 +141,16 @@ async function changeUrl() {
   });
   if (!next || next === boot.slug) return;
   if (frame && inline.isActive) inline.stop(true);
-  const res = await fetch(`/api/editor/collection/${boot.id}/${boot.slug}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data, body: body.value, base: hash, slug: next }) });
+  if (!complete()) return;
+  let sent = '';
+  const res = await queued(() => {
+    sent = JSON.stringify([data, body.value]);
+    return fetch(`/api/editor/collection/${boot.id}/${boot.slug}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data, body: body.value, base: hash, slug: next }) });
+  });
   const d = await res.json();
   if (!res.ok) { toast(d.error || 'Could not change the URL.', 'error'); return; }
   if (d.result?.pullRequest) { toast('The move is in a pull request; this stays where it is until that is merged.', 'info', { href: d.result.pullRequest }); return; }
-  dirty = false;
+  dirty = JSON.stringify([data, body.value]) !== sent;
   location.replace(`/edit/collection/${boot.id}/${d.slug}`);
 }
 
@@ -184,7 +203,7 @@ title.value = data.title ?? '';
 title.addEventListener('input', () => { data.title = title.value; touch(); schedulePage(); });
 body.value = boot.body;
 const { title: _, draft: __, ...side } = boot.fields;
-const drawForm = () => renderForm($('ps-item-form'), { label: boot.singular, fields: side }, data, { pickImage, pageUrls: boot.pages, onChange: (name, value) => { data[name] = value; touch(); schedulePage(); } });
+const drawForm = () => renderForm($('ps-item-form'), { label: boot.singular, fields: side }, data, { pickImage, pageUrls: boot.pages, onChange: (name, value) => { data[name] = value ?? ''; touch(); /* a cleared number: undefined would be left out of the save, and the old one kept */ schedulePage(); } });
 drawForm();
 draw(); chrome();
 

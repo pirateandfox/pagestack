@@ -5,7 +5,7 @@ import { activeUser, opts, secret, storage, publicUrl } from './context';
 import { SESSION_COOKIE, clearCookieHeader, readSession } from '../core/auth';
 import { roleOf } from '../core/users';
 import { rateLimiter } from '../core/ratelimit';
-import { liveCollection } from './live';
+import { withLive } from './live';
 import { isLiveRoute } from './browse';
 
 const PUBLIC = [/^\/edit\/login\/?$/, /^\/edit\/enroll\/?$/, /^\/api\/editor\/auth\//];
@@ -80,9 +80,6 @@ function setupPage(message: string): string {
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
   if (ctx.isPrerendered) return next(); // public pages, which never carry a session
-  // Host list pages rendered here (liveRoutes) read collections from storage. Set on the first
-  // on-demand request, never while prerendering, so built pages keep the build's own content.
-  (globalThis as any).__PS_LIVE__ ??= liveCollection;
   const { pathname } = ctx.url;
   const { request } = ctx;
   const isEditor = pathname === '/edit' || pathname.startsWith('/edit/') || pathname.startsWith('/api/editor/');
@@ -139,7 +136,8 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   if (isLive && opts.command === 'build' && request.method === 'GET' && request.headers.get('sec-fetch-dest') === 'document') {
     return done(new Response(null, { status: 302, headers: { location: `/edit/site?path=${encodeURIComponent(pathname)}` } }));
   }
-  const res = await next();
+  // Host code rendered here (liveRoutes, previews) reads collections from storage.
+  const res = await withLive(() => next());
   // The item frame is sandboxed with no scripts, so the site's scripts there would only fail
   // (one console error each); leave them out.
   if (!sandbox && pathname.startsWith('/edit/preview-item/') && !ctx.url.searchParams.has('view') && (res.headers.get('content-type') ?? '').includes('text/html')) {

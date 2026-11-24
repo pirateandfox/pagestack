@@ -65,10 +65,11 @@ export class EditorState extends EventTarget {
     this.persist();
     this.emit('redo');
   }
-  markSaved(hash: string) {
+  /** `saved` is the document that was sent: edits made while the save ran are still to be saved. */
+  markSaved(hash: string, saved: PageDoc) {
     this.hash = hash;
-    this.savedJson = JSON.stringify(this.doc);
-    this.clearDraft();
+    this.savedJson = JSON.stringify(saved);
+    this.persist();
     this.emit('save');
   }
   /** Throw away the draft and go back to the stored page. */

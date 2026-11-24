@@ -104,7 +104,6 @@ describe('GitHubStorage', () => {
       'GET /repos/o/r/compare/main...pagestack-uploads',
       'GET /repos/o/r/git/ref/heads/main',
       'GET /repos/o/r/git/commits/base000',
-      'POST /repos/o/r/git/blobs',
       'POST /repos/o/r/git/trees',
       'POST /repos/o/r/git/commits',
       'PATCH /repos/o/r/git/refs/heads/main',
@@ -113,9 +112,8 @@ describe('GitHubStorage', () => {
     const tree = gh.calls.find((c) => c.path.endsWith('/git/trees'))!.body;
     expect(tree).toEqual({ base_tree: 'tree000', tree: [
       { path: 'public/images/uploads/pic.png', mode: '100644', type: 'blob', sha: 'sideblob0' },
-      { path: 'src/content/pages/index.json', mode: '100644', type: 'blob', sha: 'blob1' },
+      { path: 'src/content/pages/index.json', mode: '100644', type: 'blob', content: '{"title":"New"}\n' },
     ] });
-    expect(gh.calls.filter((c) => c.path.endsWith('/git/blobs')).map((c) => c.body)).toEqual([{ content: '{"title":"New"}\n', encoding: 'utf-8' }]);
     expect(gh.calls.find((c) => c.method === 'PATCH')!.body).toEqual({ sha: 'c0ffee1234567', force: false });
     expect(res).toEqual({ kind: 'github', files: ['src/content/pages/index.json', 'public/images/uploads/pic.png'], commit: 'c0ffee1234567', url: 'https://github.com/o/r/commit/c0ffee1234567', branch: 'main', pullRequest: undefined });
     expect(await s.pendingAsset('public/images/uploads/pic.png')).toBeUndefined(); // the uploads branch is gone
@@ -148,9 +146,14 @@ describe('GitHubStorage page lifecycle', () => {
     const res = await make(gh).commit({ message: 'Rename', files: [{ path: 'p/new.json', content: '{}' }], deletes: ['p/old.json'] });
     const tree = gh.calls.find((c) => c.path.endsWith('/git/trees'))!.body.tree;
     expect(tree).toContainEqual({ path: 'p/old.json', mode: '100644', type: 'blob', sha: null });
-    expect(tree.filter((t: any) => t.sha)).toHaveLength(1);
-    expect(gh.calls.filter((c) => c.path.endsWith('/git/blobs'))).toHaveLength(1);
+    expect(tree.filter((t: any) => 'content' in t)).toEqual([{ path: 'p/new.json', mode: '100644', type: 'blob', content: '{}' }]);
     expect(res.files).toEqual(['p/new.json', 'p/old.json']);
+  });
+  it('sends bytes as a blob and text inside the tree', async () => {
+    const gh = fakeGitHub();
+    await make(gh).commit({ message: 'm', files: [{ path: 'a.png', content: new Uint8Array([1, 2]) }, { path: 'b.md', content: '' }] });
+    expect(gh.calls.find((c) => c.path.endsWith('/git/blobs'))!.body).toEqual({ content: 'AQI=', encoding: 'base64' });
+    expect(gh.calls.find((c) => c.path.endsWith('/git/trees'))!.body.tree).toEqual([{ path: 'a.png', mode: '100644', type: 'blob', sha: 'blob1' }, { path: 'b.md', mode: '100644', type: 'blob', content: '' }]);
   });
   it('a delete alone is enough to commit', async () => {
     expect((await make(fakeGitHub()).commit({ message: 'Delete', files: [], deletes: ['p/old.json'] })).commit).toBeTruthy();

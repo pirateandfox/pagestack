@@ -63,38 +63,32 @@ export const collections = extras.collections ?? {};
 export const sampleContent: SampleContent = extras.sampleContent ?? {};
 
 /** Every page and Markdown item marked `sample: true`, and the globals the host resets with them. */
-export async function readSamples(): Promise<{ pages: SamplePage[]; items: SampleItem[]; globals: SampleGlobal[]; slugs: string[] }> {
-  const slugs = opts.pages === false ? [] : await pageSlugs();
-  const pages: SamplePage[] = [];
-  for (const slug of slugs) {
-    const r = await readPage(slug);
-    if (r && isSamplePage(r.page)) pages.push({ slug, path: pagePath(slug), raw: r.raw, page: r.page });
-  }
+export async function readSamples(from: PageFile[] | Promise<PageFile[]> = opts.pages === false ? [] : readPages()): Promise<{ pages: SamplePage[]; items: SampleItem[]; globals: SampleGlobal[]; slugs: string[] }> {
+  const [all, folders] = await Promise.all([
+    from,
+    storage().readDirs(Object.values(collections).map((c) => c.dir)),
+  ]);
+  const pages: SamplePage[] = all.filter((p) => isSamplePage(p.page)).map(({ slug, raw, page }) => ({ slug, path: pagePath(slug), raw, page }));
   const items: SampleItem[] = [];
   for (const [id, c] of Object.entries(collections)) {
-    // readDir: one request on GitHub, where reading each file would cost one each.
-    const files = storage().readDir ? await storage().readDir!(c.dir)
-      : await Promise.all((await storage().listDir(c.dir)).filter((e) => e.type === 'file').map(async (e) => ({ name: e.name, content: await storage().readFile(`${c.dir}/${e.name}`) ?? '' })));
-    for (const { name, content: raw } of files) {
+    for (const { name, content: raw } of folders[c.dir]) {
       if (!name.endsWith('.md') || !isSampleItem(raw)) continue;
       const { data } = parseMarkdown(raw);
       items.push({ collection: id, label: c.label, slug: name.slice(0, -3), path: `${c.dir}/${name}`, raw, title: String(data.title ?? name), draft: data.draft === true });
     }
   }
-  const globalsOut: SampleGlobal[] = [];
-  for (const id of Object.keys(sampleContent.globals ?? {})) {
-    const g = Object.hasOwn(globals, id) ? globals[id] : null;
-    if (g) globalsOut.push({ id, path: g.file, raw: await storage().readFile(g.file) });
-  }
-  return { pages, items, globals: globalsOut, slugs };
+  const ids = Object.keys(sampleContent.globals ?? {}).filter((id) => Object.hasOwn(globals, id));
+  const raw = await storage().readFiles(ids.map((id) => globals[id].file));
+  return { pages, items, globals: ids.map((id) => ({ id, path: globals[id].file, raw: raw[globals[id].file] })), slugs: all.map((p) => p.slug) };
 }
 /** Pages (and their titles) whose stored JSON mentions a URL. Globals and patterns count too. */
 export async function whereUsed(src: string): Promise<{ title: string; href: string }[]> {
   const out: { title: string; href: string }[] = [];
   const has = (raw: string | null) => !!raw && raw.includes(src);
-  for (const slug of await pageSlugs()) { const r = await readPage(slug); if (r && has(r.raw)) out.push({ title: r.page.title, href: `/edit/${slug}` }); }
-  for (const [id, g] of Object.entries(globals)) if (has(await storage().readFile(g.file))) out.push({ title: g.label, href: `/edit/global/${id}` });
-  if (has(await storage().readFile(opts.patternsFile))) out.push({ title: 'Saved patterns', href: '/edit' });
+  const [pages, files] = await Promise.all([readPages(), storage().readFiles([...Object.values(globals).map((g) => g.file), opts.patternsFile])]);
+  for (const p of pages) if (has(p.raw)) out.push({ title: p.page.title, href: `/edit/${p.slug}` });
+  for (const [id, g] of Object.entries(globals)) if (has(files[g.file])) out.push({ title: g.label, href: `/edit/global/${id}` });
+  if (has(files[opts.patternsFile])) out.push({ title: 'Saved patterns', href: '/edit' });
   return out;
 }
 
@@ -102,12 +96,10 @@ export async function whereUsed(src: string): Promise<{ title: string; href: str
 export interface ItemSummary { slug: string; title: string; date: string; draft: boolean }
 export async function listItems(c: CollectionDoc): Promise<ItemSummary[]> {
   const out: ItemSummary[] = [];
-  for (const e of await storage().listDir(c.dir)) {
-    if (e.type !== 'file' || !e.name.endsWith('.md')) continue;
-    const raw = await storage().readFile(`${c.dir}/${e.name}`);
-    if (raw === null) continue;
-    const { data } = parseMarkdown(raw);
-    out.push({ slug: e.name.slice(0, -3), title: String(data.title ?? e.name), date: String(data.date ?? ''), draft: data.draft === true });
+  for (const { name, content } of (await storage().readDirs([c.dir]))[c.dir]) {
+    if (!name.endsWith('.md')) continue;
+    const { data } = parseMarkdown(content);
+    out.push({ slug: name.slice(0, -3), title: String(data.title ?? name), date: String(data.date ?? ''), draft: data.draft === true });
   }
   return out.sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -128,23 +120,18 @@ export async function readPage(slug: string): Promise<{ page: PageDoc; hash: str
 
 export interface PageSummary { slug: string; title: string; sections: number; status: 'draft' | 'published'; sample?: boolean }
 
-export async function pageSlugs(dir = '', depth = 0): Promise<string[]> {
-  const entries = await storage().listDir(dir ? `${opts.pagesDir}/${dir}` : opts.pagesDir);
-  const out: string[] = [];
-  for (const e of entries) {
-    const rel = dir ? `${dir}/${e.name}` : e.name;
-    if (e.type === 'dir' && depth < 4) out.push(...await pageSlugs(rel, depth + 1));
-    else if (e.type === 'file' && e.name.endsWith('.json')) out.push(rel.slice(0, -5));
-  }
-  return out;
+/** Levels of subfolders pages can sit in. */
+const PAGE_DEPTH = 4;
+export interface PageFile { slug: string; raw: string; page: PageDoc }
+/** Every page with its contents, subfolders included: one request on GitHub. */
+export async function readPages(): Promise<PageFile[]> {
+  const files = (await storage().readDirs([opts.pagesDir], undefined, PAGE_DEPTH))[opts.pagesDir];
+  return files.filter((f) => f.name.endsWith('.json')).map((f) => ({ slug: f.name.slice(0, -5), raw: f.content, page: JSON.parse(f.content) as PageDoc }));
 }
 
-export async function listPages(): Promise<PageSummary[]> {
-  const out: PageSummary[] = [];
-  for (const slug of await pageSlugs()) {
-    const r = await readPage(slug);
-    if (r) out.push({ slug, title: r.page.title, sections: r.page.sections.length, status: r.page.status === 'draft' ? 'draft' : 'published', ...(isSamplePage(r.page) ? { sample: true } : {}) });
-  }
+/** `from`: pages already read, so a screen needing both doesn't read them twice. */
+export async function listPages(from: PageFile[] | Promise<PageFile[]> = readPages()): Promise<PageSummary[]> {
+  const out = (await from).map(({ slug, page }): PageSummary => ({ slug, title: page.title, sections: page.sections.length, status: page.status === 'draft' ? 'draft' : 'published', ...(isSamplePage(page) ? { sample: true } : {}) }));
   return out.sort((a, b) => (a.slug === 'index' ? -1 : b.slug === 'index' ? 1 : a.slug.localeCompare(b.slug)));
 }
 

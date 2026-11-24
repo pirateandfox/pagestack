@@ -1,6 +1,7 @@
 ---
 // /edit/collection/<id> — the items of a Markdown collection, e.g. blog posts.
 import { collections, listItems, opts, reservedSlugs } from '../server/context';
+import { askedOnAdd } from '../core/required';
 import Nav from './Nav.astro';
 import '../client/shell.css';
 export const prerender = false;
@@ -9,7 +10,7 @@ if (!Object.hasOwn(collections, id)) return new Response('No such collection', {
 const c = collections[id];
 const items = await listItems(c);
 const singular = c.singular ?? 'item';
-const boot = { id, singular, slugs: items.map((i) => i.slug), reserved: reservedSlugs() };
+const boot = { id, singular, slugs: items.map((i) => i.slug), reserved: reservedSlugs(), ask: askedOnAdd(c.fields) };
 ---
 <!doctype html>
 <html lang="en">

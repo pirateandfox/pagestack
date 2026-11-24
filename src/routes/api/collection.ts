@@ -1,6 +1,6 @@
 // A folder of Markdown files the host declares in `collections`.
 // GET    /api/editor/collection/<id>         -> { items }
-// POST   /api/editor/collection/<id>         { title, slug } -> creates one (a draft, if the collection has drafts)
+// POST   /api/editor/collection/<id>         { title, slug, data? } -> creates one (a draft, if the collection has drafts)
 // GET    /api/editor/collection/<id>/<slug>  -> { data, body, hash }
 //        ?revisions=1 -> { revisions }   ?rev=<sha> -> { data, body } as of that commit
 // PUT    /api/editor/collection/<id>/<slug>  { data, body, base, slug? } -> one commit; a new `slug`
@@ -12,6 +12,7 @@ import { isSha, sha256, type FileChange } from '../../core/storage';
 import { parseMarkdown, writeMarkdown } from '../../core/frontmatter';
 import { addRedirectLine, slugProblem } from '../../core/pages';
 import { plainText, sanitizeFields, sanitizeMarkdown } from '../../core/sanitize';
+import { fillRequired, missingFields, missingMessage, newItemData } from '../../core/required';
 import type { CollectionDoc } from '../../runtime';
 export const prerender = false;
 
@@ -56,12 +57,12 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const existing = [...(await listItems(c)).map((i) => i.slug), ...(await listPages()).map((p) => p.slug)];
   const problem = SLUG.test(slug) ? slugProblem(slug, { existing, reserved: reservedSlugs() }) : 'Use letters, numbers and dashes in the URL.';
   if (problem) return bad(problem, 409);
-  const data: Record<string, unknown> = { title };
-  for (const [k, f] of Object.entries(c.fields)) if (f.default !== undefined && k !== 'title') data[k] = f.default;
-  // Only the first date is "today": others (modified, reviewed on) mean something else happened.
-  const dated = Object.entries(c.fields).find(([, f]) => f.type === 'date');
-  if (dated && data[dated[0]] === undefined) data[dated[0]] = new Date().toISOString().slice(0, dated[1].time === false ? 10 : 19);
-  if (c.fields.draft?.type === 'boolean') data.draft = true;
+  const given = body.data && typeof body.data === 'object' ? cleanData(c, body.data) : {};
+  const start = newItemData(c.fields);
+  // The title first, as it would be written by hand; what Add sent never sets the title or makes it live.
+  const data = fillRequired(c.fields, Object.assign({ title } as Record<string, unknown>, start, given, { title }, 'draft' in start ? { draft: start.draft } : {}));
+  const missing = missingFields(c.fields, data);
+  if (missing.length) return bad(missingMessage(missing));
   try {
     const result = await storage().commit({ message: commitMessage(`Add ${name(c)} ${slug}`, locals), files: [{ path: file(c, slug), content: writeMarkdown(null, data, '\n') }] });
     return json({ ok: true, slug, result }, 201);
@@ -77,8 +78,15 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   const raw = await storage().readFile(file(c, slug));
   if (raw === null) return bad('not found', 404);
   if (body.base && body.base !== await sha256(raw)) return json({ error: 'This changed since you opened it. Reload to get the latest version.' }, 409);
-  const data = cleanData(c, body.data);
+  const stored = parseMarkdown(raw).data;
+  // Checked as the file will be: what was sent over what is stored. Drafts too, as Astro checks every file.
+  const given = cleanData(c, body.data);
+  const whole = fillRequired(c.fields, { ...stored, ...given });
+  const data: Record<string, any> = { ...given };
+  for (const k of Object.keys(c.fields)) if (Object.hasOwn(whole, k) && JSON.stringify(whole[k]) !== JSON.stringify(stored[k])) data[k] = whole[k];
   if ('title' in c.fields && !String(data.title ?? '').trim()) return bad('Give it a title.');
+  const missing = missingFields(c.fields, whole);
+  if (missing.length) return bad(missingMessage(missing));
   let content = writeMarkdown(raw, data, sanitizeMarkdown(body.body));
   const next = typeof body.slug === 'string' ? body.slug.trim() : slug;
   const moving = next !== slug;

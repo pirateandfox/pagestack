@@ -146,7 +146,7 @@ export const collections: Record<string, CollectionDoc> = {
     url: (slug) => `/news/${slug}/`,
     fields: {
       title: { type: 'text', label: 'Title' },
-      date: { type: 'date', label: 'Date', time: false },
+      date: { type: 'date', label: 'Date', time: false, required: true },
       excerpt: { type: 'textarea', label: 'Excerpt', help: 'One or two sentences for the news list.' },
       image: { type: 'image', label: 'Picture', asUrl: true, altField: 'imageAlt' },
       imageAlt: { type: 'text', label: 'Picture description' },

@@ -46,6 +46,12 @@ export interface Field {
   max?: number;
   step?: number;
   help?: string;
+  /**
+   * Must have a value before the form saves. Collections ask for it when an item is added and check
+   * drafts too, since Astro's schema checks every file; pages are checked unless they are drafts.
+   * Not asked for while `showIf` hides it. No effect on a 'boolean', where off is an answer.
+   */
+  required?: boolean;
   /** Show this field only when another one has a certain value. Hiding never changes the stored value. */
   showIf?: ShowIf;
   /** For 'svg': named icons offered in a dropdown besides raw SVG. */

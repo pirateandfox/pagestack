@@ -4,20 +4,14 @@
 // DELETE /api/editor/images { src, force? } -> removes it; 409 with `used` unless forced.
 import type { APIRoute } from 'astro';
 import { bad, commitMessage, json, listPages, opts, publicUrl, storage, whereUsed } from '../../server/context';
-import { IMAGE_RE, MAX_BYTES, MIME_EXT, acceptImage, imagePath } from '../../core/media';
+import { IMAGE_RE, MAX_BYTES, MIME_EXT, acceptImage, imagePath, libraryOrder } from '../../core/media';
 export const prerender = false;
 
-async function listImages(dir: string, depth: number, out: { src: string; name: string; size?: number }[], limit: number) {
-  if (out.length >= limit || depth > 6) return;
-  const entries = await storage().listDir(dir);
-  // newest upload folders first: sort dirs descending (2026 before 2020), files alphabetically
-  entries.sort((a, b) => (a.type === b.type ? (a.type === 'dir' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)) : a.type === 'dir' ? -1 : 1));
-  for (const e of entries) {
-    if (out.length >= limit) return;
-    const p = `${dir}/${e.name}`;
-    if (e.type === 'dir') await listImages(p, depth + 1, out, limit);
-    else if (IMAGE_RE.test(e.name)) out.push({ src: publicUrl(p), name: e.name, size: e.size });
-  }
+/** Images under a folder, in library order, at most 7 folders deep. */
+function listImages(dir: string, files: { name: string; size?: number }[], limit: number) {
+  return files.filter((f) => IMAGE_RE.test(f.name) && f.name.split('/').length <= 7)
+    .sort((a, b) => libraryOrder(a.name, b.name)).slice(0, limit)
+    .map((f) => ({ src: publicUrl(`${dir}/${f.name}`), name: f.name.split('/').pop()!, size: f.size }));
 }
 
 export const GET: APIRoute = async ({ url }) => {
@@ -25,9 +19,9 @@ export const GET: APIRoute = async ({ url }) => {
   if (used) return json({ used: await whereUsed(used) });
   const q = (url.searchParams.get('q') ?? '').toLowerCase();
   const limit = Math.min(Number(url.searchParams.get('limit')) || 300, 2000);
-  const all: { src: string; name: string; size?: number }[] = [];
-  await listImages(opts.uploadsDir, 0, all, 2000);
-  await listImages(opts.imagesDir, 0, all, 4000);
+  const files = await storage().listTree([opts.uploadsDir, opts.imagesDir]);
+  const uploads = listImages(opts.uploadsDir, files[opts.uploadsDir], 2000);
+  const all = [...uploads, ...listImages(opts.imagesDir, files[opts.imagesDir], 4000 - uploads.length)];
   const seen = new Set<string>();
   const images = all.filter((i) => !seen.has(i.src) && seen.add(i.src)).filter((i) => !q || i.src.toLowerCase().includes(q));
   return json({ images: images.slice(0, limit), total: images.length });

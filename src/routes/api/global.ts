@@ -5,6 +5,7 @@ import type { APIRoute } from 'astro';
 import { bad, commitMessage, globals, json, storage } from '../../server/context';
 import { sha256 } from '../../core/storage';
 import { sanitizeFields } from '../../core/sanitize';
+import { fillRequired, missingFields, missingMessage } from '../../core/required';
 export const prerender = false;
 
 const hasOwn = (id: string | undefined) => !!id && Object.hasOwn(globals, id);
@@ -22,9 +23,12 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   if (!body?.doc || typeof body.doc !== 'object') return bad('invalid document');
   const raw = await storage().readFile(def.file);
   if (raw && body.base && body.base !== await sha256(raw)) return json({ error: 'This changed since you opened it. Reload to get the latest version.' }, 409);
-  const merged = { ...(raw ? JSON.parse(raw) : {}) };
+  let merged = { ...(raw ? JSON.parse(raw) : {}) };
   const cleaned = sanitizeFields(body.doc as Record<string, unknown>, def.fields);
   for (const key of Object.keys(def.fields)) if (key in cleaned) merged[key] = cleaned[key];
+  merged = fillRequired(def.fields, merged);
+  const missing = missingFields(def.fields, merged);
+  if (missing.length) return bad(missingMessage(missing));
   const content = JSON.stringify(merged, null, 2) + '\n';
   try {
     const result = await storage().commit({ message: commitMessage(`Edit ${def.label} via site editor`, locals), files: [{ path: def.file, content }] });

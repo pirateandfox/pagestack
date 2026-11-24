@@ -128,6 +128,8 @@ body.ps[data-left="add"] .ps-listview, body:not([data-left="add"]) .ps-inserter 
 .ps-fields { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
 .ps-field { display: flex; flex-direction: column; gap: 4px; }
 .ps-field label, .ps-field__label { font-size: 12px; font-weight: 600; }
+.ps-req { color: var(--ps-danger); }
+.ps-field.is-missing > input, .ps-field.is-missing > select, .ps-field.is-missing > textarea, .ps-field.is-missing > [contenteditable] { border-color: var(--ps-danger); }
 .ps-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .ps-field .ps-checks label { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer; }
 .ps-field--inline { flex-direction: row; align-items: center; gap: 8px; }
@@ -208,6 +210,11 @@ body.ps[data-left="add"] .ps-listview, body:not([data-left="add"]) .ps-inserter 
 .ps-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
 .ps-dialog__body, .ps-newpage { display: flex; flex-direction: column; gap: 12px; }
 .ps-dialog .ps-field label { display: flex; flex-direction: column; gap: 4px; }
+.ps-dialog .ps-field .ps-checks label { flex-direction: row; }
+.ps-dialog .ps-fields { padding: 0; }
+.ps-dialog .ps-fields .ps-field > label { display: block; }
+.ps-dialog .ps-group { border: 0; }
+.ps-dialog .ps-group > summary { display: none; }
 .ps-dialog .ps-field input[type="text"], .ps-dialog .ps-field select { width: 100%; padding: 7px 10px; border: 1px solid var(--ps-border); border-radius: 6px; font: inherit; background: #fff; }
 .ps-prefixed { display: flex; align-items: center; gap: 4px; font-weight: 400; }
 .ps-error { color: var(--ps-danger); font-size: 12px; margin: 2px 0 0; }

@@ -35,3 +35,13 @@ export function imagePath(src: string, publicDir: string, roots: string[]): stri
   const path = publicDir + decodeURI(src);
   return roots.some((r) => path.startsWith(`${r}/`)) ? path : null;
 }
+
+/** Newest upload folders first: folders before files, folders descending (2026 before 2020), files alphabetically. */
+export function libraryOrder(a: string, b: string): number {
+  const x = a.split('/'), y = b.split('/');
+  let i = 0;
+  while (i < x.length - 1 && i < y.length - 1 && x[i] === y[i]) i++;
+  const xDir = i < x.length - 1, yDir = i < y.length - 1;
+  if (xDir !== yDir) return xDir ? -1 : 1;
+  return xDir ? y[i].localeCompare(x[i]) : x[i].localeCompare(y[i]);
+}

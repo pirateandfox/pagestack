@@ -38,20 +38,31 @@ export interface PendingChanges {
   changes: Revision[];
 }
 
+/** `name` is relative to the folder that was read. */
+export interface DirFile { name: string; content: string }
+
 export interface Storage {
   readonly kind: 'local' | 'github';
   /** Text file content at a repo-relative path, or null when missing. */
   readFile(path: string): Promise<string | null>;
+  /** Several text files, null for a missing one, optionally at a commit. GitHub: one request per 50. */
+  readFiles(paths: string[], ref?: string): Promise<Record<string, string | null>>;
+  /**
+   * Every file below each folder, at any depth, without contents; `name` is relative to the folder.
+   * Uploads waiting for a save are included. GitHub: a few requests, however many subfolders.
+   */
+  listTree(paths: string[]): Promise<Record<string, { name: string; size?: number }[]>>;
   /** Names of entries in a repo-relative directory (files and dirs), [] when missing. */
   listDir(path: string): Promise<{ name: string; type: 'file' | 'dir'; size?: number }[]>;
+  /** Every text file directly in a folder, with its contents, as stored now. One folder of `readDirs`. */
+  readDir(path: string): Promise<DirFile[]>;
   /**
-   * Every file directly in a folder, with its contents, as stored now. Optional; callers fall back
-   * to listDir + readFile. The GitHub adapter caches contents by blob hash, so repeated reads cost
-   * one request.
+   * The text files of several folders at once, optionally at a commit, and optionally `depth` levels
+   * of subfolders too (named `sub/file.md`). [] for a missing folder. Use this, never listDir +
+   * readFile, to read a folder: on GitHub it is one request however many files there are, and
+   * Cloudflare's free plan allows 50 per page.
    */
-  readDir?(path: string): Promise<{ name: string; content: string }[]>;
-  /** Several folders at once, optionally at a commit (GitHub: one request). */
-  readDirs?(paths: string[], ref?: string): Promise<Record<string, { name: string; content: string }[]>>;
+  readDirs(paths: string[], ref?: string, depth?: number): Promise<Record<string, DirFile[]>>;
   /** The commit the branch is at now, when the store has one. Lets readers skip work when nothing changed. */
   head?(): Promise<string>;
   /** When the branch last changed (its head commit's date, ISO). */

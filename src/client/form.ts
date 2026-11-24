@@ -1,6 +1,7 @@
 // Schema -> sidebar form. One widget per field type; changes are reported through `onChange`.
 import type { BlockSchema, Field, ImageValue } from '../runtime';
 import { formModel, isShown } from '../core/schema';
+import type { Missing } from '../core/required';
 import { marksField, richField } from './rich';
 
 export interface FormCallbacks {
@@ -54,7 +55,9 @@ function conditions(fields: Record<string, Field>, values: Record<string, unknow
 function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbacks, idPrefix = 'ps-f-'): HTMLElement {
   const id = `${idPrefix}${name}`;
   const label = el('label', { for: id }, field.label);
-  const wrap = el('div', { class: `ps-field ps-field--${field.type}` }, label);
+  const wrap = el('div', { class: `ps-field ps-field--${field.type}`, 'data-ps-form': id }, label);
+  const outer = cb;
+  cb = { ...cb, onChange: (...args) => { clearMissing(wrap); outer.onChange(...args); } };
   const help = field.help ? el('small', { class: 'ps-muted' }, field.help) : null;
   // `cancel` matters: a live update landing after `change` would reorder the edit and split its undo step.
   const debounce = (fn: () => void, ms = 250) => { let t: ReturnType<typeof setTimeout>; const run = () => { clearTimeout(t); t = setTimeout(fn, ms); }; run.cancel = () => clearTimeout(t); return run; };
@@ -62,6 +65,7 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
   if (field.type === 'text' && field.marks) {
     wrap.append(marksField(id, (value as string) ?? '', (html, live) => cb.onChange(name, html, { live })));
     if (help) wrap.append(help);
+    markRequired(wrap, field);
     return wrap;
   }
   switch (field.type) {
@@ -207,7 +211,46 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       break;
   }
   if (help) wrap.append(help);
+  markRequired(wrap, field);
   return wrap;
+}
+
+function markRequired(wrap: HTMLElement, field: Field) {
+  if (!field.required || field.type === 'boolean') return;
+  wrap.querySelector('label, .ps-field__label')?.append(el('span', { class: 'ps-req', 'aria-hidden': 'true', title: 'Required' }, ' *'));
+  if (field.type !== 'list' && field.type !== 'multiselect' && field.type !== 'image') wrap.querySelector('input, select, textarea, [contenteditable]')?.setAttribute('aria-required', 'true');
+}
+
+function clearMissing(wrap: HTMLElement) {
+  wrap.classList.remove('is-missing');
+  wrap.querySelector(':scope > .ps-error')?.remove();
+}
+
+/** Takes what is still being typed: fields report when they are left, and a keyboard save doesn't leave them. */
+export function commitTyping() {
+  const at = document.activeElement;
+  if (!(at instanceof HTMLElement) || !(at.isContentEditable || at.matches('input, textarea'))) return;
+  const selection = getSelection();
+  const caret = at.isContentEditable && selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+  at.blur();
+  if (!at.isConnected) return;
+  at.focus({ preventScroll: true });
+  if (caret) { selection!.removeAllRanges(); selection!.addRange(caret); }
+}
+
+/** Points at each field that still needs a value, and goes to the first one in this form. */
+export function showMissing(root: HTMLElement, missing: Missing[]) {
+  root.querySelectorAll<HTMLElement>('.is-missing').forEach(clearMissing);
+  const wraps = missing.flatMap((m) => root.querySelector<HTMLElement>(`[data-ps-form="${CSS.escape(`ps-f-${m.path.join('-')}`)}"]`) ?? []);
+  for (const w of wraps) {
+    w.classList.add('is-missing');
+    w.append(el('p', { class: 'ps-error', role: 'alert' }, 'This is required.'));
+    for (let d = w.closest('details'); d; d = d.parentElement?.closest('details') ?? null) d.open = true;
+  }
+  // The field itself, not a toolbar above it; a button where that is all there is (choose an image, add a row).
+  const first = wraps[0];
+  (first?.querySelector<HTMLElement>('input:not([type="file"]), select, textarea:not([hidden]), [contenteditable]') ?? first?.querySelector<HTMLElement>('button'))?.focus();
+  wraps[0]?.scrollIntoView?.({ block: 'nearest' });
 }
 
 /** Repeatable rows, each its own little form. Rows can nest (a menu item holds links). */

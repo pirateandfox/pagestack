@@ -5,6 +5,7 @@ import { uploadImage } from './upload';
 
 export function pickImage(current: ImageValue | undefined, done: (img: ImageValue) => void) {
   const root = document.getElementById('ps-modal-root')!;
+  document.body.append(root); // above a dialog it was opened from
   root.innerHTML = `
     <div class="ps-modal" role="dialog" aria-modal="true" aria-label="Choose an image">
       <div class="ps-modal__box">

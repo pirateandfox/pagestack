@@ -1,6 +1,6 @@
 ---
 // /edit — the Pages screen: every page, with add, duplicate, delete and search.
-import { collections, globals, isAdmin, listPages, opts, publicPath, readSamples, reservedSlugs, sampleContent, templates } from '../server/context';
+import { collections, globals, isAdmin, listPages, opts, publicPath, readPages, readSamples, reservedSlugs, sampleContent, templates } from '../server/context';
 import { sampleState } from '../core/samples';
 import Nav from './Nav.astro';
 import '../client/shell.css';
@@ -9,9 +9,9 @@ if (opts.pages === false) {
   const first = Object.keys(collections)[0];
   return Astro.redirect(first ? `/edit/collection/${first}` : '/edit/media');
 }
-const pages = await listPages();
-// Sample content a starter shipped with: admins can hide it or delete it from here.
-const samples = isAdmin(Astro.locals) ? await readSamples() : null;
+// Samples: content a starter shipped with; admins can hide it or delete it from here.
+const stored = readPages();
+const [pages, samples] = await Promise.all([listPages(stored), isAdmin(Astro.locals) ? readSamples(stored) : null]);
 const sampleNow = samples ? sampleState(samples.pages, samples.items) : 'none';
 const sampleList = samples ? [
   ...samples.pages.map((p) => ({ title: p.page.title, where: p.slug === 'index' ? 'Home page' : 'Page' })),

@@ -222,6 +222,30 @@ A few things worth knowing while you set up the schema:
   in a WordPress heading. See [Bold and italic in headings](#bold-and-italic-in-headings).
 - **The home page is `src/content/pages/index.json`**, edited at `/edit/index`.
 
+### Required fields
+
+Mark a field `required: true` and the editor won't save without it: the field is starred, and Save
+says what is missing and goes to it.
+
+```ts
+fields: {
+  title: { type: 'text', label: 'Title' }, // always required
+  date:  { type: 'date', label: 'Date', time: false, required: true },
+  year:  { type: 'number', label: 'Year', required: true },
+}
+```
+
+- **Collections: mark every field the Astro schema insists on** (no `.optional()`, no `.default()`). One
+  file without it stops the whole build, and Astro checks drafts too, so the editor does as well.
+  **Add** asks for required fields along with the title, unless a `default` answers them (a collection's
+  first date starts as today).
+- **Pages** are checked when they are on the site; a draft may be incomplete. This covers block fields
+  and `pageFields`. **Globals** are always checked.
+- A field hidden by `showIf` isn't asked for, so keep it optional in the Astro schema. Fields in a `list`
+  can be required in each row. A `boolean` can't be: off is an answer.
+- A required field showing its default (or a select's first option) counts as filled in. In collections
+  and globals that value is written to the file.
+
 ### Checkboxes, and fields that depend on others
 
 `multiselect` shows its `options` as checkboxes and stores the ticked values as an array, in the
@@ -319,7 +343,7 @@ export const templates = [{ label: 'Standard page', create: ({ title }) => ({ ti
 export const collections = {
   blog: {
     label: 'Posts', singular: 'post', dir: 'src/content/blog', url: (slug) => `/${slug}/`,
-    fields: { title: { type: 'text', label: 'Title' }, draft: { type: 'boolean', label: 'Draft' }, date: { type: 'date', label: 'Date' }, tags: { type: 'tags', label: 'Tags' } },
+    fields: { title: { type: 'text', label: 'Title' }, draft: { type: 'boolean', label: 'Draft' }, date: { type: 'date', label: 'Date', required: true }, tags: { type: 'tags', label: 'Tags' } },
   },
 };
 
@@ -436,8 +460,8 @@ editor's build only, they render on request from storage instead:
 pagestack({ liveRoutes: ['/', '/blog'], /* … */ })
 ```
 
-The page reads its collections through `liveEntries`, which gives the saved entries on the editor's
-server and `null` everywhere else, so the public build is unchanged and stays fully static:
+The page reads its collections through `liveEntries`, which gives the saved entries to these
+pages and to the editor's previews, and `null` everywhere else, so the public build is unchanged and stays fully static:
 
 ```ts
 // src/lib/content.ts

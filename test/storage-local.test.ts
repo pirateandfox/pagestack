@@ -23,6 +23,19 @@ describe('LocalStorage', () => {
     expect(await s.readFile('src/content/pages/index.json')).toBe('{"a":1}\n');
     expect(await fs.readFile(path.join(root, 'editor-users.json'), 'utf8')).toBe('{}');
   });
+  it('reads several files, and lists everything below a folder', async () => {
+    const s = new LocalStorage(root);
+    await s.commit({ message: 'm', files: [{ path: 'i/a.png', content: '1' }, { path: 'i/x/y/b.png', content: '22' }] });
+    expect(await s.readFiles(['i/a.png', 'i/no'])).toEqual({ 'i/a.png': '1', 'i/no': null });
+    expect((await s.listTree(['i', 'no'])).no).toEqual([]);
+    expect((await s.listTree(['i'])).i.sort((a, b) => a.name.localeCompare(b.name))).toEqual([{ name: 'a.png', size: 1 }, { name: 'x/y/b.png', size: 2 }]);
+  });
+  it('reads folders with their contents, subfolders to the depth asked for', async () => {
+    const s = new LocalStorage(root);
+    await s.commit({ message: 'm', files: [{ path: 'pages/a.json', content: '1' }, { path: 'pages/x/b.json', content: '2' }, { path: 'pages/x/y/c.json', content: '3' }] });
+    expect(await s.readDir('pages')).toEqual([{ name: 'a.json', content: '1' }]);
+    expect(await s.readDirs(['pages', 'nope'], undefined, 1)).toEqual({ pages: [{ name: 'a.json', content: '1' }, { name: 'x/b.json', content: '2' }], nope: [] });
+  });
   it('lists files with sizes, skipping dotfiles', async () => {
     const s = new LocalStorage(root);
     await s.commit({ message: 'm', files: [{ path: 'pages/a.json', content: '12345' }, { path: 'pages/.hidden', content: 'x' }, { path: 'pages/sub/b.json', content: '' }] });

@@ -16,6 +16,16 @@ export function toast(text: string, kind: 'ok' | 'info' | 'warn' | 'error', opts
   setTimeout(() => t.remove(), kind === 'error' ? 15000 : 8000);
 }
 
+/** Runs tasks one after another: a save asked for during a save waits, and then builds on its result. */
+export function taskQueue() {
+  let last: Promise<unknown> = Promise.resolve();
+  return <T>(task: () => Promise<T>): Promise<T> => {
+    const run = last.then(task);
+    last = run.catch(() => {});
+    return run;
+  };
+}
+
 export interface DialogAction { label: string; kind?: 'primary' | 'danger'; run?: () => void | boolean | Promise<void | boolean> }
 
 /** A modal. An action closes it unless `run` returns false. */
@@ -32,7 +42,10 @@ export function dialog(title: string, body: HTMLElement | string, actions: Dialo
   if (typeof body === 'string') { const p = document.createElement('p'); p.textContent = body; content.append(p); } else content.append(body);
   const foot = document.createElement('footer');
   const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); opts.onClose?.(); };
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape' || [...document.querySelectorAll('.ps-modal')].at(-1) !== wrap) return; // the image picker is open over it
+    e.stopPropagation(); close();
+  };
   document.addEventListener('keydown', onKey, true);
   let primary: HTMLButtonElement | undefined;
   for (const a of actions) {

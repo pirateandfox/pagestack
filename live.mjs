@@ -1,6 +1,6 @@
 // For host sites whose list pages should show what the editor has saved (the `liveRoutes` option).
 //
-// On the editor's server, for those pages, this returns a collection's entries as stored now (the
+// On the editor's server, for those pages and the editor's previews, this returns a collection's entries as stored now (the
 // staging branch). Everywhere else, including the public build and prerendering, it returns null,
 // so the caller uses Astro's own getCollection and the public site is unchanged:
 //

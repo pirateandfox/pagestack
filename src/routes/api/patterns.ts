@@ -4,7 +4,8 @@
 // PUT    /api/editor/patterns { id, node } -> new content for a synced pattern and all its copies, one commit
 // DELETE /api/editor/patterns?id=<id>      -> removes one
 import type { APIRoute } from 'astro';
-import { bad, clean, cleanNode, commitMessage, json, opts, pagePath, pageSlugs, patternOk, readPage, readPatterns, serializePage, storage, validate } from '../../server/context';
+import { bad, clean, cleanNode, commitMessage, json, opts, pageFields, pagePath, patternOk, readPages, readPatterns, registry, serializePage, storage, validate } from '../../server/context';
+import { missingInPage, missingMessage } from '../../core/required';
 import { newId } from '../../runtime';
 import type { SavedPattern } from '../../core/insert';
 import { plainText } from '../../core/sanitize';
@@ -40,13 +41,14 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   const patterns = all.map((p) => (p === old ? { ...p, node } : p));
   const files = [{ path: opts.patternsFile, content: JSON.stringify(patterns, null, 2) + '\n' }];
   const pages: string[] = [];
-  for (const slug of await pageSlugs()) {
-    const r = await readPage(slug);
-    const { doc, changed } = applySynced(r!.page, old.id, node);
+  for (const { slug, page: current } of await readPages()) {
+    const { doc, changed } = applySynced(current, old.id, node);
     if (!changed) continue;
-    const page = clean(doc, locals, { ...r!.page, sections: [...r!.page.sections, old.node] });
+    const page = clean(doc, locals, { ...current, sections: [...current.sections, old.node] });
     const problems = validate(page);
     if (problems.length) return bad(`${slug}: ${problems.join('; ')}`);
+    const missing = missingInPage(page, registry, pageFields);
+    if (missing.length) return bad(`${page.title}: ${missingMessage(missing)}`);
     pages.push(slug);
     files.push({ path: pagePath(slug), content: serializePage(page) });
   }

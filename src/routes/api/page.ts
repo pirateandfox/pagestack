@@ -6,8 +6,9 @@
 // DELETE /api/editor/page/<slug>   { base } -> removes the page (one commit; git keeps it).
 //        `base` is the hash the editor loaded; a mismatch means someone else saved first (409).
 import type { APIRoute } from 'astro';
-import { bad, clean, commitMessage, json, listPages, opts, pageName, pagePath, readPage, reservedSlugs, serializePage, slugRe, storage, validate } from '../../server/context';
+import { bad, clean, commitMessage, json, listPages, opts, pageFields, pageName, pagePath, readPage, registry, reservedSlugs, serializePage, slugRe, storage, validate } from '../../server/context';
 import { addRedirect, slugProblem } from '../../core/pages';
+import { missingInPage, missingMessage } from '../../core/required';
 import { isSha } from '../../core/storage';
 import type { FileChange } from '../../core/storage';
 export const prerender = false;
@@ -42,6 +43,8 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   if (base && base !== current.hash) return json({ error: STALE, hash: current.hash }, 409);
   // Once someone has saved a sample page, it is theirs: Hide/Delete sample content leave it alone.
   const { sample: _sample, ...saved } = clean(page, locals, current.page);
+  const missing = missingInPage(saved, registry, pageFields);
+  if (missing.length) return bad(missingMessage(missing));
   const content = serializePage(saved);
 
   const moving = typeof nextSlug === 'string' && nextSlug !== slug;

@@ -1,6 +1,7 @@
 // Edit a site-wide document with the same form widgets as the block sidebar.
 import type { Field } from '../runtime';
-import { renderForm } from './form';
+import { missingFields, missingMessage } from '../core/required';
+import { renderForm, showMissing } from './form';
 import { pickImage } from './picker';
 import { toast } from './ui';
 
@@ -12,6 +13,7 @@ const url = `/api/editor/global/${boot.id}`;
 let doc: Record<string, unknown> = {};
 let hash: string | null = null;
 let dirty = false;
+let saving = false;
 
 const res = await fetch(url);
 const data = await res.json();
@@ -19,15 +21,19 @@ doc = data.doc; hash = data.hash;
 renderForm(root, { label: boot.label, fields: boot.fields }, doc, {
   pickImage,
   pageUrls: boot.pages,
-  onChange: (name, value) => { doc[name] = value; dirty = true; saveBtn.disabled = false; },
+  onChange: (name, value) => { doc[name] = value; dirty = true; saveBtn.disabled = saving; },
 });
 
 saveBtn.addEventListener('click', async () => {
-  saveBtn.disabled = true;
+  const missing = missingFields(boot.fields, doc);
+  if (missing.length) { toast(missingMessage(missing), 'error'); showMissing(root, missing); return; }
+  saveBtn.disabled = saving = true;
+  const sent = JSON.stringify(doc);
   const r = await fetch(url, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ doc, base: hash }) });
   const d = await r.json();
+  saving = false;
   if (!r.ok) { toast(d.error || 'Save failed', 'error'); saveBtn.disabled = false; return; }
-  hash = d.hash; dirty = false;
+  hash = d.hash; dirty = JSON.stringify(doc) !== sent; saveBtn.disabled = !dirty; // edits made meanwhile are still to be saved
   toast(d.result.kind === 'github' ? (document.getElementById('ps-live') ? 'Saved. Use Publish changes to put it on the site.' : 'Saved. The site will rebuild.') : "Saved to the working tree. Commit it with git when you're happy.", 'ok');
 });
 window.addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });

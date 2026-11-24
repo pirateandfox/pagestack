@@ -1,50 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { GitHubStorage } from '../src/core/storage-github';
-import { toBase64 } from '../src/core/storage';
+import { fakeGitHub } from './fake-github';
 
-/** A folder listing plus blobs by sha, counting blob downloads. */
-function fake(files: Record<string, { sha: string; text: string }>) {
-  const blobGets: string[] = [];
+/** The REST requests, with no GraphQL: what a token or a stand-in API without it looks like. */
+function restOnly(graphqlStatus: number) {
+  const urls: string[] = [];
   const fetch = async (input: string | URL | Request) => {
-    const url = new URL(String(input));
-    const path = url.pathname.replace('/repos/o/r/', '');
+    const path = new URL(String(input)).pathname.replace('/repos/o/r/', '');
+    urls.push(path);
     const json = (d: unknown, status = 200) => new Response(JSON.stringify(d), { status });
-    if (path === 'contents/src/content/posts') {
-      return json([...Object.entries(files).map(([name, f]) => ({ name, type: 'file', sha: f.sha, size: f.text.length })), { name: 'drafts', type: 'dir', sha: 'd' }]);
-    }
-    const b = path.match(/^git\/blobs\/(\w+)$/);
-    if (b) {
-      blobGets.push(b[1]);
-      const f = Object.values(files).find((x) => x.sha === b[1]);
-      return f ? json({ content: toBase64(new TextEncoder().encode(f.text)), encoding: 'base64' }) : json({ message: 'Not Found' }, 404);
-    }
+    if (path === '/graphql') return json({ message: 'no' }, graphqlStatus);
+    if (path === 'git/trees/develop') return json({ truncated: false, tree: [{ path: 'src/content/posts/a.md', type: 'blob', sha: 'a1' }] });
     if (path === 'commits/develop') return json({ sha: 'c1', commit: { committer: { date: '2026-11-12T10:00:00Z' } } });
     if (path === 'git/ref/heads/develop') return json({ object: { sha: 'c1' } });
     return json({ message: `unhandled ${path}` }, 500);
   };
-  return { blobGets, storage: new GitHubStorage({ repo: 'o/r', branch: 'develop', token: 't', fetch: fetch as unknown as typeof globalThis.fetch }) };
+  return { urls, storage: new GitHubStorage({ repo: 'o/r', branch: 'develop', token: 't', fetch: fetch as unknown as typeof globalThis.fetch }) };
 }
 
-describe('GitHub readDir', () => {
-  it('returns every file in the folder with its contents, and skips subfolders', async () => {
-    const { storage } = fake({ 'a.md': { sha: 'sa1', text: 'Ä one' }, 'b.md': { sha: 'sb1', text: 'two' } });
-    expect(await storage.readDir!('src/content/posts')).toEqual([{ name: 'a.md', content: 'Ä one' }, { name: 'b.md', content: 'two' }]);
-  });
-
-  it('downloads a file again only when its contents changed', async () => {
-    const files = { 'a.md': { sha: 'ca1', text: 'one' }, 'b.md': { sha: 'cb1', text: 'two' } };
-    const { storage, blobGets } = fake(files);
-    await storage.readDir!('src/content/posts');
-    await storage.readDir!('src/content/posts');
-    expect(blobGets).toEqual(['ca1', 'cb1']);
-    files['b.md'] = { sha: 'cb2', text: 'two, edited' };
-    const after = await storage.readDir!('src/content/posts');
-    expect(blobGets).toEqual(['ca1', 'cb1', 'cb2']);
-    expect(after.find((f) => f.name === 'b.md')?.content).toBe('two, edited');
-  });
-
+describe('GitHub branch head', () => {
   it('reports the branch head and when it last changed', async () => {
-    const { storage } = fake({});
+    const { storage } = restOnly(200);
     expect(await storage.head!()).toBe('c1');
     expect(await storage.lastChange!()).toBe('2026-11-12T10:00:00Z');
   });
@@ -70,8 +46,60 @@ describe('GitHub readDirs', () => {
     expect(calls[0].body.variables).toMatchObject({ owner: 'o', name: 'r', e0: 'abc123:src/content/posts', e1: 'abc123:src/content/news' });
   });
 
-  it('falls back to the REST listing when GraphQL is unavailable', async () => {
-    const { storage } = fake({ 'a.md': { sha: 'sfallback', text: 'one' } });
-    expect(await storage.readDirs!(['src/content/posts'])).toEqual({ 'src/content/posts': [{ name: 'a.md', content: 'one' }] });
+  it('reads one folder the same way', async () => {
+    const gh = fakeGitHub({ 'src/content/posts/a.md': 'Ä one', 'src/content/posts/b.md': '\uFEFFtwo', 'src/content/posts/drafts/c.md': 'no', 'src/content/posts/pic.png': null });
+    const storage = new GitHubStorage({ repo: 'o/r', branch: 'develop', token: 't', fetch: gh.fetch });
+    expect(await storage.readDir('src/content/posts')).toEqual([{ name: 'a.md', content: 'Ä one' }, { name: 'b.md', content: 'two' }]);
+    expect(gh.urls()).toEqual(['/graphql']);
+    expect(await storage.readDirs(['src/nope'])).toEqual({ 'src/nope': [] });
+  });
+
+  it('brings as many levels of subfolders as asked for', async () => {
+    const gh = fakeGitHub({ 'p/a.json': 'a', 'p/x/b.json': 'b', 'p/x/y/c.json': 'c' });
+    const storage = new GitHubStorage({ repo: 'o/r', branch: 'develop', token: 't', fetch: gh.fetch });
+    expect((await storage.readDirs(['p'], undefined, 1)).p).toEqual([{ name: 'a.json', content: 'a' }, { name: 'x/b.json', content: 'b' }]);
+    expect(gh.urls()).toEqual(['/graphql']);
+  });
+
+  it('fetches a text GraphQL cut short, once', async () => {
+    const gh = fakeGitHub({ 'p/a.md': 'a whole long text' }, { truncate: ['p/a.md'] });
+    const storage = new GitHubStorage({ repo: 'o/r', branch: 'develop', token: 't', fetch: gh.fetch });
+    expect(await storage.readDirs(['p'])).toEqual({ p: [{ name: 'a.md', content: 'a whole long text' }] });
+    await storage.readDirs(['p']);
+    expect(gh.urls().filter((u) => u.includes('/git/blobs/'))).toHaveLength(1);
+  });
+});
+
+describe('GitHub readDirs when one request is too much', () => {
+  const files: Record<string, string | null> = { 'other/z.md': 'z', 'posts/deep/d.md': 'd', 'posts/pic.png': null };
+  for (let i = 0; i < 120; i++) files[`posts/${String(i).padStart(3, '0')}.md`] = `batched ${i}`;
+
+  it('reads the files in batches, and only new ones the next time', async () => {
+    const gh = fakeGitHub(files, { folderQueries: 502 });
+    const storage = new GitHubStorage({ repo: 'o/r', branch: 'develop', token: 't', fetch: gh.fetch });
+    const { posts } = await storage.readDirs(['posts']);
+    expect(posts).toHaveLength(120);
+    expect(posts[7]).toEqual({ name: '007.md', content: 'batched 7' });
+    expect(gh.urls()).toEqual(['/graphql', '/repos/o/r/git/trees/develop', '/graphql', '/graphql', '/graphql']);
+    expect(await storage.readDirs(['posts', 'nope'], undefined, 1)).toMatchObject({ nope: [] });
+    expect(gh.urls()).toHaveLength(8); // the refused query, the listing, one batch (d.md and the image)
+  });
+
+  it('says so when GitHub refuses GraphQL, and never reads file by file', async () => {
+    for (const status of [401, 403, 404]) {
+      const { storage, urls } = restOnly(status);
+      await expect(storage.readDirs(['src/content/posts'])).rejects.toThrow(`GraphQL -> ${status}`);
+      expect(urls).toEqual(['/graphql']);
+    }
+    const down = restOnly(503);
+    await expect(down.storage.readDirs(['src/content/posts'])).rejects.toThrow('GraphQL -> 503');
+    expect(down.urls).toEqual(['/graphql', 'git/trees/develop', '/graphql']);
+  });
+
+  it('does not retry past a rate limit', async () => {
+    const gh = fakeGitHub(files, { folderQueries: 'RATE_LIMITED' });
+    const storage = new GitHubStorage({ repo: 'o/r', branch: 'develop', token: 't', fetch: gh.fetch });
+    await expect(storage.readDirs(['posts'])).rejects.toThrow('RATE_LIMITED');
+    expect(gh.urls()).toEqual(['/graphql']);
   });
 });

@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { CommitResult, FileChange, Revision, Storage } from './storage';
+import type { CommitResult, DirFile, FileChange, Revision, Storage } from './storage';
 import { isSha, safeRelPath, StaleWrite } from './storage';
 
 const run = promisify(execFile);
@@ -31,10 +31,27 @@ export class LocalStorage implements Storage {
       return out;
     } catch (e: any) { if (e.code === 'ENOENT') return []; throw e; }
   }
-  async readDir(p: string) {
-    const out: { name: string; content: string }[] = [];
+  async readFiles(paths: string[]) {
+    return Object.fromEntries(await Promise.all(paths.map(async (p) => [p, await this.readFile(p)] as const)));
+  }
+  async listTree(dirs: string[]) {
+    const walk = async (p: string): Promise<{ name: string; size?: number }[]> => (await Promise.all((await this.listDir(p)).map(async (e) =>
+      e.type === 'file' ? [{ name: e.name, size: e.size }] : (await walk(`${p}/${e.name}`)).map((f) => ({ ...f, name: `${e.name}/${f.name}` }))))).flat();
+    return Object.fromEntries(await Promise.all(dirs.map(async (d) => [d, await walk(d)] as const)));
+  }
+  readDir(p: string) { return this.readFolder(p, 0); }
+  async readDirs(dirs: string[], _ref?: string, depth = 0) {
+    const out: Record<string, DirFile[]> = {};
+    for (const d of dirs) out[d] = await this.readFolder(d, depth);
+    return out;
+  }
+  private async readFolder(p: string, depth: number): Promise<DirFile[]> {
+    const out: DirFile[] = [];
     for (const e of await this.listDir(p)) {
-      if (e.type !== 'file') continue;
+      if (e.type === 'dir') {
+        if (depth > 0) for (const f of await this.readFolder(`${p}/${e.name}`, depth - 1)) out.push({ ...f, name: `${e.name}/${f.name}` });
+        continue;
+      }
       const content = await this.readFile(`${p}/${e.name}`);
       if (content !== null) out.push({ name: e.name, content });
     }

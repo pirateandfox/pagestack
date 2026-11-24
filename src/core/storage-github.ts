@@ -1,4 +1,4 @@
-// GitHub adapter: reads through the Contents API, writes one commit per save through the Git Data
+// GitHub adapter: reads single files through the Contents API and folders through GraphQL, writes one commit per save through the Git Data
 // API (blobs -> tree -> commit -> ref). Optionally commits to a fresh branch and opens a pull
 // request instead of touching the target branch ("preview before publish").
 //
@@ -7,7 +7,7 @@
 // Uploads wait on a side branch until the next save brings them along in its one commit, then the
 // branch goes away. Keeping them in the repo rather than in memory means an upload and the save
 // after it can land on different server instances (Workers), and a restart loses nothing.
-import type { CommitResult, FileChange, PendingChanges, Revision, Storage } from './storage';
+import type { CommitResult, DirFile, FileChange, PendingChanges, Revision, Storage } from './storage';
 import { fromBase64, isSha, safeRelPath, StaleWrite, toBase64 } from './storage';
 
 export interface GitHubOptions {
@@ -35,6 +35,31 @@ const UPLOADS = 'pagestack-uploads';
 /** Blob contents by git hash. A hash names exactly one content, so entries never go stale. */
 const blobs = new Map<string, string>();
 const BLOB_CACHE_MAX = 2000;
+function remember(oid: string, text: string) {
+  if (blobs.size >= BLOB_CACHE_MAX) blobs.delete(blobs.keys().next().value!);
+  blobs.set(oid, text);
+}
+
+/** Files per request when a folder can't be read in one. */
+const BATCH = 50;
+/** Where a folder listing too long for GitHub to return whole stops. */
+const LIST_MAX = 10_000;
+const BLOB = '... on Blob { oid text isBinary isTruncated }';
+/** A folder's files, and `depth` levels of subfolders. */
+const treeFields = (depth: number): string => `... on Tree { entries { name type object { ${BLOB}${depth > 0 ? ` ${treeFields(depth - 1)}` : ''} } } }`;
+
+function flatten(entries: any[], prefix = ''): { name: string; object: any }[] {
+  return entries.flatMap((e) => e.type === 'blob' ? [{ name: prefix + e.name, object: e.object }]
+    : e.type === 'tree' && e.object?.entries ? flatten(e.object.entries, `${prefix}${e.name}/`) : []);
+}
+
+/** Without a byte order mark, as the other reads (TextDecoder) return it: `expect` compares the two. */
+const clean = (text: string) => text.replace(/^\uFEFF/, '');
+
+class GraphQLError extends Error {
+  /** `retry`: a smaller query may work (a timeout, an answer too large). */
+  constructor(message: string, readonly retry: boolean) { super(message); }
+}
 
 export class GitHubStorage implements Storage {
   readonly kind = 'github' as const;
@@ -64,13 +89,49 @@ export class GitHubStorage implements Storage {
   }
   private get repoUrl() { return `/repos/${this.opts.repo}`; }
 
-  async readFile(p: string): Promise<string | null> {
-    const data = await this.req<any>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${encodeURIComponent(this.branch)}`, undefined, true);
-    if (!data || data.type !== 'file') return null;
-    if (data.encoding === 'base64') return new TextDecoder().decode(fromBase64(data.content.replace(/\n/g, '')));
-    // Files over 1 MB come without content; fetch the blob.
-    const blob = await this.req<any>('GET', `${this.repoUrl}/git/blobs/${data.sha}`);
-    return new TextDecoder().decode(fromBase64(blob.content.replace(/\n/g, '')));
+  async readFile(p: string): Promise<string | null> { return this.textAt(p, this.branch); }
+
+  async readFiles(paths: string[], ref = this.branch): Promise<Record<string, string | null>> {
+    if (paths.length === 1) return { [paths[0]]: await this.textAt(paths[0], ref) };
+    const out: Record<string, string | null> = {};
+    for (let at = 0; at < paths.length; at += BATCH) {
+      const batch = paths.slice(at, at + BATCH);
+      const vars = { ref, ...Object.fromEntries(batch.map((p, i) => [`e${i}`, `${ref}:${safeRelPath(p)}`])) };
+      const repo = await this.graphql(`at: object(expression: $ref) { oid } ${batch.map((_, i) => `f${i}: object(expression: $e${i}) { ${BLOB} }`).join(' ')}`, vars);
+      // Without this, a commit GitHub can't see yet would read as every file missing.
+      if (!repo.at) throw new Error(`GitHub has no ${ref} in ${this.opts.repo}`);
+      await Promise.all(batch.map(async (p, i) => { out[p] = repo[`f${i}`]?.oid ? await this.blobText(repo[`f${i}`]) : null; }));
+    }
+    return out;
+  }
+
+  async listTree(dirs: string[]): Promise<Record<string, { name: string; size?: number }[]>> {
+    const out: Record<string, { name: string; size?: number }[]> = {};
+    if (!dirs.length) return out;
+    const refs = [this.branch, UPLOADS];
+    const at = dirs.flatMap((d) => refs.map((ref) => `${ref}:${safeRelPath(d)}`));
+    const repo = await this.graphql(at.map((_, i) => `t${i}: object(expression: $e${i}) { oid }`).join(' '), Object.fromEntries(at.map((e, i) => [`e${i}`, e])));
+    await Promise.all(dirs.map(async (d, i) => {
+      const [main, waiting] = await Promise.all(refs.map((_, r) => this.walk(repo[`t${i * refs.length + r}`]?.oid)));
+      const seen = new Set(main.map((f) => f.name));
+      out[d] = [...main, ...waiting.filter((f) => !seen.has(f.name))];
+    }));
+    return out;
+  }
+  /** One request, unless GitHub cuts the listing short (tens of thousands of files): then per subfolder, newest first, up to LIST_MAX. */
+  private async walk(sha: string | undefined, prefix = ''): Promise<{ name: string; size?: number }[]> {
+    if (!sha) return [];
+    const url = `${this.repoUrl}/git/trees/${sha}`;
+    const files = (t: any): { name: string; size?: number }[] => (t.tree as any[]).filter((e) => e.type === 'blob').map((e) => ({ name: prefix + e.path as string, size: e.size as number | undefined }));
+    const all = await this.req<any>('GET', `${url}?recursive=1`);
+    if (!all.truncated) return files(all);
+    const top = await this.req<any>('GET', url);
+    const out = files(top);
+    for (const e of (top.tree as any[]).filter((x) => x.type === 'tree').sort((a, b) => b.path.localeCompare(a.path))) {
+      if (out.length >= LIST_MAX) break;
+      out.push(...await this.walk(e.sha, `${prefix}${e.path}/`));
+    }
+    return out;
   }
 
   async listDir(p: string) {
@@ -93,70 +154,88 @@ export class GitHubStorage implements Storage {
     return c?.commit?.committer?.date ?? c?.commit?.author?.date ?? null;
   }
 
-  async readDir(p: string): Promise<{ name: string; content: string }[]> {
-    const data = await this.req<any[]>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${encodeURIComponent(this.branch)}`, undefined, true);
-    if (!Array.isArray(data)) return [];
-    const files = data.filter((e) => e.type === 'file');
-    const out: { name: string; content: string }[] = new Array(files.length);
-    let next = 0;
-    const worker = async () => {
-      while (next < files.length) {
-        const i = next++; const f = files[i];
-        let content = blobs.get(f.sha);
-        if (content === undefined) {
-          const blob = await this.req<any>('GET', `${this.repoUrl}/git/blobs/${f.sha}`);
-          content = new TextDecoder().decode(fromBase64(String(blob.content).replace(/\n/g, '')));
-          if (blobs.size >= BLOB_CACHE_MAX) blobs.delete(blobs.keys().next().value!);
-          blobs.set(f.sha, content);
-        }
-        out[i] = { name: f.name, content };
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(8, files.length) }, worker));
-    return out;
+  async readDir(p: string): Promise<DirFile[]> {
+    return (await this.readDirs([p]))[p];
   }
 
   /**
    * Several folders in one GraphQL request (file names and text), instead of a listing plus one
-   * request per file. `ref` pins the read to a commit. Falls back to readDir per folder when
-   * GraphQL is unavailable (a stand-in API, a token without access).
+   * request per file. `ref` pins the read to a commit; `depth` levels of subfolders come along.
+   * When GitHub can't answer that in one go, the files are read in batches (`readInBatches`), never
+   * one by one: a Worker on Cloudflare's free plan may make 50 requests per page.
    */
-  async readDirs(dirs: string[], ref = this.branch): Promise<Record<string, { name: string; content: string }[]>> {
-    const out: Record<string, { name: string; content: string }[]> = {};
-    if (!dirs.length) return out;
+  async readDirs(dirs: string[], ref = this.branch, depth = 0): Promise<Record<string, DirFile[]>> {
+    const paths = dirs.map(safeRelPath);
+    const out: Record<string, DirFile[]> = {};
+    if (!paths.length) return out;
+    let repo: any;
     try {
-      const [owner, name] = this.opts.repo.split('/');
-      const vars: Record<string, string> = { owner, name };
-      const fields = dirs.map((d, i) => {
-        vars[`e${i}`] = `${ref}:${safeRelPath(d)}`;
-        return `d${i}: object(expression: $e${i}) { ... on Tree { entries { name type object { ... on Blob { oid text isBinary isTruncated } } } } }`;
-      });
-      const query = `query(${['$owner: String!', '$name: String!', ...dirs.map((_, i) => `$e${i}: String!`)].join(', ')}) { repository(owner: $owner, name: $name) { ${fields.join(' ')} } }`;
-      const res = await this.fetchImpl(`${this.api}/graphql`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${this.opts.token}`, 'content-type': 'application/json', 'user-agent': 'pagestack' },
-        body: JSON.stringify({ query, variables: vars }),
-      });
-      if (!res.ok) throw new Error(`GitHub GraphQL -> ${res.status}`);
-      const body = await res.json() as any;
-      const repo = body?.data?.repository;
-      if (!repo || body.errors?.length) throw new Error('GitHub GraphQL: ' + JSON.stringify(body.errors ?? body).slice(0, 300));
-      await Promise.all(dirs.map(async (d, i) => {
-        const entries: any[] = repo[`d${i}`]?.entries ?? [];
-        out[d] = await Promise.all(entries.filter((e) => e.type === 'blob' && e.object && !e.object.isBinary).map(async (e) => {
-          let content: string = e.object.text ?? '';
-          if (e.object.isTruncated) {
-            const blob = await this.req<any>('GET', `${this.repoUrl}/git/blobs/${e.object.oid}`);
-            content = new TextDecoder().decode(fromBase64(String(blob.content).replace(/\n/g, '')));
-          }
-          return { name: e.name as string, content };
-        }));
-      }));
-      return out;
-    } catch {
-      for (const d of dirs) out[d] = await this.readDir(d);
-      return out;
+      const vars = Object.fromEntries(paths.map((d, i) => [`e${i}`, `${ref}:${d}`]));
+      repo = await this.graphql(paths.map((_, i) => `d${i}: object(expression: $e${i}) { ${treeFields(depth)} }`).join(' '), vars);
+    } catch (e) {
+      // Refused (token, rate limit) or not there at all: asking again in pieces can't help.
+      if (e instanceof GraphQLError && !e.retry) throw e;
+      return this.readInBatches(dirs, paths, ref, depth);
     }
+    await Promise.all(dirs.map(async (d, i) => { out[d] = await this.textFiles(flatten(repo[`d${i}`]?.entries ?? [])); }));
+    return out;
+  }
+
+  /** One listing of the whole repo, then the folders' files `BATCH` at a time, skipping any already seen. */
+  private async readInBatches(dirs: string[], paths: string[], ref: string, depth: number): Promise<Record<string, DirFile[]>> {
+    const listing = await this.req<any>('GET', `${this.repoUrl}/git/trees/${encodeURIComponent(ref)}?recursive=1`);
+    if (listing.truncated) throw new Error('GitHub could not list the repository: it has too many files.');
+    const found = paths.map((d) => (listing.tree as any[])
+      .filter((e) => e.type === 'blob' && e.path.startsWith(`${d}/`))
+      .map((e) => ({ name: e.path.slice(d.length + 1) as string, oid: e.sha as string }))
+      .filter((f) => f.name.split('/').length <= depth + 1));
+    const got = new Map<string, any>();
+    const missing = [...new Set(found.flat().map((f) => f.oid))].filter((oid) => !blobs.has(oid));
+    for (let at = 0; at < missing.length; at += BATCH) {
+      const batch = missing.slice(at, at + BATCH);
+      const repo = await this.graphql(batch.map((_, i) => `b${i}: object(oid: $e${i}) { ${BLOB} }`).join(' '), Object.fromEntries(batch.map((oid, i) => [`e${i}`, oid])), 'GitObjectID!');
+      batch.forEach((oid, i) => got.set(oid, repo[`b${i}`]));
+    }
+    const out: Record<string, DirFile[]> = {};
+    await Promise.all(dirs.map(async (d, i) => {
+      out[d] = await this.textFiles(found[i].map((f) => ({ name: f.name, object: got.get(f.oid) ?? { oid: f.oid, text: blobs.get(f.oid) } })));
+    }));
+    for (const b of got.values()) if (b && !b.isBinary && !b.isTruncated && typeof b.text === 'string') remember(b.oid, clean(b.text));
+    return out;
+  }
+
+  /** Blob objects as files. Only a text too long for GraphQL to return whole costs its own request. */
+  private async textFiles(files: { name: string; object: any }[]): Promise<DirFile[]> {
+    return Promise.all(files.filter((f) => f.object && !f.object.isBinary).map(async ({ name, object }) => ({ name, content: await this.blobText(object) })));
+  }
+  private async blobText(object: any): Promise<string> {
+    if (!object.isTruncated && typeof object.text === 'string') return clean(object.text);
+    let content = blobs.get(object.oid);
+    if (content === undefined) {
+      const blob = await this.req<any>('GET', `${this.repoUrl}/git/blobs/${object.oid}`);
+      content = new TextDecoder().decode(fromBase64(String(blob.content).replace(/\n/g, '')));
+      remember(object.oid, content);
+    }
+    return content;
+  }
+
+  /** A query on the repository; `vars` are variables of one type. */
+  private async graphql(fields: string, vars: Record<string, string>, type = 'String!'): Promise<any> {
+    const [owner, name] = this.opts.repo.split('/');
+    const query = `query(${['$owner: String!', '$name: String!', ...Object.keys(vars).map((v) => `$${v}: ${type}`)].join(', ')}) { repository(owner: $owner, name: $name) { ${fields} } }`;
+    const res = await this.fetchImpl(`${this.api.replace(/\/api\/v3$/, '/api')}/graphql`, { // GitHub Enterprise: beside /api/v3, not under it
+      method: 'POST',
+      headers: { authorization: `Bearer ${this.opts.token}`, 'content-type': 'application/json', 'user-agent': 'pagestack' },
+      body: JSON.stringify({ query, variables: { owner, name, ...vars } }),
+    });
+    if (!res.ok) throw new GraphQLError(`GitHub GraphQL -> ${res.status} ${(await res.text()).slice(0, 300)}`, res.status >= 500);
+    const body = await res.json() as any;
+    const repo = body?.data?.repository;
+    if (!repo || body.errors?.length) {
+      const refused = (body?.errors ?? []).some((e: any) => ['RATE_LIMITED', 'FORBIDDEN', 'NOT_FOUND'].includes(e?.type));
+      throw new GraphQLError('GitHub GraphQL: ' + JSON.stringify(body?.errors ?? body).slice(0, 300), !refused);
+    }
+    return repo;
   }
 
   private async uploadsBranch() {
@@ -205,7 +284,9 @@ export class GitHubStorage implements Storage {
   private async textAt(p: string, ref: string): Promise<string | null> {
     const data = await this.req<any>('GET', `${this.repoUrl}/contents/${encodePath(safeRelPath(p))}?ref=${encodeURIComponent(ref)}`, undefined, true);
     if (!data || data.type !== 'file') return null;
-    return new TextDecoder().decode(fromBase64(String(data.content).replace(/\n/g, '')));
+    // Files over 1 MB come without content; fetch the blob.
+    const content = data.encoding === 'base64' ? data.content : (await this.req<any>('GET', `${this.repoUrl}/git/blobs/${data.sha}`)).content;
+    return new TextDecoder().decode(fromBase64(String(content).replace(/\n/g, '')));
   }
 
   async commit({ message, files, deletes = [], expect }: { message: string; files: FileChange[]; deletes?: string[]; expect?: Record<string, string | null> }): Promise<CommitResult> {
@@ -216,14 +297,14 @@ export class GitHubStorage implements Storage {
     const base = await this.req<any>('GET', `${this.repoUrl}/git/ref/heads/${encodeURIComponent(this.branch)}`);
     const baseSha: string = base.object.sha;
     const baseCommit = await this.req<any>('GET', `${this.repoUrl}/git/commits/${baseSha}`);
-    for (const [p, want] of Object.entries(expect ?? {})) {
-      if ((await this.textAt(p, baseSha)) !== want) throw new StaleWrite(p);
-    }
+    const now = await this.readFiles(Object.keys(expect ?? {}), baseSha);
+    for (const [p, want] of Object.entries(expect ?? {})) if (now[p] !== want) throw new StaleWrite(p);
 
-    const tree: { path: string; mode: string; type: string; sha: string | null }[] = [...removed.map((path) => ({ path, mode: '100644', type: 'blob', sha: null })), ...uploads];
+    // Text goes in the tree itself: a blob each would be a request per file.
+    const tree: { path: string; mode: string; type: string; sha?: string | null; content?: string }[] = [...removed.map((path) => ({ path, mode: '100644', type: 'blob', sha: null })), ...uploads];
     for (const f of all) {
-      const isText = typeof f.content === 'string';
-      const blob = await this.req<any>('POST', `${this.repoUrl}/git/blobs`, isText ? { content: f.content, encoding: 'utf-8' } : { content: toBase64(f.content as Uint8Array), encoding: 'base64' });
+      if (typeof f.content === 'string') { tree.push({ path: f.path, mode: '100644', type: 'blob', content: f.content }); continue; }
+      const blob = await this.req<any>('POST', `${this.repoUrl}/git/blobs`, { content: toBase64(f.content), encoding: 'base64' });
       tree.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
     }
     const newTree = await this.req<any>('POST', `${this.repoUrl}/git/trees`, { base_tree: baseCommit.tree.sha, tree });

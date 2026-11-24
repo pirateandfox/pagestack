@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.0-beta.18 — 2026-11-24
+
+- **Required fields.** `required: true` on any field: the form stars it, and Save says what is missing, opens it and is refused, by the API too. A cleared field the site's Astro schema insists on used to stop the next build. In collections drafts are checked as well, because Astro checks every file, and **Add** asks for what it can't fill in itself (new items could break the build before anyone had opened them). Pages are checked unless they are drafts. Opt-in; hosts should mark the fields their schemas require. `POST /api/editor/collection/<id>` takes an optional `data`.
+- **Saving a page no longer takes the cursor out of the field.** The sidebar was redrawn after every save and an edit on the page was ended, so what you typed next went nowhere, and Backspace deleted the selected block.
+- **Text typed while a save is running is kept as unsaved.** It was shown as saved, and its recovery copy dropped, though only the earlier text had been sent: on pages, collection items and globals. A second save asked for meanwhile waits for the first; it used to be refused as a conflict.
+- ⌘S saves a value still being typed (a number, a date, tags). It used to save what was there before.
+- Clearing a number in a collection item now clears it; the old value used to stay in the file.
+- The image picker opens above a dialog, and Escape closes the picker first.
+- **`examples/bakery`**: a news post's date is required.
+- **The editor stays within the 50 requests a page that Cloudflare's free plan allows, however big the site.** Above about 45 files `/edit` and other screens returned a 500, because each file cost a GitHub request. Now:
+  - A folder is read in one request, pages in subfolders included: the Pages screen, collections, the page editor, sample content, and the check for where an image is used.
+  - A save of many files makes a fixed handful of requests: hiding or deleting sample content, and updating a synced pattern on every page. Checking that the files haven't changed meanwhile costs one request per 50.
+  - The media library lists all folders in a few requests; each folder used to cost two.
+- When GitHub can't return a folder in one answer, its files are read 50 per request, never one by one. If GitHub refuses GraphQL (token, rate limit), the error says so. A stand-in GitHub API (`EDITOR_GITHUB_API`) must now answer `/graphql`.
+- A file over 1 MB can be read at a past revision and in a conditional save (its text came back empty).
+- **Post pages no longer go blank in dev.** Once a list page, the editor or a preview had been opened, `liveEntries` gave stored entries to everything in the process, the site's `getStaticPaths` included. Those entries have no rendered HTML, so post pages that use `liveEntries` showed no body. Stored entries now reach only the requests they are meant for: live pages, the editor and its previews. Other on-demand routes of the site get `null`, as documented, and so can't show unpublished work.
+- Storage adapters: `readDir` and `readDirs` are required, `readDirs` takes a `depth` for subfolders, and `readFiles` and `listTree` are new.
+
 ## 0.1.0-beta.17 — 2026-11-24
 
 - **Checkboxes for several values: the `multiselect` field.** It shows its `options` as checkboxes and stores an array of the ticked values, in option order (`repeatsOn: [mon, wed]`). Values no longer offered stay ticked, marked "(current)", until someone unticks them.

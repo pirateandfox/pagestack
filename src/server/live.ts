@@ -3,6 +3,7 @@
 //
 // With a store that knows its head commit (GitHub), entries are kept until the branch moves, and
 // the head is asked at most once a second, so a page that lists four collections costs one request.
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { collections, storage } from './context';
 import { parseMarkdown } from '../core/frontmatter';
 
@@ -27,11 +28,7 @@ function toEntries(name: string, dir: string, files: { name: string; content: st
 }
 
 async function read(name: string, dir: string): Promise<LiveEntry[]> {
-  const s = storage();
-  const files = s.readDir
-    ? await s.readDir(dir)
-    : await Promise.all((await s.listDir(dir)).filter((e) => e.type === 'file').map(async (e) => ({ name: e.name, content: (await s.readFile(`${dir}/${e.name}`)) ?? '' })));
-  return toEntries(name, dir, files);
+  return toEntries(name, dir, await storage().readDir(dir));
 }
 
 /**
@@ -64,4 +61,19 @@ export async function liveCollection(name: string, now = Date.now()): Promise<Li
   // A failed read is not kept: the next request tries again.
   mine.catch(() => { if (cached?.byName.get(name) === mine) cached.byName.delete(name); });
   return entries;
+}
+
+type Read = (name: string) => Promise<LiveEntry[] | null>;
+
+/**
+ * Runs `run` with live.mjs's `liveEntries` giving stored entries, for that request alone: its whole
+ * render, streamed parts included. Anything else in the process must keep getting null. In dev the
+ * same process runs the site's getStaticPaths, and a stored entry has no rendered HTML, so a post
+ * page built from one came out blank. Kept on globalThis because dev can load this module twice.
+ */
+export function withLive<T>(run: () => T): T {
+  const g = globalThis as { __PS_LIVE_SCOPE__?: AsyncLocalStorage<Read>; __PS_LIVE__?: (name: string) => ReturnType<Read> | null };
+  const scope = (g.__PS_LIVE_SCOPE__ ??= new AsyncLocalStorage<Read>());
+  g.__PS_LIVE__ ??= (name) => scope.getStore()?.(name) ?? null;
+  return scope.run((name) => liveCollection(name), run);
 }
