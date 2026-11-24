@@ -124,8 +124,9 @@ Checklist for any change:
 ## 4. Release
 
 Versions are git tags `vX.Y.Z[-beta.N]` on `main`, one CHANGELOG entry each, published to npm.
-Pre-1.0 releases go out as `0.1.0-beta.N` under the `beta` dist-tag so `npm install @pirateandfox/pagestack`
-never hands someone a beta by accident.
+Pre-1.0 releases go out as `0.1.0-beta.N`, and both the `beta` and `latest` dist-tags point at the newest
+one, so a plain `npm install @pirateandfox/pagestack` gets it. Once there is a stable release, `latest`
+stays on stable and betas go to `beta` only.
 
 ```bash
 # 1. make sure main is clean and tests pass
@@ -139,13 +140,17 @@ npm version prerelease --preid beta        # 0.1.0-beta.4 -> 0.1.0-beta.5
 
 # 4. publish (public scoped package; npm asks for a one-time code if 2FA is on)
 npm publish --access public --tag beta --otp <code>
-#   stable later: npm publish --access public      (goes to `latest`)
+#   stable later: npm publish --access public      (goes to `latest`; skip step 6)
 
 # 5. push the commit and the tag
 git push --follow-tags
 
-# 6. verify, then bump the host(s)
-npm view @pirateandfox/pagestack versions dist-tags
+# 6. once the version is live (a few minutes; step 7's npm view lists it), point `latest` at it.
+#    This needs a second one-time code.
+npm dist-tag add @pirateandfox/pagestack@<version> latest --otp <code>
+
+# 7. verify, then bump the host(s)
+npm view @pirateandfox/pagestack versions dist-tags --prefer-online
 cd ../your-host && npm install @pirateandfox/pagestack@<version> --save-exact && npm run build && npm test
 ```
 
@@ -153,8 +158,8 @@ Notes:
 
 - `npm whoami` must show an account with publish rights on the `@pirateandfox` scope. Login tokens
   expire; re-run `npm login` if publish returns 401 or a bare 404 on the scope.
-- Right after a first publish the registry can return 404 anonymously for several minutes while
-  authenticated requests succeed. Wait; do not re-publish.
+- Right after a publish the registry can return 404 for the new version, and the old dist-tags, for
+  several minutes. Wait; do not re-publish.
 - If a host's lockfile still records a `git+ssh` URL for the package after switching to a version,
   `npm uninstall` then `npm install <pkg>@<version> --save-exact` so it resolves to the registry tarball.
 - The bare name `pagestack` is blocked by npm's similarity rule (unrelated `page-stack`), and the
