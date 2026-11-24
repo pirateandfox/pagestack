@@ -1,6 +1,6 @@
 // Schema -> sidebar form. One widget per field type; changes are reported through `onChange`.
 import type { BlockSchema, Field, ImageValue } from '../runtime';
-import { formModel } from '../core/schema';
+import { formModel, isShown } from '../core/schema';
 import { marksField, richField } from './rich';
 
 export interface FormCallbacks {
@@ -24,12 +24,31 @@ export function renderForm(root: HTMLElement, schema: BlockSchema, settings: Rec
   root.innerHTML = '';
   const groups = formModel(schema, settings);
   if (!groups.length) { root.append(el('p', { class: 'ps-muted' }, 'This block has no settings.')); return; }
+  const values = { ...settings };
+  const shown = conditions(schema.fields, values);
+  const formCb: FormCallbacks = { ...cb, onChange: (name, value, ...o) => { values[name] = value; cb.onChange(name, value, ...o); shown.update(); } };
   for (const g of groups) {
     const body = el('div', { class: 'ps-fields' });
-    for (const f of g.fields) body.append(fieldWidget(f.name, f.field, f.value, cb));
+    for (const f of g.fields) body.append(shown.track(f.name, fieldWidget(f.name, f.field, f.value, formCb)));
     const details = el('details', { class: 'ps-group', open: g.name !== 'advanced' }, el('summary', {}, g.label), body) as HTMLDetailsElement;
+    shown.trackGroup(details, g.fields.map((f) => f.name));
     root.append(details);
   }
+  shown.update();
+}
+
+/** Shows and hides a form's widgets by their fields' `showIf`, and a group with nothing left to show. */
+function conditions(fields: Record<string, Field>, values: Record<string, unknown>) {
+  const widgets = new Map<string, HTMLElement>();
+  const groups: [HTMLElement, string[]][] = [];
+  return {
+    track: (name: string, widget: HTMLElement) => { widgets.set(name, widget); return widget; },
+    trackGroup: (group: HTMLElement, names: string[]) => { groups.push([group, names]); },
+    update: () => {
+      for (const [name, w] of widgets) w.hidden = !isShown(name, fields, values);
+      for (const [g, names] of groups) g.hidden = names.every((n) => widgets.get(n)!.hidden);
+    },
+  };
 }
 
 function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbacks, idPrefix = 'ps-f-'): HTMLElement {
@@ -105,6 +124,21 @@ function fieldWidget(name: string, field: Field, value: unknown, cb: FormCallbac
       if (value !== undefined && !(field.options ?? []).some((o) => o.value === String(value))) sel.prepend(el('option', { value: String(value), selected: true }, `${value} (current)`));
       sel.addEventListener('change', () => cb.onChange(name, sel.value));
       wrap.append(sel);
+      break;
+    }
+    case 'multiselect': {
+      const current = (Array.isArray(value) ? value : value === undefined || value === null || value === '' ? [] : [value]).map(String);
+      const known = field.options ?? [];
+      // Values no longer offered stay ticked until someone unticks them.
+      const extra = [...new Set(current)].filter((v) => !known.some((o) => o.value === v)).map((v) => ({ value: v, label: `${v} (current)` }));
+      const boxes = [...known, ...extra].map((o, i) => {
+        const box = el('input', { id: `${id}-${i}`, type: 'checkbox', value: o.value, checked: current.includes(o.value) }) as HTMLInputElement;
+        box.addEventListener('change', () => cb.onChange(name, boxes.filter((b) => b.box.checked).map((b) => b.box.value)));
+        return { box, row: el('label', { for: `${id}-${i}` }, box, o.label) };
+      });
+      const heading = el('span', { class: 'ps-field__label', id: `${id}-label` }, field.label);
+      label.replaceWith(heading);
+      wrap.append(el('div', { id, class: 'ps-checks', role: 'group', 'aria-labelledby': `${id}-label` }, ...boxes.map((b) => b.row)));
       break;
     }
     case 'color': {
@@ -196,14 +230,20 @@ function listWidget(name: string, field: Field, value: unknown, cb: FormCallback
     rows.forEach((row, i) => {
       const title = el('span', { class: 'ps-ellipsis' }, rowName(row, i));
       const body = el('div', { class: 'ps-fields' });
+      const shown = conditions(fields, row);
       for (const [k, sub] of Object.entries(fields)) {
         const rowCb: FormCallbacks = { ...cb, onChange: (key, v, o) => {
-          if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) delete row[key]; else row[key] = v;
+          // "None" over a default has to be stored, or the default comes back.
+          const f = fields[key];
+          const keep = (f?.type === 'select' || f?.type === 'multiselect') && String(f.default ?? '') !== '';
+          if (v === undefined || (!keep && (v === '' || (Array.isArray(v) && !v.length)))) delete row[key]; else row[key] = v;
           if (key === field.itemLabel) { title.textContent = rowName(row, i); remove.setAttribute('aria-label', `Remove ${rowName(row, i)}`); }
           save(o?.live);
+          shown.update();
         } };
-        body.append(fieldWidget(k, sub, row[k] ?? sub.default, rowCb, `${id}-${i}-`));
+        body.append(shown.track(k, fieldWidget(k, sub, row[k] ?? sub.default, rowCb, `${id}-${i}-`)));
       }
+      shown.update();
       const remove = el('button', { type: 'button', title: 'Remove', 'aria-label': `Remove ${rowName(row, i)}`, onclick: (e: Event) => { e.preventDefault(); rows.splice(i, 1); open.clear(); save(); draw(); } }, '×');
       const details = el('details', { class: 'ps-list__row', open: open.has(i), ontoggle: () => { if (details.open) open.add(i); else open.delete(i); } }, el('summary', {},
         title,

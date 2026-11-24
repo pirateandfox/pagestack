@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-beta.17 — 2026-11-24
+
+- **Checkboxes for several values: the `multiselect` field.** It shows its `options` as checkboxes and stores an array of the ticked values, in option order (`repeatsOn: [mon, wed]`). Values no longer offered stay ticked, marked "(current)", until someone unticks them.
+- **Conditional fields: `showIf`.** Any field can be shown only when another has a certain value: `showIf: { field: 'repeats', not: '' }`. It takes `is` and `not` (one value or several), or neither for "has a value", and works in every form and within a list's rows. It only changes the form: hidden values are kept.
+- In a list row, choosing a blank option of a `select` that has a default now sticks; the default used to come back.
+- Both are opt-in, and existing schemas need no changes. New in the runtime: the `ShowIf` type.
+- **`examples/bakery`**: a day marked closed hides its hours field.
+
 ## 0.1.0-beta.16 — 2026-11-15
 
 - **Hide or delete sample content.** A starter or theme can mark its sample pages (`"sample": true` in the page JSON) and posts (`sample: true` in front matter). While any are on the site, admins see a notice on the Pages screen with **Hide sample content** (they become drafts, kept in the editor to copy from; a sample home page moves to a `sample-home` draft and the host's replacement takes its place) and **Delete sample content** (they're removed; the confirmation lists them all). Each is one commit. A host can set the replacement home page and reset globals with them through a new optional `sampleContent` export (type `SampleContent` in the runtime). Images are never touched. Saving a sample from the editor drops its mark, so anything someone has edited is theirs and is left alone. Marked pages show a **Sample** pill in the page list. Sites without marked content see no change.

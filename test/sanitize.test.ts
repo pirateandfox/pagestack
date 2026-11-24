@@ -85,22 +85,33 @@ describe('every field type is safe to render raw', () => {
     s: { type: 'select', label: '', options: [{ value: 'one', label: '' }] }, n: { type: 'number', label: '' }, b: { type: 'boolean', label: '' },
     c: { type: 'color', label: '' }, l: { type: 'link', label: '' }, i: { type: 'image', label: '' }, v: { type: 'svg', label: '' }, h: { type: 'code', label: '' },
     rows: { type: 'list', label: '', fields: { t: { type: 'text', label: '' } } },
+    m: { type: 'multiselect', label: '', options: [{ value: 'mon', label: '' }, { value: 'wed', label: '' }, { value: '1', label: '' }] },
   } as any;
   const registry = { x: { label: 'X', fields, blocks: '*' } } as any;
-  const dirty = { t: P, a: P, r: P, s: P, n: P, b: P, c: P, l: 'javascript:alert(1)', i: { src: 'javascript:alert(1)', alt: P }, v: `<svg onload="alert(1)"><script>alert(1)</script><path d="M0"/></svg>`, h: P, rows: [{ t: P }, 'nope'], unknown: P, deep: { list: [P] } };
+  const dirty = { t: P, a: P, r: P, s: P, n: P, b: P, c: P, l: 'javascript:alert(1)', i: { src: 'javascript:alert(1)', alt: P }, v: `<svg onload="alert(1)"><script>alert(1)</script><path d="M0"/></svg>`, h: P, rows: [{ t: P }, 'nope'], m: ['mon', P, { x: P }, [P]], unknown: P, deep: { list: [P] } };
 
   it('leaves no way to run script in any of them', () => {
     const out = sanitizeFields(dirty, fields);
     expect(JSON.stringify(out)).not.toMatch(/onerror|onload|<script|javascript:/);
   });
   it('keeps ordinary values exactly as they are', () => {
-    const fine = { t: 'Tom &amp; Jerry <strong>now</strong><br>', a: 'Line', r: '<p class="x">Hi</p>', s: 'one', n: 3, b: true, c: 'var(--brand, #fff)', l: '/about/', i: { src: '/a.jpg', alt: 'A' }, v: '<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>', rows: [{ t: 'One' }], extra: 'Plain & simple' };
+    const fine = { t: 'Tom &amp; Jerry <strong>now</strong><br>', a: 'Line', r: '<p class="x">Hi</p>', s: 'one', n: 3, b: true, c: 'var(--brand, #fff)', l: '/about/', i: { src: '/a.jpg', alt: 'A' }, v: '<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>', rows: [{ t: 'One' }], m: ['wed', 'mon'], extra: 'Plain & simple' };
     expect(sanitizeFields(fine, fields)).toEqual(fine);
     expect(sanitizeFields({ v: 'star' }, fields)).toEqual({ v: 'star' });
   });
   it('drops bad enumerated values so the default applies', () => {
     expect(sanitizeFields({ s: 'two<b>', n: 'x', b: 'maybe', c: 'red;}' }, fields)).toEqual({});
     expect(sanitizeFields({ s: 'start' }, fields)).toEqual({ s: 'start' }); // an old value is not an attack
+  });
+  it('keeps a multiselect an array of plain values', () => {
+    const m = (v: unknown) => sanitizeFields({ m: v }, fields).m;
+    expect(m(['mon', P, 'mon', 'old'])).toEqual(['mon', 'old']);
+    expect(m([])).toEqual([]);
+    expect(m('mon')).toEqual(['mon']); // written by hand
+    expect(m([1])).toEqual(['1']);
+    expect(m([P])).toBeUndefined();
+    expect(m(null)).toBeUndefined();
+    expect(m({ x: 1 })).toBeUndefined();
   });
   it('keeps raw HTML in a code field only when allowed', () => {
     expect(sanitizeFields({ h: '<script src="/x.js"></script>' }, fields).h).toBe('');

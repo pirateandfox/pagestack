@@ -56,10 +56,11 @@ export function transformNode(node: Node, type: string, registry: SchemaRegistry
     settings[slot] = convert(node.settings[k], f, to.fields[slot]);
     open.delete(slot);
   }
+  const fits = (f: Field, v: unknown) => !f.options || (Array.isArray(v) ? v : [v]).every((x) => f.options!.some((o) => o.value === x));
   // Style settings carry over when the new type has the same field and the value still fits.
   for (const [k, f] of Object.entries(from?.fields ?? {})) {
     const t = to.fields[k];
-    if (t && t.type === f.type && !isText(f) && f.type !== 'image' && node.settings[k] !== undefined && (!t.options || t.options.some((o) => o.value === node.settings[k]))) settings[k] = node.settings[k];
+    if (t && t.type === f.type && !isText(f) && f.type !== 'image' && node.settings[k] !== undefined && fits(t, node.settings[k])) settings[k] = node.settings[k];
   }
   const { blocks, ...rest } = node;
   return { ...rest, type, settings, ...(to.blocks ? { blocks: blocks ?? [] } : {}) };

@@ -188,7 +188,7 @@ export const presets: Preset[] = [
 ```
 
 Field types: `text`, `richtext`, `image`, `link`, `color`, `select`, `number`, `boolean`,
-`textarea`, `code`, `svg`. `inline: true` on `text` / `richtext` / `image` makes the field
+`textarea`, `code`, `svg`, `date`, `tags`, `list`, `multiselect`. `inline: true` on `text` / `richtext` / `image` makes the field
 editable by clicking it in the preview. `marks: true` on a `text` field allows bold and italic in it
 (see [Bold and italic in headings](#bold-and-italic-in-headings)). The schema drives the sidebar form, validation on save,
 the add-block menus and the tree labels. **Presets are the section library.**
@@ -221,6 +221,27 @@ A few things worth knowing while you set up the schema:
 - **`text` fields are plain text, unless you add `marks: true`**, which allows bold and italic as
   in a WordPress heading. See [Bold and italic in headings](#bold-and-italic-in-headings).
 - **The home page is `src/content/pages/index.json`**, edited at `/edit/index`.
+
+### Checkboxes, and fields that depend on others
+
+`multiselect` shows its `options` as checkboxes and stores the ticked values as an array, in the
+order the options are declared. `showIf` shows a field only when another one has a certain value:
+
+```ts
+repeats:   { type: 'select', label: 'Repeats', options: [{ value: '', label: 'Never' }, { value: 'weekly', label: 'Weekly' }] },
+repeatsOn: { type: 'multiselect', label: 'Repeats on', options: [{ value: 'mon', label: 'Mon' }, { value: 'wed', label: 'Wed' }], showIf: { field: 'repeats', is: 'weekly' } },
+until:     { type: 'date', label: 'Until', time: false, showIf: { field: 'repeats', not: '' } },
+```
+
+- `is` and `not` take one value or a list of them (any may match). With neither, the field shows when
+  the other one has a value. Missing, `''`, `false` and an empty list all count as no value. A
+  `multiselect` matches when any ticked value does.
+- `field` names a field in the same form, or in the same row inside a `list`. A field that depends on
+  a hidden field is hidden too.
+- Hiding a field only changes the form. **The stored value stays**, so your component should look at
+  the same condition (`repeats && until`) rather than at the dependent field alone.
+- Nothing ticked is stored as `[]`. In a collection, allow for both that and a missing key in the Astro
+  schema: `z.array(z.string()).default([])`.
 
 ### Bold and italic in headings
 

@@ -1,6 +1,6 @@
 // Schema -> form model and node factories. Pure; used on the server (validation) and in the
 // browser (sidebar forms, add menus).
-import type { BlockSchema, Field, Node, PageDoc, SchemaRegistry } from '../runtime';
+import type { BlockSchema, Field, Node, PageDoc, SchemaRegistry, ShowIf } from '../runtime';
 import { newId } from '../runtime';
 
 export interface FormField { name: string; field: Field; value: unknown }
@@ -16,6 +16,35 @@ export function formModel(schema: BlockSchema, settings: Record<string, unknown>
     groups[field.group ?? 'content'].push({ name, field, value });
   }
   return (Object.keys(groups) as FormGroup['name'][]).filter((g) => groups[g].length).map((g) => ({ name: g, label: GROUP_LABELS[g], fields: groups[g] }));
+}
+
+/** A value as `showIf` compares it: always a list of strings, with every kind of "nothing" as ''. */
+function comparable(v: unknown): string[] {
+  if (Array.isArray(v)) return v.length ? v.flatMap(comparable) : [''];
+  if (v && typeof v === 'object') return [String((v as any).src ?? 'set')]; // an image, or a list's row
+  return [v === undefined || v === null || v === false ? '' : String(v)];
+}
+
+function conditionMet(when: ShowIf, value: unknown): boolean {
+  const now = comparable(value);
+  const any = (v: ShowIf['is']) => comparable(v).some((x) => now.includes(x));
+  if (when.is === undefined && when.not === undefined) return now.some(Boolean);
+  return (when.is === undefined || any(when.is)) && (when.not === undefined || !any(when.not));
+}
+
+/**
+ * Does the form show this field? A field that depends on a hidden field is hidden too. A condition
+ * naming a field that isn't there is ignored, so a typo can't put a field out of reach.
+ */
+export function isShown(name: string, fields: Record<string, Field>, settings: Record<string, unknown>, seen: string[] = []): boolean {
+  const when = Object.hasOwn(fields, name) ? fields[name].showIf : undefined;
+  if (!when || seen.includes(name)) return true;
+  const other = Object.hasOwn(fields, when.field) ? fields[when.field] : undefined;
+  const stored = Object.hasOwn(settings, when.field) ? settings[when.field] : undefined;
+  if (!other && stored === undefined) return true;
+  // With nothing stored, go by what the form displays: the default, or a select's first option.
+  const value = stored ?? other?.default ?? (other?.type === 'select' ? other.options?.[0]?.value : undefined);
+  return conditionMet(when, value) && isShown(when.field, fields, settings, [...seen, name]);
 }
 
 export function defaultSettings(schema: BlockSchema): Record<string, unknown> {

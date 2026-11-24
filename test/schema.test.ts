@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { allowedChildTypes, createNode, defaultSettings, formModel, inlineFields, nodeLabel, serializeRegistry, validateDoc } from '../src/core/schema';
-import type { SchemaRegistry } from '../src/runtime';
+import { allowedChildTypes, createNode, defaultSettings, formModel, inlineFields, isShown, nodeLabel, serializeRegistry, validateDoc } from '../src/core/schema';
+import type { Field, SchemaRegistry, ShowIf } from '../src/runtime';
 
 const reg: SchemaRegistry = {
   container: { label: 'Container', fields: { padding: { type: 'text', label: 'Padding', default: '0', group: 'style' }, html: { type: 'code', label: 'HTML', group: 'advanced' } }, blocks: '*' },
@@ -21,6 +21,54 @@ describe('formModel', () => {
   });
   it('returns no groups for a schema without fields', () => {
     expect(formModel(reg.gallery)).toEqual([]);
+  });
+});
+
+describe('isShown', () => {
+  const fields: Record<string, Field> = {
+    repeats: { type: 'select', label: '', options: [{ value: '', label: 'Never' }, { value: 'weekly', label: '' }, { value: 'monthly', label: '' }] },
+    layout: { type: 'select', label: '', options: [{ value: 'grid', label: '' }, { value: 'list', label: '' }] },
+    size: { type: 'select', label: '', default: 'l', options: [{ value: 's', label: '' }, { value: 'l', label: '' }] },
+    days: { type: 'multiselect', label: '' }, on: { type: 'boolean', label: '' }, image: { type: 'image', label: '' },
+  };
+  const shown = (showIf: ShowIf, settings: Record<string, unknown> = {}) => isShown('x', { ...fields, x: { type: 'text', label: '', showIf } }, settings);
+  it('not: \'\' means the other field has been set', () => {
+    expect(shown({ field: 'repeats', not: '' })).toBe(false);
+    expect(shown({ field: 'repeats', not: '' }, { repeats: null })).toBe(false);
+    expect(shown({ field: 'repeats', not: '' }, { repeats: 'weekly' })).toBe(true);
+  });
+  it('is and not take one value or several', () => {
+    expect(shown({ field: 'repeats', is: 'weekly' }, { repeats: 'weekly' })).toBe(true);
+    expect(shown({ field: 'repeats', is: 'weekly' }, { repeats: 'monthly' })).toBe(false);
+    expect(shown({ field: 'repeats', is: ['weekly', 'monthly'] }, { repeats: 'monthly' })).toBe(true);
+    expect(shown({ field: 'repeats', not: ['', 'monthly'] }, { repeats: 'monthly' })).toBe(false);
+  });
+  it('booleans: unset is off', () => {
+    expect(shown({ field: 'on', is: true })).toBe(false);
+    expect(shown({ field: 'on', is: false })).toBe(true);
+    expect(shown({ field: 'on', not: true }, { on: true })).toBe(false);
+  });
+  it('a multiselect matches when any ticked value does', () => {
+    expect(shown({ field: 'days', is: 'mon' }, { days: ['wed', 'mon'] })).toBe(true);
+    expect(shown({ field: 'days', is: ['sat', 'sun'] }, { days: ['mon'] })).toBe(false);
+    expect(shown({ field: 'days' }, { days: [] })).toBe(false);
+    expect(shown({ field: 'days' }, { days: ['mon'] })).toBe(true);
+  });
+  it('an image without a source is blank', () => {
+    expect(shown({ field: 'image' }, { image: { src: '', alt: '' } })).toBe(false);
+    expect(shown({ field: 'image' }, { image: { src: '/a.jpg', alt: '' } })).toBe(true);
+  });
+  it('an unset field counts as what the form displays for it', () => {
+    expect(shown({ field: 'size', is: 'l' })).toBe(true);
+    expect(shown({ field: 'layout', is: 'grid' })).toBe(true);
+  });
+  it('follows a chain, survives a loop, and ignores a field that is not there', () => {
+    const chain: Record<string, Field> = { ...fields, a: { type: 'text', label: '', showIf: { field: 'on' } }, b: { type: 'text', label: '', showIf: { field: 'a', is: 'v' } } };
+    expect(isShown('b', chain, { on: true, a: 'v' })).toBe(true);
+    expect(isShown('b', chain, { on: false, a: 'v' })).toBe(false);
+    const loop: Record<string, Field> = { a: { type: 'text', label: '', showIf: { field: 'b' } }, b: { type: 'text', label: '', showIf: { field: 'a' } } };
+    expect(isShown('a', loop, { a: '1', b: '1' })).toBe(true);
+    expect(shown({ field: 'typo', is: 'x' })).toBe(true);
   });
 });
 

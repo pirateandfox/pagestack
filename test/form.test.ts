@@ -170,3 +170,81 @@ describe('date fields', () => {
   it('keeps the time when there is one', () => expect(input('2026-10-19T08:30:00').type).toBe('datetime-local'));
   it('time: false wins', () => expect(input('2026-10-19T08:30:00', false).type).toBe('date'));
 });
+
+describe('multiselect fields', () => {
+  const days = { type: 'multiselect' as const, label: 'Repeats on', options: [{ value: 'mon', label: 'Monday' }, { value: 'tue', label: 'Tuesday' }, { value: 'wed', label: 'Wednesday' }] };
+  const setup = (value: unknown, field: any = days) => {
+    const root = document.createElement('div');
+    const out: unknown[] = [];
+    renderForm(root, { label: 'E', fields: { days: field } }, { days: value }, { onChange: (_n, v) => out.push(v), pickImage: () => {} });
+    const boxes = [...root.querySelectorAll<HTMLInputElement>('#ps-f-days input[type=checkbox]')];
+    const tick = (v: string) => { const b = boxes.find((x) => x.value === v)!; b.checked = !b.checked; fire(b, 'change'); };
+    return { root, out, boxes, tick };
+  };
+  it('shows every option as a labelled checkbox in a named group', () => {
+    const { root, boxes } = setup(['wed']);
+    expect(boxes.map((b) => [b.value, b.checked])).toEqual([['mon', false], ['tue', false], ['wed', true]]);
+    expect([...root.querySelectorAll('.ps-checks label')].map((l) => l.textContent)).toEqual(['Monday', 'Tuesday', 'Wednesday']);
+    expect(root.querySelector(`#${root.querySelector('[role=group]')!.getAttribute('aria-labelledby')}`)?.textContent).toBe('Repeats on');
+  });
+  it('reports an array in option order, whatever order they were ticked in', () => {
+    const { out, tick } = setup(['wed']);
+    tick('mon'); tick('wed'); tick('mon');
+    expect(out).toEqual([['mon', 'wed'], ['mon'], []]);
+  });
+  it('keeps a value no longer offered until it is unticked', () => {
+    const { out, tick } = setup(['fri']);
+    tick('mon'); tick('fri');
+    expect(out).toEqual([['mon', 'fri'], ['mon']]);
+  });
+  it('reads a single value, and nothing at all', () => {
+    expect(setup('tue').boxes.filter((b) => b.checked).map((b) => b.value)).toEqual(['tue']);
+    expect(setup(undefined).boxes.some((b) => b.checked)).toBe(false);
+  });
+  it('in a list row, unticking everything beats the default', () => {
+    for (const [def, want] of [[['mon'], [{ days: [] }]], [undefined, [{}]]] as const) {
+      const root = document.createElement('div');
+      const out: any[] = [];
+      renderForm(root, { label: 'E', fields: { rows: { type: 'list', label: 'R', fields: { days: { ...days, default: def } } } } }, { rows: [{ days: ['mon'] }] }, { onChange: (_n, v) => out.push(v), pickImage: () => {} });
+      const mon = root.querySelector<HTMLInputElement>('#ps-f-rows-0-days input[value=mon]')!;
+      mon.checked = false; fire(mon, 'change');
+      expect(out.at(-1)).toEqual(want);
+    }
+  });
+});
+
+describe('showIf', () => {
+  const fields: BlockSchema['fields'] = {
+    repeats: { type: 'select', label: 'Repeats', options: [{ value: '', label: 'Never' }, { value: 'weekly', label: 'Weekly' }] },
+    until: { type: 'date', label: 'Until', time: false, showIf: { field: 'repeats', not: '' }, group: 'advanced' },
+  };
+  const hidden = (root: Element, id: string) => root.querySelector(id)!.closest<HTMLElement>('.ps-field')!.hidden;
+  const choose = (root: Element, id: string, v: string) => { const s = root.querySelector<HTMLSelectElement>(id)!; s.value = v; fire(s, 'change'); };
+  it('shows and hides as the other field changes, leaving the hidden value alone', () => {
+    const root = document.createElement('div');
+    const onChange = vi.fn();
+    renderForm(root, { label: 'E', fields }, { until: '2026-12-31' }, { onChange, pickImage: vi.fn() });
+    expect(hidden(root, '#ps-f-until')).toBe(true);
+    choose(root, '#ps-f-repeats', 'weekly');
+    expect(hidden(root, '#ps-f-until')).toBe(false);
+    expect((root.querySelector('#ps-f-until') as HTMLInputElement).value).toBe('2026-12-31');
+    choose(root, '#ps-f-repeats', '');
+    expect(hidden(root, '#ps-f-until')).toBe(true);
+    expect(onChange.mock.calls).toEqual([['repeats', 'weekly'], ['repeats', '']]);
+  });
+  it('hides a group with nothing left in it', () => {
+    const root = document.createElement('div');
+    renderForm(root, { label: 'E', fields }, {}, { onChange: vi.fn(), pickImage: vi.fn() });
+    const advanced = () => [...root.querySelectorAll<HTMLElement>('.ps-group')][1].hidden;
+    expect(advanced()).toBe(true);
+    choose(root, '#ps-f-repeats', 'weekly');
+    expect(advanced()).toBe(false);
+  });
+  it('works within a list row, each row on its own', () => {
+    const root = document.createElement('div');
+    renderForm(root, { label: 'E', fields: { rows: { type: 'list', label: 'R', fields } } }, { rows: [{ repeats: 'weekly' }, {}] }, { onChange: vi.fn(), pickImage: vi.fn() });
+    expect([hidden(root, '#ps-f-rows-0-until'), hidden(root, '#ps-f-rows-1-until')]).toEqual([false, true]);
+    choose(root, '#ps-f-rows-1-repeats', 'weekly');
+    expect(hidden(root, '#ps-f-rows-1-until')).toBe(false);
+  });
+});

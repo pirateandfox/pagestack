@@ -127,7 +127,9 @@ body.ps[data-left="add"] .ps-listview, body:not([data-left="add"]) .ps-inserter 
 .ps-group > summary { padding: 8px 12px; font-weight: 600; cursor: pointer; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ps-muted); }
 .ps-fields { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
 .ps-field { display: flex; flex-direction: column; gap: 4px; }
-.ps-field label { font-size: 12px; font-weight: 600; }
+.ps-field label, .ps-field__label { font-size: 12px; font-weight: 600; }
+.ps-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.ps-field .ps-checks label { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer; }
 .ps-field--inline { flex-direction: row; align-items: center; gap: 8px; }
 .ps-field input[type="text"], .ps-field input[type="number"], .ps-field select, .ps-field textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--ps-border); border-radius: 6px; font: inherit; background: #fff; }
 .ps-field textarea { resize: vertical; }

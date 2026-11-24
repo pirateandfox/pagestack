@@ -8,6 +8,7 @@ export type FieldType =
   | 'link' // URL string
   | 'color' // CSS colour (hex, rgb(), var(--x))
   | 'select'
+  | 'multiselect' // checkboxes over `options`; value is an array of their values, in option order
   | 'number'
   | 'boolean'
   | 'textarea' // multi-line plain text, sidebar only
@@ -16,6 +17,15 @@ export type FieldType =
   | 'date' // ISO date and time
   | 'tags' // array of strings
   | 'list'; // repeatable rows of sub-fields (menus, link lists); value is an array of objects
+
+/**
+ * When the editor shows a field, from the value of another field beside it (same form, or same list row).
+ * With neither `is` nor `not`: when that field has a value (not blank, off or empty).
+ * A list of values matches any of them; a 'multiselect' matches when any ticked value does.
+ * Missing, '', false and an empty list are the same thing here.
+ */
+export interface ShowIf { field: string; is?: ShowIfValue | ShowIfValue[]; not?: ShowIfValue | ShowIfValue[] }
+export type ShowIfValue = string | number | boolean;
 
 export interface Field {
   type: FieldType;
@@ -28,6 +38,7 @@ export interface Field {
    * only `<strong>` and `<em>`; render it with `set:html`. Without it, a text field is plain text.
    */
   marks?: boolean;
+  /** For 'select' and 'multiselect'. */
   options?: { value: string; label: string }[];
   /** Sidebar grouping. Defaults to 'content'. */
   group?: 'content' | 'style' | 'advanced';
@@ -35,6 +46,8 @@ export interface Field {
   max?: number;
   step?: number;
   help?: string;
+  /** Show this field only when another one has a certain value. Hiding never changes the stored value. */
+  showIf?: ShowIf;
   /** For 'svg': named icons offered in a dropdown besides raw SVG. */
   icons?: string[];
   /** For 'list': the fields of one row. */

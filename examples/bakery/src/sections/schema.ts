@@ -161,7 +161,7 @@ export const schemas: SchemaRegistry = {
   }),
   'hours-row': item('Day', {
     day: text('Day', 'Monday'),
-    time: text('Hours', '7 a.m. – 3 p.m.'),
+    time: text('Hours', '7 a.m. – 3 p.m.', { showIf: { field: 'closed', not: true } }),
     closed: { type: 'boolean', label: 'Closed this day', default: false, group: 'style' },
   }),
   'menu-item': item('Menu item', {

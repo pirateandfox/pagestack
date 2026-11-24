@@ -87,3 +87,18 @@ describe('sanitizeMarkdown', () => {
     expect(sanitizeMarkdown(md)).toBe(md);
   });
 });
+
+describe('transformNode carries a multiselect across', () => {
+  const opts = (...v: string[]) => v.map((value) => ({ value, label: value }));
+  const text = { type: 'text' as const, label: 'T' };
+  const reg: SchemaRegistry = {
+    a: { label: 'A', fields: { t: text, days: { type: 'multiselect', label: 'D', options: opts('mon', 'tue') } } },
+    same: { label: 'S', fields: { t: text, days: { type: 'multiselect', label: 'D', options: opts('mon', 'tue', 'wed') } } },
+    fewer: { label: 'F', fields: { t: text, days: { type: 'multiselect', label: 'D', options: opts('mon') } } },
+  };
+  const node = { id: '1', type: 'a', settings: { t: 'x', days: ['mon', 'tue'] } };
+  it('when every value is offered there', () => {
+    expect(transformNode(node, 'same', reg).settings.days).toEqual(['mon', 'tue']);
+    expect(transformNode(node, 'fewer', reg).settings.days).toBeUndefined();
+  });
+});

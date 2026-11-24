@@ -243,6 +243,12 @@ function cleanField(v: any, field: Field, o: CleanOptions): any {
       if (typeof v === 'number' || typeof v === 'boolean') v = String(v);
       // A value outside the options is usually an old one, so plain words stay and markup goes.
       return field.options?.some((x) => x.value === v) || (typeof v === 'string' && TOKEN_OK.test(v)) ? v : undefined;
+    case 'multiselect': {
+      // One value on its own is how a hand-written file may put it.
+      const all = Array.isArray(v) ? v : v === '' ? [] : [v];
+      const kept = all.map((x) => cleanField(x, { ...field, type: 'select' }, o)).filter((x) => typeof x === 'string' && x !== '');
+      return kept.length || !all.length ? [...new Set(kept)] : undefined;
+    }
     case 'number':
       return v === '' || Number.isFinite(typeof v === 'string' ? Number(v) : v) ? v : undefined;
     case 'boolean':
