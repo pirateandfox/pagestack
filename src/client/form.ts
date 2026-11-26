@@ -297,7 +297,13 @@ function listWidget(name: string, field: Field, value: unknown, cb: FormCallback
       root.append(details);
     });
     root.append(el('button', { type: 'button', class: 'ps-btn ps-btn--small', onclick: () => {
-      rows.push({});
+      // A new row stores what it shows: defaults, and a dropdown's first choice.
+      const row: Record<string, any> = {};
+      for (const [k, sub] of Object.entries(fields)) {
+        const v = sub.default ?? (sub.type === 'select' ? sub.options?.[0]?.value : undefined);
+        if (v !== undefined && v !== '') row[k] = structuredClone(v);
+      }
+      rows.push(row);
       open.add(rows.length - 1);
       save(); draw();
     } }, '+ Add item'));

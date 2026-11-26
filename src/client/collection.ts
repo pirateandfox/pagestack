@@ -37,10 +37,16 @@ function askAll(add: string) {
   }]);
 }
 
+/** This computer's time, with no zone: what a date field shows and stores. */
+function localNow() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+}
+
 /** False when it failed, which it has said. */
 async function create(title: string, data?: Record<string, unknown>): Promise<false | void> {
   const slug = uniqueSlug(slugify(title) || boot.singular, [...boot.slugs, ...boot.reserved]);
-  const res = await fetch(api, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title, slug, data }) });
+  const res = await fetch(api, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title, slug, data, now: localNow() }) });
   const d = await res.json();
   if (!res.ok) { toast(d.error || 'That did not work.', 'error'); return false; }
   location.href = `/edit/collection/${boot.id}/${d.slug}`;

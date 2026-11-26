@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.19 — 2026-11-26
+
+- **A new item's date is the editor's time, not the server's.** The first date field started as the server's UTC time, hours out, and in the evening tomorrow; when it was required nobody was asked to correct it. `POST /api/editor/collection/<id>` takes an optional `now` (local time, `"2026-11-24T18:49:35"`).
+- **A new list row stores what it shows.** Its defaults and a dropdown's first choice were displayed but not saved, so a row left on "Cancelled" was saved without it. Rows already saved that way are unchanged: mark the field `required` (that writes it on the next save) or give it a default in the schema.
+- `CHANGELOG.md` is in the npm package.
+
 ## 0.1.0-beta.18 — 2026-11-24
 
 - **Required fields.** `required: true` on any field: the form stars it, and Save says what is missing, opens it and is refused, by the API too. A cleared field the site's Astro schema insists on used to stop the next build. In collections drafts are checked as well, because Astro checks every file, and **Add** asks for what it can't fill in itself (new items could break the build before anyone had opened them). Pages are checked unless they are drafts. Opt-in; hosts should mark the fields their schemas require. `POST /api/editor/collection/<id>` takes an optional `data`.

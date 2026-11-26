@@ -119,6 +119,17 @@ describe('list fields', () => {
     (root.querySelector('[aria-label="Remove y"]') as HTMLElement).click();
     expect(last()).toEqual([{ label: 'A' }]);
   });
+  it('a new row stores what it shows: defaults and a dropdown’s first choice, not a blank one', () => {
+    const root = document.createElement('div');
+    const out: any[] = [];
+    const options = [{ value: 'cancelled', label: 'Cancelled' }, { value: 'moved', label: 'Moved' }];
+    renderForm(root, { label: 'E', fields: { rows: { type: 'list', label: 'R', fields: {
+      change: { type: 'select', label: 'Change', options }, pick: { type: 'select', label: 'Pick', options: [{ value: '', label: '—' }, ...options] },
+      note: { type: 'text', label: 'Note', default: 'n' }, date: { type: 'date', label: 'Date' },
+    } } } }, {}, { onChange: (_n, v) => out.push(v), pickImage: () => {} });
+    (root.querySelector('#ps-f-rows > .ps-btn') as HTMLElement).click();
+    expect(out.at(-1)).toEqual([{ change: 'cancelled', note: 'n' }]);
+  });
 });
 
 describe('image fields stored as a URL', () => {

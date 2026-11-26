@@ -65,6 +65,12 @@ describe('new items', () => {
   it('start from the defaults, today, and a draft', () => {
     expect(newItemData(fields, new Date('2026-11-24T10:00:00Z'))).toEqual({ date: '2026-11-24', by: 'Us', draft: true });
   });
+  it('take today from the editor’s clock, not the server’s UTC one', () => {
+    const at = { title: fields.title, start: need({ type: 'date', label: 'Start' }) };
+    expect(newItemData(at, '2026-11-24T18:49:35')).toEqual({ start: '2026-11-24T18:49:35' });
+    expect(newItemData(fields, '2026-11-24T23:30:00').date).toBe('2026-11-24');
+    expect(newItemData(at, 'tomorrow').start).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+  });
   it('ask only for what those leave empty', () => {
     expect(Object.keys(askedOnAdd(fields))).toEqual(['modified', 'year']);
     // Fields an answer can bring up come along; the sidebar's closed group doesn't hide any.

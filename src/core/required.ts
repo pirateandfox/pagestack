@@ -88,13 +88,18 @@ export function missingMessage(missing: Missing[]): string {
   return `Fill in ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]}.`;
 }
 
-/** Front matter a new item starts with: each field's default, today's date, and a draft where there are drafts. */
-export function newItemData(fields: Fields, now = new Date()): Values {
+/**
+ * Front matter a new item starts with: each field's default, today's date, and a draft where there are drafts.
+ * `now` is best the editor's own clock ("2026-11-24T18:49:35", no zone): the server's is UTC, which is
+ * hours out, and in the evening tomorrow.
+ */
+export function newItemData(fields: Fields, now: Date | string = new Date()): Values {
   const data: Values = {};
   for (const [k, f] of Object.entries(fields)) if (f.default !== undefined && k !== 'title') data[k] = structuredClone(f.default);
   // Only the first date is "today": others (modified, reviewed on) mean something else happened.
   const dated = Object.entries(fields).find(([, f]) => f.type === 'date');
-  if (dated && data[dated[0]] === undefined) data[dated[0]] = now.toISOString().slice(0, dated[1].time === false ? 10 : 19);
+  const stamp = typeof now === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(now) ? now : (now instanceof Date ? now : new Date()).toISOString().slice(0, 19);
+  if (dated && data[dated[0]] === undefined) data[dated[0]] = stamp.slice(0, dated[1].time === false ? 10 : 19);
   if (fields.draft?.type === 'boolean') data.draft = true;
   return data;
 }

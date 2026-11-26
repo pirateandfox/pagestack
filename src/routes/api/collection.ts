@@ -1,6 +1,7 @@
 // A folder of Markdown files the host declares in `collections`.
 // GET    /api/editor/collection/<id>         -> { items }
-// POST   /api/editor/collection/<id>         { title, slug, data? } -> creates one (a draft, if the collection has drafts)
+// POST   /api/editor/collection/<id>         { title, slug, data?, now? } -> creates one (a draft, if the collection has drafts);
+//        `now` is the editor's local time, "2026-11-24T18:49:35", for the date that starts as today
 // GET    /api/editor/collection/<id>/<slug>  -> { data, body, hash }
 //        ?revisions=1 -> { revisions }   ?rev=<sha> -> { data, body } as of that commit
 // PUT    /api/editor/collection/<id>/<slug>  { data, body, base, slug? } -> one commit; a new `slug`
@@ -58,7 +59,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const problem = SLUG.test(slug) ? slugProblem(slug, { existing, reserved: reservedSlugs() }) : 'Use letters, numbers and dashes in the URL.';
   if (problem) return bad(problem, 409);
   const given = body.data && typeof body.data === 'object' ? cleanData(c, body.data) : {};
-  const start = newItemData(c.fields);
+  const start = newItemData(c.fields, typeof body.now === 'string' ? body.now : undefined);
   // The title first, as it would be written by hand; what Add sent never sets the title or makes it live.
   const data = fillRequired(c.fields, Object.assign({ title } as Record<string, unknown>, start, given, { title }, 'draft' in start ? { draft: start.draft } : {}));
   const missing = missingFields(c.fields, data);

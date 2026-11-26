@@ -17,7 +17,8 @@
     "index.mjs",
     "live.mjs",
     "bin",
-    "src"
+    "src",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "test": "vitest run"
