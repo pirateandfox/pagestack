@@ -13,7 +13,7 @@ Read this before changing anything. The non-negotiables are in section 6.
 ```
 index.mjs              the Astro integration: options, virtual modules, injected routes, middleware, adapter handling
 bin/invite.mjs         CLI `pagestack-invite`: mints a one-time passkey invite link (plain JS, no deps)
-live.mjs               `@pirateandfox/pagestack/live`: liveEntries() for host list pages (plain JS, no imports, so a
+live.mjs               `@pirateandfox/pagestack/live`: liveEntries() for host list pages, typed by live.d.mts (plain JS, no imports, so a
                        public build that never loads the editor can import it)
 src/runtime.ts         the ONLY module hosts import at render time: types, nodeAttrs/fieldAttrs/child, newId, withDefaults, staticPages
 src/core/              pure logic, unit-tested, no DOM/Node: schema (validate, form groups), required (what is still to fill in), patch (undo/redo ops),

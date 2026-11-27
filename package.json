@@ -11,11 +11,15 @@
     ".": "./index.mjs",
     "./runtime": "./src/runtime.ts",
     "./core/*": "./src/core/*.ts",
-    "./live": "./live.mjs"
+    "./live": {
+      "types": "./live.d.mts",
+      "default": "./live.mjs"
+    }
   },
   "files": [
     "index.mjs",
     "live.mjs",
+    "live.d.mts",
     "bin",
     "src",
     "CHANGELOG.md"

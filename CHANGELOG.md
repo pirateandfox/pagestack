@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-beta.20 — 2026-11-27
+
+- **`@pirateandfox/pagestack/live` has TypeScript types.** `live.d.mts` declares `liveEntries()` and a `LiveEntry` type, so `astro check` no longer reports the import as untyped. Hosts that added their own `declare module '@pirateandfox/pagestack/live'` can delete it. No runtime change.
+
 ## 0.1.0-beta.19 — 2026-11-26
 
 - **A new item's date is the editor's time, not the server's.** The first date field started as the server's UTC time, hours out, and in the evening tomorrow; when it was required nobody was asked to correct it. `POST /api/editor/collection/<id>` takes an optional `now` (local time, `"2026-11-24T18:49:35"`).
