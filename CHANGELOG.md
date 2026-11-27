@@ -90,7 +90,7 @@
 
 ## 0.1.0-beta.10 — 2026-11-12
 
-- **Faster first load of live pages and previews.** Live collections now load together, pinned to the branch head, in one GitHub GraphQL request instead of a listing plus one request per file (Sentiosonics: 70 requests and about 10 s on a fresh server, now 11 requests and under 5 s locally). Falls back to the REST reads when GraphQL isn't available. New optional storage method `readDirs(paths, ref)`.
+- **Faster first load of live pages and previews.** Live collections now load together, pinned to the branch head, in one GitHub GraphQL request instead of a listing plus one request per file (on one real site: 70 requests and about 10 s on a fresh server, now 11 requests and under 5 s locally). Falls back to the REST reads when GraphQL isn't available. New optional storage method `readDirs(paths, ref)`.
 - **Browse shows when a page is loading**: a moving strip under the bar and "Loading page…", instead of a blank frame.
 
 ## 0.1.0-beta.9 — 2026-11-12

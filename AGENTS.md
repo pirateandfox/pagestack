@@ -187,7 +187,7 @@ Notes:
   disabled integration must leave the host's build byte-identical.
 - **No hosted services, no database.** Content lives in the host's repo. The only server state is the
   signed cookie; the only secret is `EDITOR_SECRET`. Public keys in `editor-users.json` are not secrets.
-- **Nothing site-specific.** No host names, class names, URLs or content in this package. Vary it by option.
+- **Nothing site-specific.** No host names, class names, URLs or content in this package, its docs, CHANGELOG or ROADMAP (say "a host"). Vary it by option. Maintainers keep the list of sites that use PageStack outside this repo.
 - **Never commit to a host's `main` from the editor** unless the host configured that branch
   explicitly. The `github` storage commits to `github.branch` and can open a PR instead.
 - **Security before convenience.** `auth: 'none'` is refused in builds. New routes go behind the

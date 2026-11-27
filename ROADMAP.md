@@ -12,7 +12,7 @@ Host sites pin an npm version and bump when they want a new one.
 - [x] Rich-text sanitising on save.
 - [x] **Hardening**: login rate limiting, upload validation, resizing and size cap, removing users and passkeys, roles, CSRF and header protection.
 - [x] **Cloudflare adapter** runs on workerd locally, against a stand-in for the GitHub API.
-- [x] Deploy to a real Worker with a real repo, and sign in with a passkey there (sentiosonics.com, 2026-11).
+- [x] Deploy to a real Worker with a real repo, and sign in with a passkey there (2026-11).
 - [x] **Dev default off**: hosts enable the editor explicitly (`EDITOR=dev astro dev`) so plain `npm run dev` never writes content.
 
 ## Next
@@ -44,7 +44,7 @@ Host sites pin an npm version and bump when they want a new one.
 
 ## Before 1.0
 
-- [ ] A week of real use of Go live on Sentiosonics.
+- [ ] A week of real use of Go live on a production site.
 - [ ] Table editing on the page (tables open the Markdown today).
 
 ## Later / ideas
